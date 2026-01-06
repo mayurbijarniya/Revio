@@ -1,0 +1,219 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Users
+model User {
+  id              String    @id @default(uuid()) @db.Uuid
+  githubId        Int       @unique @map("github_id")
+  githubUsername  String    @map("github_username") @db.VarChar(255)
+  email           String?   @db.VarChar(255)
+  avatarUrl       String?   @map("avatar_url") @db.VarChar(500)
+  accessToken     String    @map("access_token") @db.Text
+  refreshToken    String?   @map("refresh_token") @db.Text
+  tokenExpiresAt  DateTime? @map("token_expires_at")
+  plan            String    @default("free") @db.VarChar(50)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  repositories          Repository[]
+  conversations         Conversation[]
+  usage                 Usage[]
+  ownedOrganizations    Organization[]        @relation("OrganizationOwner")
+  organizationMembers   OrganizationMember[]
+
+  @@map("users")
+}
+
+// Organizations (for team features)
+model Organization {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(255)
+  slug      String   @unique @db.VarChar(255)
+  ownerId   String   @map("owner_id") @db.Uuid
+  plan      String   @default("team") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  owner        User                   @relation("OrganizationOwner", fields: [ownerId], references: [id])
+  members      OrganizationMember[]
+  repositories Repository[]
+  usage        Usage[]
+
+  @@map("organizations")
+}
+
+// Organization Members
+model OrganizationMember {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  role           String   @default("member") @db.VarChar(50)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@map("organization_members")
+}
+
+// Repositories
+model Repository {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  organizationId String?   @map("organization_id") @db.Uuid
+  githubRepoId   Int       @map("github_repo_id")
+  name           String    @db.VarChar(255)
+  fullName       String    @map("full_name") @db.VarChar(255)
+  private        Boolean   @default(false)
+  defaultBranch  String    @default("main") @map("default_branch") @db.VarChar(100)
+  language       String?   @db.VarChar(100)
+
+  // Indexing
+  indexStatus   String   @default("pending") @map("index_status") @db.VarChar(50)
+  indexProgress Int      @default(0) @map("index_progress")
+  indexedAt     DateTime? @map("indexed_at")
+  indexError    String?  @map("index_error") @db.Text
+  fileCount     Int      @default(0) @map("file_count")
+  chunkCount    Int      @default(0) @map("chunk_count")
+
+  // Webhook
+  webhookId     Int?    @map("webhook_id")
+  webhookSecret String? @map("webhook_secret") @db.VarChar(255)
+
+  // Settings
+  autoReview   Boolean  @default(true) @map("auto_review")
+  reviewRules  Json     @default("{}") @map("review_rules")
+  ignoredPaths String[] @default([]) @map("ignored_paths")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization  Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  indexedFiles  IndexedFile[]
+  conversations Conversation[]
+  prReviews     PrReview[]
+  usage         Usage[]
+
+  @@unique([userId, githubRepoId])
+  @@index([userId])
+  @@index([indexStatus])
+  @@map("repositories")
+}
+
+// Indexed Files (for incremental updates)
+model IndexedFile {
+  id           String   @id @default(uuid()) @db.Uuid
+  repositoryId String   @map("repository_id") @db.Uuid
+  filePath     String   @map("file_path") @db.VarChar(1000)
+  fileHash     String   @map("file_hash") @db.VarChar(64)
+  language     String?  @db.VarChar(50)
+  chunkCount   Int      @default(0) @map("chunk_count")
+  indexedAt    DateTime @default(now()) @map("indexed_at")
+
+  // Relations
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryId, filePath])
+  @@map("indexed_files")
+}
+
+// Conversations
+model Conversation {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  repositoryId String   @map("repository_id") @db.Uuid
+  title        String?  @db.VarChar(255)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  messages   Message[]
+
+  @@index([userId])
+  @@map("conversations")
+}
+
+// Messages
+model Message {
+  id             String   @id @default(uuid()) @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  role           String   @db.VarChar(20)
+  content        String   @db.Text
+  contextChunks  Json?    @map("context_chunks")
+  tokensUsed     Int      @default(0) @map("tokens_used")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
+// PR Reviews
+model PrReview {
+  id            String   @id @default(uuid()) @db.Uuid
+  repositoryId  String   @map("repository_id") @db.Uuid
+  prNumber      Int      @map("pr_number")
+  prTitle       String?  @map("pr_title") @db.VarChar(500)
+  prUrl         String?  @map("pr_url") @db.VarChar(1000)
+  prAuthor      String?  @map("pr_author") @db.VarChar(255)
+
+  // Review content
+  summary       String?  @db.Text
+  issues        Json     @default("[]")
+  suggestions   Json     @default("[]")
+  filesAnalyzed Json     @default("[]") @map("files_analyzed")
+
+  // Status
+  status          String @default("pending") @db.VarChar(50)
+  githubCommentId Int?   @map("github_comment_id")
+
+  // Metrics
+  tokensUsed       Int @default(0) @map("tokens_used")
+  processingTimeMs Int? @map("processing_time_ms")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryId, prNumber])
+  @@index([repositoryId])
+  @@map("pr_reviews")
+}
+
+// Usage Tracking
+model Usage {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String?  @map("user_id") @db.Uuid
+  organizationId String?  @map("organization_id") @db.Uuid
+  actionType     String   @map("action_type") @db.VarChar(50)
+  tokensInput    Int      @default(0) @map("tokens_input")
+  tokensOutput   Int      @default(0) @map("tokens_output")
+  repositoryId   String?  @map("repository_id") @db.Uuid
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  repository   Repository?   @relation(fields: [repositoryId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("usage")
+}

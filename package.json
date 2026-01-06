@@ -1,0 +1,53 @@
+{
+  "name": "revio",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "next": "latest",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@prisma/client": "latest",
+    "@qdrant/js-client-rest": "latest",
+    "openai": "latest",
+    "@google/generative-ai": "latest",
+    "zustand": "latest",
+    "bullmq": "latest",
+    "zod": "latest",
+    "@octokit/rest": "latest",
+    "@octokit/webhooks": "latest",
+    "jose": "latest",
+    "crypto-js": "latest",
+    "lucide-react": "latest",
+    "simple-git": "latest",
+    "glob": "latest",
+    "clsx": "latest",
+    "tailwind-merge": "latest"
+  },
+  "devDependencies": {
+    "prisma": "latest",
+    "@types/node": "latest",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/crypto-js": "latest",
+    "typescript": "latest",
+    "eslint": "latest",
+    "eslint-config-next": "latest",
+    "tailwindcss": "latest",
+    "@tailwindcss/postcss": "latest",
+    "@eslint/eslintrc": "latest"
+  },
+  "engines": {
+    "node": ">=20.11.0"
+  }
+}
