@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { jsonSuccess, jsonError } from "@/lib/api-utils";
 import { sendMessageSchema } from "@/types/chat";
-import { retrieveContext, formatContextForPrompt } from "@/lib/services/retriever";
+import { retrieveContext, retrieveMultiRepoContext, formatContextForPrompt } from "@/lib/services/retriever";
 import {
   generateChatResponse,
   generateChatResponseStream,
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       },
       include: {
         repository: {
-          select: { id: true, indexStatus: true },
+          select: { id: true, indexStatus: true, fullName: true },
         },
         messages: {
           orderBy: { createdAt: "asc" },
@@ -62,16 +62,38 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return jsonError("CHAT_002", "Conversation not found", 404);
     }
 
-    if (conversation.repository.indexStatus !== "indexed") {
-      return jsonError("INDEX_003", "Repository must be indexed", 400);
+    // Get all repos in this conversation to check indexing status
+    const repositoryIds = conversation.repositoryIds?.length > 0
+      ? conversation.repositoryIds
+      : [conversation.repositoryId];
+
+    const repos = await db.repository.findMany({
+      where: { id: { in: repositoryIds } },
+      select: { id: true, indexStatus: true, fullName: true },
+    });
+
+    // Check if all repos are indexed
+    const notIndexed = repos.filter((r) => r.indexStatus !== "indexed");
+    if (notIndexed.length > 0) {
+      const names = notIndexed.map((r) => r.fullName).join(", ");
+      return jsonError(
+        "INDEX_003",
+        `All repositories must be indexed before chatting. Not indexed: ${names}`,
+        400
+      );
     }
 
     // Retrieve relevant context for this message
     // Use low score threshold for complex cross-file queries
-    const newContext = await retrieveContext(conversation.repositoryId, content, {
-      maxChunks: 15,  // Increased for complex multi-file queries
-      scoreThreshold: 0.1,  // Lower threshold for broader context
-    });
+    const newContext = repositoryIds.length === 1
+      ? await retrieveContext(repositoryIds[0]!, content, {
+          maxChunks: 15,
+          scoreThreshold: 0.1,
+        })
+      : await retrieveMultiRepoContext(repositoryIds, content, {
+          maxChunks: 15,
+          scoreThreshold: 0.1,
+        });
     const formattedContext =
       newContext.chunks.length > 0
         ? formatContextForPrompt(newContext.chunks)

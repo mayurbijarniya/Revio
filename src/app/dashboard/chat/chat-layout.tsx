@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import {
   MessageSquare,
   Plus,
@@ -12,6 +13,7 @@ import {
   Check,
   Download,
   Trash2,
+  Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
@@ -41,13 +43,24 @@ interface Message {
 interface ChatLayoutProps {
   repositories: Repository[];
   conversations: Conversation[];
+  initialConversationId?: string;
+  initialMessages?: Message[];
+  initialSelectedRepos?: Repository[];
 }
 
-export function ChatLayout({ repositories, conversations: initialConversations }: ChatLayoutProps) {
+export function ChatLayout({
+  repositories,
+  conversations: initialConversations,
+  initialConversationId,
+  initialMessages,
+  initialSelectedRepos,
+}: ChatLayoutProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [conversations, setConversations] = useState(initialConversations);
-  const [selectedRepo, setSelectedRepo] = useState<Repository | null>(null);
-  const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [selectedRepos, setSelectedRepos] = useState<Repository[]>(initialSelectedRepos || []);
+  const [selectedConversation, setSelectedConversation] = useState<string | null>(initialConversationId || null);
+  const [messages, setMessages] = useState<Message[]>(initialMessages || []);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -55,6 +68,17 @@ export function ChatLayout({ repositories, conversations: initialConversations }
   const [showRepoDropdown, setShowRepoDropdown] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
+
+  // Handle initial conversation from URL
+  useEffect(() => {
+    if (initialConversationId && initialMessages) {
+      setSelectedConversation(initialConversationId);
+      setMessages(initialMessages);
+    }
+    if (initialSelectedRepos) {
+      setSelectedRepos(initialSelectedRepos);
+    }
+  }, [initialConversationId, initialMessages, initialSelectedRepos]);
 
   // Close dropdown when clicking outside
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -69,6 +93,12 @@ export function ChatLayout({ repositories, conversations: initialConversations }
   }, []);
 
   async function loadConversation(conversationId: string) {
+    // Navigate to conversation URL if not already there
+    if (pathname !== `/dashboard/chat/${conversationId}`) {
+      router.push(`/dashboard/chat/${conversationId}`);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     try {
@@ -88,7 +118,7 @@ export function ChatLayout({ repositories, conversations: initialConversations }
   }
 
   async function startNewConversation() {
-    if (!selectedRepo || !input.trim()) return;
+    if (selectedRepos.length === 0 || !input.trim()) return;
 
     setIsLoading(true);
     setError(null);
@@ -97,7 +127,7 @@ export function ChatLayout({ repositories, conversations: initialConversations }
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          repositoryId: selectedRepo.id,
+          repositoryIds: selectedRepos.map((r) => r.id),
           message: input.trim(),
         }),
       });
@@ -110,7 +140,7 @@ export function ChatLayout({ repositories, conversations: initialConversations }
           {
             id: conv.id,
             title: conv.title,
-            repositoryName: selectedRepo.fullName,
+            repositoryName: selectedRepos.map((r) => r.fullName).join(", "),
             lastMessage: input.trim().slice(0, 60),
             updatedAt: new Date(),
           },
@@ -194,6 +224,11 @@ export function ChatLayout({ repositories, conversations: initialConversations }
     setInput("");
     setError(null);
     setShowRepoDropdown(false);
+    setSelectedRepos([]);
+    // Navigate to main chat page if we're on a conversation page
+    if (pathname.startsWith("/dashboard/chat/")) {
+      router.push("/dashboard/chat");
+    }
   }
 
   function exportConversation() {
@@ -224,6 +259,12 @@ export function ChatLayout({ repositories, conversations: initialConversations }
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  }
+
+  function copyLink() {
+    if (!selectedConversation) return;
+    const link = `${window.location.origin}/dashboard/chat/${selectedConversation}`;
+    navigator.clipboard.writeText(link);
   }
 
   function openDeleteDialog(conversationId: string) {
@@ -328,22 +369,50 @@ export function ChatLayout({ repositories, conversations: initialConversations }
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header with Export Button - when conversation is selected */}
         {selectedConversation && messages.length > 0 && (
-          <div className="sticky top-0 z-100 flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-[#4F46E5]" />
-              <span className="font-medium text-sm truncate max-w-[300px]">
-                {conversations.find((c) => c.id === selectedConversation)?.title || "Conversation"}
-              </span>
+          <>
+            <div className="sticky top-0 z-100 flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-[#4F46E5]" />
+                <span className="font-medium text-sm truncate max-w-[300px]">
+                  {conversations.find((c) => c.id === selectedConversation)?.title || "Conversation"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={copyLink}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-[#4F46E5] hover:bg-[#EEF2FF] dark:hover:bg-[#1E1B4B] rounded-lg transition-colors"
+                  title="Copy link to this conversation"
+                >
+                  <Copy className="w-4 h-4" />
+                  Copy Link
+                </button>
+                <button
+                  onClick={exportConversation}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-[#4F46E5] hover:bg-[#EEF2FF] dark:hover:bg-[#1E1B4B] rounded-lg transition-colors"
+                  title="Export conversation as Markdown"
+                >
+                  <Download className="w-4 h-4" />
+                  Export
+                </button>
+              </div>
             </div>
-            <button
-              onClick={exportConversation}
-              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-[#4F46E5] hover:bg-[#EEF2FF] dark:hover:bg-[#1E1B4B] rounded-lg transition-colors"
-              title="Export conversation as Markdown"
-            >
-              <Download className="w-4 h-4" />
-              Export
-            </button>
-          </div>
+            {/* Repo tags for conversation */}
+            {selectedRepos.length > 0 && (
+              <div className="sticky top-[57px] z-90 px-6 py-2 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {selectedRepos.map((repo) => (
+                    <span
+                      key={repo.id}
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-[#EEF2FF] dark:bg-[#4F46E5]/30 text-[#4F46E5] dark:text-[#A5B4FC] rounded text-xs"
+                    >
+                      <FolderGit2 className="w-3 h-3" />
+                      <span className="truncate max-w-[150px]">{repo.fullName.split("/")[1]}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* Header with Repo Selector - Sticky with z-index 100 */}
@@ -355,12 +424,16 @@ export function ChatLayout({ repositories, conversations: initialConversations }
                 onClick={() => setShowRepoDropdown(!showRepoDropdown)}
                 className={cn(
                   "repo-selector-button",
-                  selectedRepo && "active"
+                  selectedRepos.length > 0 && "active"
                 )}
               >
                 <FolderGit2 className="w-4 h-4" />
                 <span className="truncate max-w-[180px]">
-                  {selectedRepo ? selectedRepo.fullName.split("/")[1] || selectedRepo.fullName : "Select Repo"}
+                  {selectedRepos.length === 0
+                    ? "Select Repos"
+                    : selectedRepos.length === 1
+                    ? selectedRepos[0]!.fullName.split("/")[1] || selectedRepos[0]!.fullName
+                    : `${selectedRepos.length} repos selected`}
                 </span>
                 <ChevronDown className={cn("w-4 h-4 transition-transform ml-auto", showRepoDropdown && "rotate-180")} />
               </button>
@@ -368,35 +441,57 @@ export function ChatLayout({ repositories, conversations: initialConversations }
               {/* Dropdown Overlay - Absolute positioning, z-index 1000 */}
               {showRepoDropdown && (
                 <div className="repo-dropdown-menu animate-dropdown">
-                  {repositories.map((repo) => (
-                    <button
-                      key={repo.id}
-                      onClick={() => {
-                        setSelectedRepo(repo);
-                        setShowRepoDropdown(false);
-                      }}
-                      className={cn(
-                        "repo-dropdown-item w-full",
-                        selectedRepo?.id === repo.id && "selected"
-                      )}
-                    >
-                      <FolderGit2 className="w-4 h-4 text-gray-400 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="repo-name truncate">{repo.fullName.split("/")[1] || repo.fullName}</div>
-                        {repo.language && <div className="repo-lang">{repo.language}</div>}
-                      </div>
-                      {selectedRepo?.id === repo.id && <Check className="w-4 h-4 shrink-0" />}
-                    </button>
-                  ))}
+                  {repositories.map((repo) => {
+                    const isSelected = selectedRepos.some((r) => r.id === repo.id);
+                    return (
+                      <button
+                        key={repo.id}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedRepos((prev) => prev.filter((r) => r.id !== repo.id));
+                          } else {
+                            setSelectedRepos((prev) => [...prev, repo]);
+                          }
+                        }}
+                        className={cn(
+                          "repo-dropdown-item w-full",
+                          isSelected && "selected"
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors",
+                            isSelected
+                              ? "bg-[#4F46E5] border-[#4F46E5]"
+                              : "border-gray-300 dark:border-gray-600"
+                          )}
+                        >
+                          {isSelected && <Check className="w-3 h-3 text-white" />}
+                        </div>
+                        <FolderGit2 className="w-4 h-4 text-gray-400 shrink-0 ml-2" />
+                        <div className="flex-1 min-w-0">
+                          <div className="repo-name truncate">{repo.fullName.split("/")[1] || repo.fullName}</div>
+                          {repo.language && <div className="repo-lang">{repo.language}</div>}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
 
-            {/* Selected Repo Info Badge */}
-            {selectedRepo && (
-              <div className="flex items-center gap-1.5 px-2 py-1 bg-[#ECFDF5] dark:bg-[#064E3B] text-[#10B981] rounded text-xs">
-                <Check className="w-3 h-3" />
-                <span className="truncate max-w-[200px]">{selectedRepo.fullName}</span>
+            {/* Selected Repos Tags */}
+            {selectedRepos.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {selectedRepos.map((repo) => (
+                  <span
+                    key={repo.id}
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-[#EEF2FF] dark:bg-[#4F46E5]/30 text-[#4F46E5] dark:text-[#A5B4FC] rounded text-xs"
+                  >
+                    <FolderGit2 className="w-3 h-3" />
+                    <span className="truncate max-w-[120px]">{repo.fullName.split("/")[1]}</span>
+                  </span>
+                ))}
               </div>
             )}
           </div>
@@ -421,10 +516,10 @@ export function ChatLayout({ repositories, conversations: initialConversations }
                 <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
                   Ask questions about your code, find specific functions, understand architecture.
                 </p>
-                {!selectedRepo && repositories.length > 0 && (
+                {selectedRepos.length === 0 && repositories.length > 0 && (
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#EEF2FF] dark:bg-[#1E1B4B] text-[#4F46E5] rounded-lg text-sm">
                     <FolderGit2 className="w-4 h-4" />
-                    Select a repository to get started
+                    Select repositories to get started
                   </div>
                 )}
               </div>
@@ -486,16 +581,16 @@ export function ChatLayout({ repositories, conversations: initialConversations }
                 placeholder={
                   selectedConversation
                     ? "Ask a follow-up question..."
-                    : selectedRepo
+                    : selectedRepos.length > 0
                     ? "Ask a question about your code..."
-                    : "Select a repository first"
+                    : "Select repositories first"
                 }
-                disabled={isLoading || (!selectedConversation && !selectedRepo)}
+                disabled={isLoading || (!selectedConversation && selectedRepos.length === 0)}
                 className="w-full px-5 py-3 pr-12 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all text-[15px] text-gray-900 dark:text-white placeholder:text-gray-500"
               />
               <button
                 type="submit"
-                disabled={isLoading || !input.trim() || (!selectedConversation && !selectedRepo)}
+                disabled={isLoading || !input.trim() || (!selectedConversation && selectedRepos.length === 0)}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2 bg-[#4F46E5] hover:bg-[#4338CA] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
               >
                 <Send className="w-5 h-5 text-white" />

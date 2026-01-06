@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { jsonSuccess, jsonError } from "@/lib/api-utils";
 import { createConversationSchema } from "@/types/chat";
-import { retrieveContext, formatContextForPrompt } from "@/lib/services/retriever";
+import { retrieveContext, retrieveMultiRepoContext, formatContextForPrompt } from "@/lib/services/retriever";
 import { generateChatResponse, type ChatMessage } from "@/lib/services/gemini";
 import { CHAT_SYSTEM_PROMPT, buildChatUserMessage } from "@/lib/prompts/chat";
 
@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
   const formattedConversations = conversations.map((conv) => ({
     id: conv.id,
     repositoryId: conv.repositoryId,
+    repositoryIds: conv.repositoryIds,
     repositoryName: conv.repository.fullName,
     title: conv.title,
     lastMessage: conv.messages[0]?.content?.slice(0, 100),
@@ -79,31 +80,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { repositoryId, message, title } = parsed.data;
+    const { repositoryIds, message, title } = parsed.data;
 
-    // Verify repository access
-    const repository = await db.repository.findFirst({
+    // Verify all repositories are accessible
+    const repositories = await db.repository.findMany({
       where: {
-        id: repositoryId,
+        id: { in: repositoryIds },
         userId: session.userId,
       },
     });
 
-    if (!repository) {
-      return jsonError("REPO_001", "Repository not found", 404);
+    if (repositories.length !== repositoryIds.length) {
+      return jsonError("REPO_001", "One or more repositories not found", 404);
     }
 
-    // Check if repository is indexed
-    if (repository.indexStatus !== "indexed") {
+    // Check if all repositories are indexed
+    const notIndexed = repositories.filter((r) => r.indexStatus !== "indexed");
+    if (notIndexed.length > 0) {
+      const names = notIndexed.map((r) => r.fullName).join(", ");
       return jsonError(
         "INDEX_003",
-        "Repository must be indexed before chatting",
+        `The following repos must be indexed before chatting: ${names}`,
         400
       );
     }
 
-    // Retrieve relevant context
-    const context = await retrieveContext(repositoryId, message);
+    // Retrieve relevant context from all repositories
+    const context = repositoryIds.length === 1
+      ? await retrieveContext(repositoryIds[0]!, message)
+      : await retrieveMultiRepoContext(repositoryIds, message);
     const formattedContext = formatContextForPrompt(context.chunks);
 
     // Build messages for Gemini
@@ -120,11 +125,12 @@ export async function POST(request: NextRequest) {
     // Generate title if not provided
     const conversationTitle = title ?? generateTitle(message);
 
-    // Create conversation with messages
+    // Create conversation with messages (use first repo as primary for backward compatibility)
     const conversation = await db.conversation.create({
       data: {
         userId: session.userId,
-        repositoryId,
+        repositoryId: repositoryIds[0]!, // Primary repository
+        repositoryIds, // Store all selected repository IDs
         title: conversationTitle,
         messages: {
           create: [
@@ -163,6 +169,7 @@ export async function POST(request: NextRequest) {
         conversation: {
           id: conversation.id,
           repositoryId: conversation.repositoryId,
+          repositoryIds: conversation.repositoryIds,
           userId: conversation.userId,
           title: conversation.title,
           createdAt: conversation.createdAt,

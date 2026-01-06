@@ -196,3 +196,51 @@ export function formatContextForPrompt(chunks: ContextChunk[]): string {
     })
     .join("\n\n");
 }
+
+/**
+ * Retrieve context across multiple repositories
+ */
+export async function retrieveMultiRepoContext(
+  repositoryIds: string[],
+  query: string,
+  options: {
+    maxChunks?: number;
+    maxTokens?: number;
+    scoreThreshold?: number;
+  } = {}
+): Promise<RetrievedContext> {
+  const {
+    maxChunks = REVIEW_CONFIG.maxContextChunks,
+    maxTokens = REVIEW_CONFIG.maxContextTokens,
+    scoreThreshold = REVIEW_CONFIG.minScoreThreshold,
+  } = options;
+
+  // Generate embedding for the query
+  const queryEmbedding = await generateEmbedding(query);
+
+  // Search each repository
+  const allResults: SearchResult[] = [];
+  for (const repositoryId of repositoryIds) {
+    const results = await searchChunks(
+      repositoryId,
+      queryEmbedding,
+      Math.ceil(maxChunks / repositoryIds.length) * 2, // Get more for filtering
+      scoreThreshold
+    );
+    allResults.push(...results);
+  }
+
+  // Convert and deduplicate results
+  const chunks = deduplicateAndRank(allResults);
+
+  // Limit by tokens
+  const { selectedChunks, totalTokens } = selectByTokenLimit(chunks, maxTokens);
+
+  // Limit by count
+  const finalChunks = selectedChunks.slice(0, maxChunks);
+
+  return {
+    chunks: finalChunks,
+    totalTokens,
+  };
+}

@@ -6,6 +6,7 @@ import { z } from "zod";
 export interface Conversation {
   id: string;
   repositoryId: string;
+  repositoryIds: string[];
   userId: string;
   title: string;
   createdAt: Date;
@@ -43,6 +44,7 @@ export interface MessageContext {
 export interface ConversationListItem {
   id: string;
   repositoryId: string;
+  repositoryIds: string[];
   repositoryName: string;
   title: string;
   lastMessage?: string;
@@ -66,7 +68,7 @@ export interface ConversationWithMessages extends Conversation {
 // Zod Schemas
 
 export const createConversationSchema = z.object({
-  repositoryId: z.string().min(1, "Repository ID is required"),
+  repositoryIds: z.array(z.string()).min(1, "At least one repository is required"),
   title: z.string().min(1, "Title is required").max(200, "Title too long").optional(),
   message: z.string().min(1, "Message is required").max(10000, "Message too long"),
 });
