@@ -77,6 +77,7 @@ export default async function RepoDetailPage({ params }: PageProps) {
         chunkCount: repository.chunkCount,
         autoReview: repository.autoReview,
         webhookId: repository.webhookId,
+        ignoredPaths: repository.ignoredPaths,
         createdAt: repository.createdAt,
       }}
       indexedFiles={repository.indexedFiles}

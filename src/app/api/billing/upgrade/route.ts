@@ -68,9 +68,6 @@ export async function GET() {
         id: true,
         plan: true,
         createdAt: true,
-        repositories: {
-          select: { id: true },
-        },
         _count: {
           select: {
             repositories: true,
@@ -84,12 +81,33 @@ export async function GET() {
       return jsonError("AUTH_001", "User not found", 404);
     }
 
+    // Get monthly usage stats
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const [monthlyReviews, monthlyMessages] = await Promise.all([
+      db.prReview.count({
+        where: {
+          repository: { userId: session.userId },
+          createdAt: { gte: startOfMonth },
+        },
+      }),
+      db.message.count({
+        where: {
+          conversation: { userId: session.userId },
+          createdAt: { gte: startOfMonth },
+        },
+      }),
+    ]);
+
     return jsonSuccess(
       {
         plan: user.plan,
         usage: {
           repositories: user._count.repositories,
-          conversations: user._count.conversations,
+          prReviews: monthlyReviews,
+          messages: monthlyMessages,
         },
         memberSince: user.createdAt,
       },

@@ -13,6 +13,7 @@ import {
   Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { AvailableRepository, ConnectedRepository } from "@/types/repository";
 
 type Tab = "connected" | "available";
@@ -22,9 +23,24 @@ export function RepoList() {
   const [connectedRepos, setConnectedRepos] = useState<ConnectedRepository[]>([]);
   const [availableRepos, setAvailableRepos] = useState<AvailableRepository[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [connecting, setConnecting] = useState<number | null>(null);
   const [indexing, setIndexing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [repoToDelete, setRepoToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    setError(null);
+    if (activeTab === "connected") {
+      await fetchConnectedRepos();
+    } else {
+      await fetchAvailableRepos();
+    }
+    setRefreshing(false);
+  }
 
   useEffect(() => {
     if (activeTab === "connected") {
@@ -103,23 +119,37 @@ export function RepoList() {
     }
   }
 
-  async function disconnectRepo(repoId: string) {
-    if (!confirm("Are you sure you want to disconnect this repository?")) {
-      return;
-    }
+  function openDeleteDialog(repoId: string) {
+    setRepoToDelete(repoId);
+    setDeleteDialogOpen(true);
+  }
 
+  function closeDeleteDialog() {
+    setDeleteDialogOpen(false);
+    setRepoToDelete(null);
+  }
+
+  async function handleConfirmDelete() {
+    if (!repoToDelete) return;
+
+    setIsDeleting(true);
     try {
-      const res = await fetch(`/api/repos/${repoId}`, {
+      const res = await fetch(`/api/repos/${repoToDelete}`, {
         method: "DELETE",
       });
       const data = await res.json();
       if (data.success) {
-        setConnectedRepos((prev) => prev.filter((r) => r.id !== repoId));
+        setConnectedRepos((prev) => prev.filter((r) => r.id !== repoToDelete));
+        closeDeleteDialog();
       } else {
         setError(data.error?.message || "Failed to disconnect repository");
+        closeDeleteDialog();
       }
     } catch {
       setError("Failed to disconnect repository");
+      closeDeleteDialog();
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -158,28 +188,39 @@ export function RepoList() {
   return (
     <div>
       {/* Tabs - Pill Style */}
-      <div className="flex gap-2 mb-8">
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveTab("connected")}
+            className={cn(
+              "px-5 py-2.5 text-sm font-medium rounded-xl transition-all",
+              activeTab === "connected"
+                ? "bg-[#4F46E5] text-white"
+                : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
+            )}
+          >
+            Connected Repositories
+          </button>
+          <button
+            onClick={() => setActiveTab("available")}
+            className={cn(
+              "px-5 py-2.5 text-sm font-medium rounded-xl transition-all",
+              activeTab === "available"
+                ? "bg-[#4F46E5] text-white"
+                : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
+            )}
+          >
+            Available to Connect
+          </button>
+        </div>
         <button
-          onClick={() => setActiveTab("connected")}
-          className={cn(
-            "px-5 py-2.5 text-sm font-medium rounded-xl transition-all",
-            activeTab === "connected"
-              ? "bg-[#4F46E5] text-white"
-              : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
-          )}
+          onClick={handleRefresh}
+          disabled={loading || refreshing}
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl transition-all disabled:opacity-50"
+          title="Refresh repository list"
         >
-          Connected Repositories
-        </button>
-        <button
-          onClick={() => setActiveTab("available")}
-          className={cn(
-            "px-5 py-2.5 text-sm font-medium rounded-xl transition-all",
-            activeTab === "available"
-              ? "bg-[#4F46E5] text-white"
-              : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
-          )}
-        >
-          Available to Connect
+          <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
+          Refresh
         </button>
       </div>
 
@@ -223,7 +264,7 @@ export function RepoList() {
               <ConnectedRepoCard
                 key={repo.id}
                 repo={repo}
-                onDisconnect={() => disconnectRepo(repo.id)}
+                onDisconnect={() => openDeleteDialog(repo.id)}
                 onIndex={() => indexRepo(repo.id)}
                 isIndexing={indexing === repo.id}
               />
@@ -255,6 +296,19 @@ export function RepoList() {
           )}
         </div>
       )}
+
+      {/* Disconnect Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={deleteDialogOpen}
+        onClose={closeDeleteDialog}
+        onConfirm={handleConfirmDelete}
+        title="Disconnect Repository"
+        message="Are you sure you want to disconnect this repository? This will stop automatic PR reviews and remove all indexed data."
+        confirmText="Disconnect"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

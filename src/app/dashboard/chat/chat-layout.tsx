@@ -10,9 +10,12 @@ import {
   Send,
   AlertCircle,
   Check,
+  Download,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface Repository {
   id: string;
@@ -47,8 +50,11 @@ export function ChatLayout({ repositories, conversations: initialConversations }
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showRepoDropdown, setShowRepoDropdown] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
 
   // Close dropdown when clicking outside
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -190,6 +196,72 @@ export function ChatLayout({ repositories, conversations: initialConversations }
     setShowRepoDropdown(false);
   }
 
+  function exportConversation() {
+    if (!messages.length) return;
+
+    const currentConv = conversations.find((c) => c.id === selectedConversation);
+    const title = currentConv?.title || "Conversation";
+    const repoName = currentConv?.repositoryName || "Unknown Repository";
+
+    let markdown = `# ${title}\n\n`;
+    markdown += `**Repository:** ${repoName}\n`;
+    markdown += `**Exported:** ${new Date().toLocaleString()}\n\n`;
+    markdown += `---\n\n`;
+
+    messages.forEach((msg) => {
+      const role = msg.role === "user" ? "You" : "Revio AI";
+      const time = new Date(msg.createdAt).toLocaleString();
+      markdown += `### ${role} (${time})\n\n`;
+      markdown += `${msg.content}\n\n`;
+    });
+
+    const blob = new Blob([markdown], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${title.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function openDeleteDialog(conversationId: string) {
+    setConversationToDelete(conversationId);
+    setDeleteDialogOpen(true);
+  }
+
+  function closeDeleteDialog() {
+    setDeleteDialogOpen(false);
+    setConversationToDelete(null);
+  }
+
+  async function handleConfirmDelete() {
+    if (!conversationToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/chat/conversations/${conversationToDelete}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        setConversations((prev) => prev.filter((c) => c.id !== conversationToDelete));
+        if (selectedConversation === conversationToDelete) {
+          setSelectedConversation(null);
+          setMessages([]);
+        }
+        closeDeleteDialog();
+      } else {
+        setError(data.error?.message || "Failed to delete conversation");
+      }
+    } catch {
+      setError("Failed to delete conversation");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   return (
     <div className="flex h-[calc(100vh-4rem)] scrollbar-hide">
       {/* Sidebar - Fixed 280px width */}
@@ -217,21 +289,35 @@ export function ChatLayout({ repositories, conversations: initialConversations }
           ) : (
             <div className="space-y-1">
               {conversations.map((conv) => (
-                <button
+                <div
                   key={conv.id}
-                  onClick={() => loadConversation(conv.id)}
                   className={cn(
-                    "w-full text-left p-2.5 rounded-lg transition-all text-sm",
+                    "group relative w-full text-left p-2.5 rounded-lg transition-all text-sm",
                     selectedConversation === conv.id
                       ? "bg-white dark:bg-gray-800 shadow-sm border border-[#4F46E5]/30 dark:border-[#4F46E5]/30"
                       : "hover:bg-white dark:hover:bg-gray-800 border border-transparent"
                   )}
                 >
-                  <div className="font-medium text-xs truncate flex items-center gap-1.5">
-                    <FolderGit2 className="w-3 h-3 text-gray-400 shrink-0" />
-                    <span className="truncate">{conv.title}</span>
-                  </div>
-                </button>
+                  <button
+                    onClick={() => loadConversation(conv.id)}
+                    className="w-full text-left"
+                  >
+                    <div className="font-medium text-xs truncate flex items-center gap-1.5 pr-6">
+                      <FolderGit2 className="w-3 h-3 text-gray-400 shrink-0" />
+                      <span className="truncate">{conv.title}</span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDeleteDialog(conv.id);
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[#FEF2F2] dark:hover:bg-[#7F1D1D] text-gray-400 hover:text-[#EF4444] transition-all"
+                    title="Delete conversation"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -240,6 +326,26 @@ export function ChatLayout({ repositories, conversations: initialConversations }
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Header with Export Button - when conversation is selected */}
+        {selectedConversation && messages.length > 0 && (
+          <div className="sticky top-0 z-100 flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-[#4F46E5]" />
+              <span className="font-medium text-sm truncate max-w-[300px]">
+                {conversations.find((c) => c.id === selectedConversation)?.title || "Conversation"}
+              </span>
+            </div>
+            <button
+              onClick={exportConversation}
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-[#4F46E5] hover:bg-[#EEF2FF] dark:hover:bg-[#1E1B4B] rounded-lg transition-colors"
+              title="Export conversation as Markdown"
+            >
+              <Download className="w-4 h-4" />
+              Export
+            </button>
+          </div>
+        )}
+
         {/* Header with Repo Selector - Sticky with z-index 100 */}
         {!selectedConversation && repositories.length > 0 && (
           <div className="sticky top-0 z-100 flex items-center gap-2 px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
@@ -398,6 +504,19 @@ export function ChatLayout({ repositories, conversations: initialConversations }
           </form>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={deleteDialogOpen}
+        onClose={closeDeleteDialog}
+        onConfirm={handleConfirmDelete}
+        title="Delete Conversation"
+        message="Are you sure you want to delete this conversation? This action cannot be undone and all messages will be permanently removed."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

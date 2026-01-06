@@ -21,8 +21,11 @@ import {
   Trash2,
   ToggleLeft,
   ToggleRight,
+  X,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface Repository {
   id: string;
@@ -39,6 +42,7 @@ interface Repository {
   chunkCount: number;
   autoReview: boolean;
   webhookId: number | null;
+  ignoredPaths: string[];
   createdAt: Date;
 }
 
@@ -83,6 +87,9 @@ export function RepoDetail({
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autoReview, setAutoReview] = useState(repository.autoReview);
+  const [ignoredPaths, setIgnoredPaths] = useState<string[]>(repository.ignoredPaths || []);
+  const [newIgnoredPath, setNewIgnoredPath] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const statusColors = {
     pending: "text-gray-500 bg-gray-100 dark:bg-gray-700",
@@ -122,10 +129,7 @@ export function RepoDetail({
     }
   }
 
-  async function handleDelete() {
-    if (!confirm("Are you sure you want to disconnect this repository? This will delete all indexed data and PR reviews.")) {
-      return;
-    }
+  async function handleConfirmDelete() {
     setIsDeleting(true);
     setError(null);
     try {
@@ -137,9 +141,11 @@ export function RepoDetail({
         router.push("/dashboard/repos");
       } else {
         setError(data.error?.message || "Failed to disconnect repository");
+        setDeleteDialogOpen(false);
       }
     } catch {
       setError("Failed to disconnect repository");
+      setDeleteDialogOpen(false);
     } finally {
       setIsDeleting(false);
     }
@@ -157,6 +163,60 @@ export function RepoDetail({
       const data = await res.json();
       if (data.success) {
         setAutoReview(!autoReview);
+      } else {
+        setError(data.error?.message || "Failed to update settings");
+      }
+    } catch {
+      setError("Failed to update settings");
+    } finally {
+      setIsUpdating(false);
+    }
+  }
+
+  async function handleAddIgnoredPath() {
+    if (!newIgnoredPath.trim()) return;
+    const trimmedPath = newIgnoredPath.trim();
+    if (ignoredPaths.includes(trimmedPath)) {
+      setNewIgnoredPath("");
+      return;
+    }
+
+    const updatedPaths = [...ignoredPaths, trimmedPath];
+    setIsUpdating(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/repos/${repository.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ignoredPaths: updatedPaths }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIgnoredPaths(updatedPaths);
+        setNewIgnoredPath("");
+      } else {
+        setError(data.error?.message || "Failed to update settings");
+      }
+    } catch {
+      setError("Failed to update settings");
+    } finally {
+      setIsUpdating(false);
+    }
+  }
+
+  async function handleRemoveIgnoredPath(pathToRemove: string) {
+    const updatedPaths = ignoredPaths.filter((p) => p !== pathToRemove);
+    setIsUpdating(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/repos/${repository.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ignoredPaths: updatedPaths }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIgnoredPaths(updatedPaths);
       } else {
         setError(data.error?.message || "Failed to update settings");
       }
@@ -252,7 +312,7 @@ export function RepoDetail({
               {repository.indexStatus === "indexed" ? "Reindex" : "Index"}
             </button>
             <button
-              onClick={handleDelete}
+              onClick={() => setDeleteDialogOpen(true)}
               disabled={isDeleting}
               className="inline-flex items-center gap-2 px-4 py-2 text-[#EF4444] border border-[#FEF2F2] rounded-lg hover:bg-[#FEF2F2] disabled:opacity-50"
             >
@@ -292,7 +352,7 @@ export function RepoDetail({
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <Settings className="w-5 h-5" />
-            Settings
+            Review Settings
           </h2>
 
           <div className="space-y-4">
@@ -333,6 +393,55 @@ export function RepoDetail({
               >
                 {repository.webhookId ? "Connected" : "Disconnected"}
               </span>
+            </div>
+
+            {/* Ignored Paths */}
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="font-medium mb-2">Ignored Paths</div>
+              <div className="text-sm text-gray-500 mb-3">
+                Files matching these patterns will be skipped during review
+              </div>
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={newIgnoredPath}
+                  onChange={(e) => setNewIgnoredPath(e.target.value)}
+                  placeholder="e.g., *.test.ts, docs/*"
+                  className="flex-1 px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddIgnoredPath();
+                    }
+                  }}
+                />
+                <button
+                  onClick={handleAddIgnoredPath}
+                  disabled={isUpdating || !newIgnoredPath.trim()}
+                  className="px-3 py-1.5 bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+              {ignoredPaths.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {ignoredPaths.map((path) => (
+                    <span
+                      key={path}
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs"
+                    >
+                      {path}
+                      <button
+                        onClick={() => handleRemoveIgnoredPath(path)}
+                        disabled={isUpdating}
+                        className="hover:text-[#EF4444] disabled:opacity-50"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -440,6 +549,19 @@ export function RepoDetail({
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Disconnect Repository"
+        message="Are you sure you want to disconnect this repository? This will delete all indexed data and PR reviews."
+        confirmText="Disconnect"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }
