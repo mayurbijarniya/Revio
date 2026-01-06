@@ -3,6 +3,12 @@ import { getSession } from "./session";
 import { db } from "./db";
 import type { SessionPayload, PublicUser } from "@/types/auth";
 import { errorResponse } from "./errors";
+import {
+  checkRepoLimit,
+  checkPrReviewLimit,
+  checkMessageLimit,
+  getUserPlan,
+} from "./plan-limits";
 
 /**
  * Authentication context for API routes
@@ -106,6 +112,104 @@ export function withOptionalAuth<T>(
 
     return handler(request, { session, user: publicUser }, params);
   };
+}
+
+/**
+ * Check if user has exceeded their plan limits for a specific action
+ */
+export type LimitType = "repos" | "prReviews" | "messages";
+
+export async function checkPlanLimit(
+  userId: string,
+  type: LimitType
+): Promise<{ allowed: boolean; error?: NextResponse }> {
+  const plan = await getUserPlan(userId);
+
+  switch (type) {
+    case "repos": {
+      const status = await checkRepoLimit(userId);
+      if (status.exceeded) {
+        return {
+          allowed: false,
+          error: jsonError(
+            "LIMIT_003",
+            `Repository limit reached (${status.current}/${status.limit} repos on ${plan.toUpperCase()} plan). Upgrade to add more repositories.`,
+            403
+          ),
+        };
+      }
+      break;
+    }
+    case "prReviews": {
+      const status = await checkPrReviewLimit(userId);
+      if (status.exceeded) {
+        return {
+          allowed: false,
+          error: jsonError(
+            "LIMIT_001",
+            `Monthly PR review limit reached (${status.current}/${status.limit} on ${plan.toUpperCase()} plan). Upgrade for more reviews.`,
+            403
+          ),
+        };
+      }
+      break;
+    }
+    case "messages": {
+      const status = await checkMessageLimit(userId);
+      if (status.exceeded) {
+        return {
+          allowed: false,
+          error: jsonError(
+            "LIMIT_002",
+            `Monthly message limit reached (${status.current}/${status.limit} on ${plan.toUpperCase()} plan). Upgrade for more messages.`,
+            403
+          ),
+        };
+      }
+      break;
+    }
+  }
+
+  return { allowed: true };
+}
+
+/**
+ * Get formatted limit info for response headers or debugging
+ */
+export async function getLimitInfo(userId: string, type: LimitType) {
+  const plan = await getUserPlan(userId);
+
+  switch (type) {
+    case "repos": {
+      const status = await checkRepoLimit(userId);
+      return {
+        type: "repos",
+        plan,
+        current: status.current,
+        limit: status.limit === Infinity ? "unlimited" : status.limit,
+      };
+    }
+    case "prReviews": {
+      const status = await checkPrReviewLimit(userId);
+      return {
+        type: "prReviews",
+        plan,
+        current: status.current,
+        limit: status.limit === Infinity ? "unlimited" : status.limit,
+        period: "month",
+      };
+    }
+    case "messages": {
+      const status = await checkMessageLimit(userId);
+      return {
+        type: "messages",
+        plan,
+        current: status.current,
+        limit: status.limit === Infinity ? "unlimited" : status.limit,
+        period: "month",
+      };
+    }
+  }
 }
 
 /**

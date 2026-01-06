@@ -1,19 +1,891 @@
 @import "tailwindcss";
 
 :root {
+  /* Brand Colors - Electric Precision */
+  --primary: #4F46E5;        /* Deep indigo - intelligence, trust */
+  --primary-hover: #4338CA;  /* Deeper on hover */
+  --primary-light: #6366F1;  /* Lighter variant */
+  --primary-subtle: #EEF2FF; /* Very light background tint */
+
+  --accent: #14B8A6;         /* Teal - clarity, action */
+  --accent-hover: #0F766E;   /* Darker on interaction */
+  --accent-light: #5EEAD4;   /* Light highlights */
+  --accent-subtle: #F0FDFA;  /* Background tint */
+
+  /* Status Colors */
+  --success: #10B981;        /* Green - achievements, connected */
+  --success-subtle: #ECFDF5; /* Light green background */
+  --warning: #F59E0B;        /* Amber - attention needed */
+  --warning-subtle: #FFFBEB; /* Light amber background */
+  --error: #EF4444;          /* Red - errors, disconnect */
+  --error-subtle: #FEF2F2;   /* Light red background */
+  --info: #3B82F6;           /* Blue - informational only */
+  --info-subtle: #EFF6FF;    /* Light blue background */
+
+  /* Base Colors */
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #111827;
+  --code-bg: #f6f8fa;
+  --code-border: #d0d7de;
+  --inline-code-bg: rgba(175, 184, 193, 0.2);
+  --inline-code-color: #e96900;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0d1117;
+    --foreground: #c9d1d9;
+    --code-bg: #1e2128;
+    --code-border: #30363d;
+    --inline-code-bg: rgba(110, 118, 129, 0.4);
+    --inline-code-color: #ffa657;
+
+    /* Dark mode brand adjustments */
+    --primary-subtle: #1E1B4B;
+    --accent-subtle: #134E4A;
+    --success-subtle: #064E3B;
+    --warning-subtle: #78350F;
+    --error-subtle: #7F1D1D;
+    --info-subtle: #1E3A5F;
   }
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+/* ============================================
+   MODERN SCROLLBARS - Thin & Minimal
+   ============================================ */
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #6B7280 transparent;
+}
+
+/* Chrome, Safari, Edge - Webkit scrollbar styling */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #6B7280;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #4B5563;
+}
+
+/* Dark mode scrollbar adjustments */
+.dark * {
+  scrollbar-color: #6B7280 transparent;
+}
+
+.dark *::-webkit-scrollbar-thumb {
+  background-color: #6B7280;
+}
+
+.dark *::-webkit-scrollbar-thumb:hover {
+  background-color: #4B5563;
+}
+
+/* ============================================
+   MARKDOWN RENDERER - Professional Documentation Style
+   ============================================ */
+
+/* Container for markdown content */
+.markdown-renderer {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--foreground);
+}
+
+/* Paragraphs */
+.markdown-renderer p {
+  margin: 12px 0;
+  line-height: 1.6;
+}
+
+/* ============================================
+   HEADINGS
+   ============================================ */
+.markdown-renderer h1 {
+  font-size: 2em;
+  font-weight: 600;
+  margin: 24px 0 16px;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--code-border);
+}
+
+.markdown-renderer h2 {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin: 24px 0 16px;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--code-border);
+}
+
+.markdown-renderer h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin: 20px 0 12px;
+}
+
+.markdown-renderer h4 {
+  font-size: 1em;
+  font-weight: 600;
+  margin: 16px 0 8px;
+}
+
+/* ============================================
+   INLINE CODE
+   ============================================ */
+.markdown-renderer code,
+:not(pre) > code {
+  font-family: 'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace;
+  font-size: 0.875em;
+  background-color: var(--inline-code-bg);
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--inline-code-color);
+  word-break: break-word;
+  border: 1px solid rgba(175, 184, 193, 0.3);
+}
+
+.dark :not(pre) > code {
+  border-color: rgba(110, 118, 129, 0.5);
+}
+
+/* ============================================
+   CODE BLOCKS (Fenced with triple backticks)
+   ============================================ */
+.markdown-renderer pre {
+  background-color: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 6px;
+  padding: 16px;
+  overflow-x: auto;
+  margin: 16px 0;
+}
+
+.markdown-renderer pre code {
+  font-family: 'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace;
+  font-size: 0.875em;
+  background: none;
+  padding: 0;
+  border: none;
+  color: var(--foreground);
+  line-height: 1.5;
+}
+
+/* ============================================
+   ORDERED LISTS
+   ============================================ */
+.markdown-renderer ol {
+  list-style-type: decimal;
+  list-style-position: outside;
+  padding-left: 24px;
+  margin: 16px 0;
+}
+
+.markdown-renderer ol li {
+  display: list-item;
+  margin-bottom: 8px;
+  line-height: 1.6;
+  padding-left: 8px;
+}
+
+.markdown-renderer ol li:last-child {
+  margin-bottom: 0;
+}
+
+/* Nested ordered lists */
+.markdown-renderer li > ol {
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+/* ============================================
+   UNORDERED LISTS
+   ============================================ */
+.markdown-renderer ul {
+  list-style-type: disc;
+  list-style-position: outside;
+  padding-left: 24px;
+  margin: 16px 0;
+}
+
+.markdown-renderer ul li {
+  display: list-item;
+  margin-bottom: 8px;
+  line-height: 1.6;
+  padding-left: 8px;
+}
+
+.markdown-renderer ul li:last-child {
+  margin-bottom: 0;
+}
+
+/* Nested unordered lists */
+.markdown-renderer li > ul {
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+/* Nested bullet types */
+.markdown-renderer ul ul {
+  list-style-type: circle;
+}
+
+.markdown-renderer ul ul ul {
+  list-style-type: square;
+}
+
+/* ============================================
+   LINKS
+   ============================================ */
+.markdown-renderer a {
+  color: #0969da;
+  text-decoration: none;
+}
+
+.markdown-renderer a:hover {
+  text-decoration: underline;
+}
+
+.dark .markdown-renderer a {
+  color: #58a6ff;
+}
+
+/* ============================================
+   BLOCKQUOTES
+   ============================================ */
+.markdown-renderer blockquote {
+  border-left: 4px solid var(--code-border);
+  padding: 0 16px;
+  margin: 16px 0;
+  color: var(--foreground);
+  opacity: 0.85;
+}
+
+/* ============================================
+   TABLES
+   ============================================ */
+.markdown-renderer table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-spacing: 0;
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+
+.markdown-renderer table th,
+.markdown-renderer table td {
+  padding: 6px 13px;
+  border: 1px solid var(--code-border);
+}
+
+.markdown-renderer table th {
+  font-weight: 600;
+  background-color: var(--code-bg);
+}
+
+.markdown-renderer table tr:nth-child(2n) {
+  background-color: var(--code-bg);
+}
+
+/* ============================================
+   HORIZONTAL RULES
+   ============================================ */
+.markdown-renderer hr {
+  height: 0.25em;
+  padding: 0;
+  margin: 24px 0;
+  background-color: var(--code-border);
+  border: 0;
+}
+
+/* ============================================
+   EMPHASIS
+   ============================================ */
+.markdown-renderer strong {
+  font-weight: 600;
+}
+
+.markdown-renderer em {
+  font-style: italic;
+}
+
+.markdown-renderer del {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+/* ============================================
+   CODE BLOCK HEADER (Syntax Highlighter)
+   ============================================ */
+.markdown-renderer .code-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background-color: var(--code-bg);
+  border-bottom: 1px solid var(--code-border);
+  border-radius: 6px 6px 0 0;
+  margin-bottom: -1px;
+}
+
+.markdown-renderer .code-block-header .window-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.markdown-renderer .code-block-header .window-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.markdown-renderer .code-block-header .code-language {
+  font-size: 0.75em;
+  color: var(--foreground);
+  opacity: 0.7;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+/* ============================================
+   SCROLLBAR HIDE UTILITY
+   ============================================ */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ============================================
+   NAVIGATION STYLES
+   ============================================ */
+
+/* Dashboard Navbar Container */
+.dashboard-nav {
+  background: #FFFFFF;
+  border-bottom: 1px solid #E5E7EB;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Logo Section */
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-logo-icon {
+  color: #4F46E5;
+  width: 24px;
+  height: 24px;
+}
+
+.nav-logo-text {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.5px;
+}
+
+/* Navigation Items */
+.nav-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  color: #6B7280;
+  font-weight: 500;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+/* Hover state */
+.nav-item:hover:not(.active) {
+  background: #F3F4F6;
+  color: #374151;
+}
+
+/* Active state - Bold visual indicator with background */
+.nav-item.active {
+  background: #EEF2FF;
+  color: #4F46E5;
+  font-weight: 600;
+}
+
+/* Alternative: Left border accent variant */
+.nav-item.active-border {
+  background: #EEF2FF;
+  color: #4F46E5;
+  font-weight: 600;
+  border-left: 3px solid #4F46E5;
+  padding-left: 13px; /* Compensate for border */
+}
+
+/* Navigation icons */
+.nav-item .nav-icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* Team Badge */
+.team-badge {
+  background: #14B8A6;
+  color: #FFFFFF;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  box-shadow: 0 1px 2px rgba(20, 184, 166, 0.3);
+}
+
+.team-badge.pro {
+  background: #4F46E5;
+  box-shadow: 0 1px 2px rgba(79, 70, 229, 0.3);
+}
+
+/* Page Tabs */
+.page-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.page-tab {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6B7280;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.page-tab:hover:not(.active) {
+  background: #F3F4F6;
+  color: #374151;
+}
+
+.page-tab.active {
+  background: #4F46E5;
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+/* Settings Tabs */
+.settings-tabs {
+  display: flex;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.settings-tab {
+  padding: 12px 20px;
+  color: #6B7280;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-tab:hover:not(.active) {
+  color: #374151;
+  border-bottom-color: #D1D5DB;
+}
+
+.settings-tab.active {
+  color: #4F46E5;
+  border-bottom-color: #4F46E5;
+  font-weight: 600;
+}
+
+.settings-tab .tab-icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* Breadcrumb Navigation */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  font-size: 14px;
+}
+
+.breadcrumb-item {
+  color: #6B7280;
+}
+
+.breadcrumb-item.active {
+  color: #111827;
+  font-weight: 600;
+}
+
+.breadcrumb-separator {
+  color: #D1D5DB;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .nav-item.active {
+    background: #EEF2FF;
+    font-weight: 700;
+  }
+
+  .page-tab.active {
+    font-weight: 700;
+  }
+}
+
+/* ============================================
+   STATS & STATISTICS
+   ============================================ */
+.stat-item {
+  text-align: center;
+  padding: 16px;
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #6B7280;
+  font-weight: 500;
+}
+
+/* ============================================
+   STATUS BADGES
+   ============================================ */
+.status-disconnected {
+  background: #FEF2F2;
+  color: #EF4444;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* ============================================
+   CTA LINKS & BUTTONS
+   ============================================ */
+.cta-link {
+  color: #4F46E5;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.cta-link:hover {
+  background: #EEF2FF;
+}
+
+/* ============================================
+   FILE LIST
+   ============================================ */
+.file-list-item {
+  padding: 10px 12px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: background 0.15s;
+}
+
+.file-list-item:hover {
+  background: #F9FAFB;
+  cursor: pointer;
+}
+
+.file-icon {
+  color: #9CA3AF;
+  width: 16px;
+  height: 16px;
+}
+
+.file-extension {
+  color: #9CA3AF;
+  font-size: 12px;
+  margin-left: auto;
+}
+
+/* ============================================
+   REPO SELECTOR DROPDOWN
+   ============================================ */
+.repo-selector-dropdown {
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #FFFFFF;
+  min-width: 240px;
+}
+
+.repo-selector-dropdown:hover {
+  border-color: #4F46E5;
+}
+
+.selected-repo-indicator {
+  color: #10B981;
+  font-size: 14px;
+}
+
+/* ============================================
+   PRICING CARDS
+   ============================================ */
+.pricing-card {
+  border: 2px solid #E5E7EB;
+  border-radius: 12px;
+  padding: 24px;
+  background: #FFFFFF;
+  transition: all 0.2s;
+}
+
+.pricing-card.highlighted {
+  border-color: #4F46E5;
+  box-shadow: 0 8px 24px rgba(79, 70, 229, 0.12);
+}
+
+.plan-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.plan-badge.popular {
+  background: #4F46E5;
+  color: #FFFFFF;
+}
+
+.plan-badge.current {
+  background: #10B981;
+  color: #FFFFFF;
+}
+
+/* ============================================
+   EMPTY STATES
+   ============================================ */
+.empty-state-icon {
+  background: #EEF2FF;
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid #E0E7FF;
+  display: inline-flex;
+  margin-bottom: 24px;
+}
+
+.empty-state-icon svg {
+  color: #4F46E5;
+  width: 40px;
+  height: 40px;
+}
+
+.empty-state-icon.pr-reviews {
+  background: #ECFDF5;
+  border-color: #D1FAE5;
+}
+
+.empty-state-icon.pr-reviews svg {
+  color: #10B981;
+}
+
+/* ============================================
+   USAGE PROGRESS BARS
+   ============================================ */
+.usage-progress-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: #F3F4F6;
+  overflow: hidden;
+}
+
+.usage-progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.usage-progress-fill.pr-reviews {
+  background: #10B981;
+}
+
+.usage-progress-fill.chat-messages {
+  background: #4F46E5;
+}
+
+/* ============================================
+   REPOSITORY SELECTOR DROPDOWN
+   ============================================ */
+.repo-selector-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  background: #FFFFFF;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 220px;
+}
+
+.repo-selector-button:hover {
+  border-color: #4F46E5;
+  background: #FAFBFC;
+}
+
+.repo-selector-button.active {
+  background: #EEF2FF;
+  border-color: #4F46E5;
+  color: #4F46E5;
+}
+
+.repo-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1000;
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+  padding: 4px;
+  margin-top: 4px;
+  min-width: 280px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.dark .repo-dropdown-menu {
+  background: #1F2937;
+  border-color: #374151;
+}
+
+.animate-dropdown {
+  animation: dropdownFade 0.2s ease-out;
+}
+
+@keyframes dropdownFade {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.repo-dropdown-item {
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+
+.repo-dropdown-item:hover {
+  background: #F9FAFB;
+}
+
+.dark .repo-dropdown-item:hover {
+  background: #374151;
+}
+
+.repo-dropdown-item.selected {
+  background: #EEF2FF;
+  color: #4F46E5;
+  font-weight: 600;
+}
+
+.dark .repo-dropdown-item.selected {
+  background: #1E1B4B;
+}
+
+.repo-dropdown-item .repo-name {
+  flex: 1;
+  font-size: 14px;
+}
+
+.repo-dropdown-item .repo-lang {
+  font-size: 12px;
+  color: #9CA3AF;
+}
+
+.repo-dropdown-item.selected .repo-lang {
+  color: #4F46E5;
+  opacity: 0.8;
+}
+
+/* ============================================
+   SPACING & HIERARCHY
+   ============================================ */
+.page-section {
+  margin-bottom: 32px;
+}
+
+.card {
+  padding: 24px;
+  border-radius: 12px;
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+}
+
+.section-heading {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }

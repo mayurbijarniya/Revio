@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -14,6 +15,8 @@ import {
   ChevronDown,
   User,
   Zap,
+  CreditCard,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +37,11 @@ const navItems = [
     icon: FolderGit2,
   },
   {
+    href: "/dashboard/orgs",
+    label: "Organizations",
+    icon: Building2,
+  },
+  {
     href: "/dashboard/chat",
     label: "Chat",
     icon: MessageSquare,
@@ -42,6 +50,11 @@ const navItems = [
     href: "/dashboard/reviews",
     label: "PR Reviews",
     icon: GitPullRequest,
+  },
+  {
+    href: "/dashboard/billing",
+    label: "Billing",
+    icon: CreditCard,
   },
 ];
 
@@ -58,18 +71,18 @@ export function DashboardNav({ user }: DashboardNavProps) {
   }
 
   return (
-    <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+    <nav className="dashboard-nav">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo and main nav */}
-          <div className="flex">
-            <Link href="/dashboard" className="flex items-center gap-2">
-              <Zap className="w-6 h-6 text-blue-600" />
-              <span className="font-bold text-xl">Revio</span>
+          <div className="flex items-center gap-8">
+            <Link href="/dashboard" className="nav-logo">
+              <Zap className="nav-logo-icon" />
+              <span className="nav-logo-text">Revio</span>
             </Link>
 
             {/* Desktop navigation */}
-            <div className="hidden sm:ml-8 sm:flex sm:space-x-4">
+            <div className="hidden sm:flex sm:space-x-1">
               {navItems.map((item) => {
                 const isActive =
                   pathname === item.href ||
@@ -79,10 +92,8 @@ export function DashboardNav({ user }: DashboardNavProps) {
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      "inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors",
-                      isActive
-                        ? "bg-gray-100 dark:bg-gray-700 text-blue-600"
-                        : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                      "nav-item",
+                      isActive ? "active" : ""
                     )}
                   >
                     <item.icon className="w-4 h-4" />
@@ -98,12 +109,8 @@ export function DashboardNav({ user }: DashboardNavProps) {
             {/* Plan badge */}
             <span
               className={cn(
-                "hidden sm:inline-flex px-2 py-1 text-xs font-medium rounded",
-                user.plan === "free"
-                  ? "bg-gray-100 text-gray-600"
-                  : user.plan === "pro"
-                  ? "bg-blue-100 text-blue-600"
-                  : "bg-purple-100 text-purple-600"
+                "hidden sm:inline-flex team-badge",
+                user.plan === "free" ? "" : user.plan === "pro" ? "pro" : ""
               )}
             >
               {user.plan.toUpperCase()}
@@ -116,10 +123,12 @@ export function DashboardNav({ user }: DashboardNavProps) {
                 className="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 {user.avatarUrl ? (
-                  <img
+                  <Image
                     src={user.avatarUrl}
                     alt={user.username}
-                    className="w-8 h-8 rounded-full"
+                    width={32}
+                    height={32}
+                    className="w-8 h-8 rounded-full object-cover"
                   />
                 ) : (
                   <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
@@ -142,6 +151,14 @@ export function DashboardNav({ user }: DashboardNavProps) {
                     </div>
                     <div className="py-1">
                       <Link
+                        href="/dashboard/billing"
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                        <CreditCard className="w-4 h-4" />
+                        Billing
+                      </Link>
+                      <Link
                         href="/dashboard/settings"
                         className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                         onClick={() => setUserMenuOpen(false)}
@@ -151,7 +168,7 @@ export function DashboardNav({ user }: DashboardNavProps) {
                       </Link>
                       <button
                         onClick={handleLogout}
-                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-[#EF4444] hover:bg-[#FEF2F2]"
                       >
                         <LogOut className="w-4 h-4" />
                         Sign out
@@ -193,7 +210,7 @@ export function DashboardNav({ user }: DashboardNavProps) {
                   className={cn(
                     "flex items-center gap-2 px-3 py-2 rounded-md text-base font-medium",
                     isActive
-                      ? "bg-gray-100 dark:bg-gray-700 text-blue-600"
+                      ? "bg-[#EEF2FF] text-[#4F46E5] font-semibold"
                       : "text-gray-600 dark:text-gray-300 hover:bg-gray-50"
                   )}
                 >

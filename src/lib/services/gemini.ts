@@ -10,6 +10,14 @@ const getGeminiClient = () => {
 };
 
 /**
+ * Map our database roles to Gemini roles
+ * Gemini uses "model" not "assistant"
+ */
+function mapToGeminiRole(role: string): "user" | "model" {
+  return role === "assistant" || role === "model" ? "model" : "user";
+}
+
+/**
  * Chat message for Gemini
  */
 export interface ChatMessage {
@@ -45,9 +53,9 @@ export async function generateChatResponse(
     },
   });
 
-  // Convert messages to Gemini format
+  // Convert messages to Gemini format (map "assistant" to "model")
   const history = messages.slice(0, -1).map((msg) => ({
-    role: msg.role,
+    role: mapToGeminiRole(msg.role),
     parts: [{ text: msg.content }],
   }));
 
@@ -90,9 +98,9 @@ export async function generateChatResponseStream(
     },
   });
 
-  // Convert messages to Gemini format
+  // Convert messages to Gemini format (map "assistant" to "model")
   const history = messages.slice(0, -1).map((msg) => ({
-    role: msg.role,
+    role: mapToGeminiRole(msg.role),
     parts: [{ text: msg.content }],
   }));
 

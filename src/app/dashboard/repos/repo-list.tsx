@@ -157,15 +157,15 @@ export function RepoList() {
 
   return (
     <div>
-      {/* Tabs */}
-      <div className="flex gap-4 mb-6 border-b border-gray-200 dark:border-gray-700">
+      {/* Tabs - Pill Style */}
+      <div className="flex gap-2 mb-8">
         <button
           onClick={() => setActiveTab("connected")}
           className={cn(
-            "pb-3 px-1 text-sm font-medium border-b-2 -mb-px transition-colors",
+            "px-5 py-2.5 text-sm font-medium rounded-xl transition-all",
             activeTab === "connected"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-gray-500 hover:text-gray-700"
+              ? "bg-[#4F46E5] text-white"
+              : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
           )}
         >
           Connected Repositories
@@ -173,10 +173,10 @@ export function RepoList() {
         <button
           onClick={() => setActiveTab("available")}
           className={cn(
-            "pb-3 px-1 text-sm font-medium border-b-2 -mb-px transition-colors",
+            "px-5 py-2.5 text-sm font-medium rounded-xl transition-all",
             activeTab === "available"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-gray-500 hover:text-gray-700"
+              ? "bg-[#4F46E5] text-white"
+              : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
           )}
         >
           Available to Connect
@@ -185,9 +185,9 @@ export function RepoList() {
 
       {/* Error message */}
       {error && (
-        <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-red-500" />
-          <span className="text-red-700 dark:text-red-400">{error}</span>
+        <div className="mb-4 p-4 bg-[#FEF2F2] dark:bg-[#7F1D1D] border border-[#FECACA] dark:border-[#991B1B] rounded-lg flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-[#EF4444]" />
+          <span className="text-[#991B1B] dark:text-[#FECACA]">{error}</span>
         </div>
       )}
 
@@ -202,17 +202,19 @@ export function RepoList() {
       {!loading && activeTab === "connected" && (
         <div className="space-y-3">
           {connectedRepos.length === 0 ? (
-            <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-              <FolderGit2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">No repositories connected</h3>
-              <p className="text-gray-500 mb-4">
-                Connect your first repository to get started
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-12 text-center">
+              <div className="w-20 h-20 mx-auto mb-6 bg-[#EEF2FF] dark:bg-[#1E1B4B] rounded-2xl flex items-center justify-center">
+                <FolderGit2 className="w-10 h-10 text-[#4F46E5]" />
+              </div>
+              <h3 className="text-xl font-semibold mb-3">No repositories connected</h3>
+              <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto mb-8">
+                Connect your first repository to start using AI-powered code reviews and chat with your codebase.
               </p>
               <button
                 onClick={() => setActiveTab("available")}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-[#4F46E5] text-white rounded-xl hover:bg-[#4338CA] transition-colors font-medium"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-5 h-5" />
                 Connect Repository
               </button>
             </div>
@@ -270,10 +272,10 @@ function ConnectedRepoCard({
 }) {
   const statusColors = {
     pending: "text-gray-500 bg-gray-100 dark:bg-gray-700",
-    indexing: "text-blue-500 bg-blue-100 dark:bg-blue-900",
-    indexed: "text-green-500 bg-green-100 dark:bg-green-900",
-    failed: "text-red-500 bg-red-100 dark:bg-red-900",
-    stale: "text-yellow-500 bg-yellow-100 dark:bg-yellow-900",
+    indexing: "text-[#4F46E5] bg-[#EEF2FF] dark:bg-[#1E1B4B]",
+    indexed: "text-[#10B981] bg-[#ECFDF5] dark:bg-[#064E3B]",
+    failed: "text-[#EF4444] bg-[#FEF2F2] dark:bg-[#7F1D1D]",
+    stale: "text-[#F59E0B] bg-[#FFFBEB] dark:bg-[#78350F]",
   };
 
   const canIndex = repo.indexStatus === "pending" || repo.indexStatus === "failed" || repo.indexStatus === "stale";
@@ -288,7 +290,7 @@ function ConnectedRepoCard({
             <div className="flex items-center gap-2">
               <a
                 href={`/dashboard/repos/${repo.id}`}
-                className="font-medium hover:text-blue-600"
+                className="font-medium hover:text-[#4F46E5]"
               >
                 {repo.fullName}
               </a>
@@ -316,7 +318,7 @@ function ConnectedRepoCard({
                 </span>
               )}
               {repo.indexError && (
-                <span className="text-red-500 text-xs">{repo.indexError}</span>
+                <span className="text-[#EF4444] text-xs">{repo.indexError}</span>
               )}
             </div>
           </div>
@@ -329,7 +331,7 @@ function ConnectedRepoCard({
               className={cn(
                 "inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg transition-colors",
                 canIndex
-                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                  ? "bg-[#4F46E5] text-white hover:bg-[#4338CA]"
                   : "text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700",
                 (isIndexing || repo.indexStatus === "indexing") && "opacity-50 cursor-not-allowed"
               )}
@@ -346,7 +348,7 @@ function ConnectedRepoCard({
           <button
             onClick={onDisconnect}
             disabled={isIndexing || repo.indexStatus === "indexing"}
-            className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg disabled:opacity-50"
+            className="px-3 py-1.5 text-sm text-[#EF4444] hover:bg-[#FEF2F2] dark:hover:bg-[#7F1D1D] rounded-lg disabled:opacity-50"
           >
             Disconnect
           </button>
@@ -397,7 +399,7 @@ function AvailableRepoCard({
         </div>
         <div>
           {repo.isConnected ? (
-            <span className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-green-600 bg-green-50 dark:bg-green-900/20 rounded-lg">
+            <span className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-[#10B981] bg-[#ECFDF5] dark:bg-[#064E3B] rounded-lg">
               <Check className="w-4 h-4" />
               Connected
             </span>
@@ -405,7 +407,7 @@ function AvailableRepoCard({
             <button
               onClick={onConnect}
               disabled={isConnecting}
-              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] disabled:opacity-50"
             >
               {isConnecting ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

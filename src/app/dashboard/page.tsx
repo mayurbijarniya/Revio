@@ -4,6 +4,17 @@ import { FolderGit2, MessageSquare, GitPullRequest, ArrowRight } from "lucide-re
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 
+interface RecentReview {
+  id: string;
+  prNumber: number;
+  prTitle: string | null;
+  prUrl: string | null;
+  status: string;
+  repository: {
+    fullName: string;
+  };
+}
+
 export default async function DashboardPage() {
   const session = await getSession();
 
@@ -35,7 +46,7 @@ export default async function DashboardPage() {
   }
 
   // Get recent activity
-  const recentReviews = await db.prReview.findMany({
+  const recentReviews: RecentReview[] = await db.prReview.findMany({
     where: {
       repository: { userId: session.userId },
     },
@@ -62,56 +73,44 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <Link
           href="/dashboard/repos"
-          className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:border-blue-500 transition-colors"
+          className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 hover:border-[#4F46E5] hover:shadow-md transition-all duration-300"
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                <FolderGit2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <h2 className="font-semibold">Repositories</h2>
-                <p className="text-2xl font-bold">{repoCount}</p>
-              </div>
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-[#4F46E5] rounded-xl flex items-center justify-center shadow-sm">
+              <FolderGit2 className="w-6 h-6 text-white" />
             </div>
-            <ArrowRight className="w-5 h-5 text-gray-400" />
+            <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-[#4F46E5] transition-colors" />
           </div>
+          <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Repositories</h2>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white">{repoCount}</p>
         </Link>
 
         <Link
           href="/dashboard/chat"
-          className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:border-purple-500 transition-colors"
+          className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 hover:border-[#14B8A6] hover:shadow-md transition-all duration-300"
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
-                <MessageSquare className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-              </div>
-              <div>
-                <h2 className="font-semibold">Conversations</h2>
-                <p className="text-2xl font-bold">{conversationCount}</p>
-              </div>
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-[#14B8A6] rounded-xl flex items-center justify-center shadow-sm">
+              <MessageSquare className="w-6 h-6 text-white" />
             </div>
-            <ArrowRight className="w-5 h-5 text-gray-400" />
+            <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-[#14B8A6] transition-colors" />
           </div>
+          <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Conversations</h2>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white">{conversationCount}</p>
         </Link>
 
         <Link
           href="/dashboard/reviews"
-          className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:border-green-500 transition-colors"
+          className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 hover:border-[#10B981] hover:shadow-md transition-all duration-300"
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-                <GitPullRequest className="w-6 h-6 text-green-600 dark:text-green-400" />
-              </div>
-              <div>
-                <h2 className="font-semibold">PR Reviews</h2>
-                <p className="text-2xl font-bold">{reviewCount}</p>
-              </div>
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-[#10B981] rounded-xl flex items-center justify-center shadow-sm">
+              <GitPullRequest className="w-6 h-6 text-white" />
             </div>
-            <ArrowRight className="w-5 h-5 text-gray-400" />
+            <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-[#10B981] transition-colors" />
           </div>
+          <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">PR Reviews</h2>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white">{reviewCount}</p>
         </Link>
       </div>
 
@@ -120,16 +119,19 @@ export default async function DashboardPage() {
         <h2 className="text-lg font-semibold mb-4">Recent PR Reviews</h2>
 
         {recentReviews.length === 0 ? (
-          <div className="text-center py-8">
-            <GitPullRequest className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">No PR reviews yet</h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Connect a repository and enable auto-review to get started
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-12 text-center">
+            <div className="w-20 h-20 mx-auto mb-6 bg-[#ECFDF5] dark:bg-[#064E3B] rounded-2xl flex items-center justify-center">
+              <GitPullRequest className="w-10 h-10 text-[#10B981]" />
+            </div>
+            <h3 className="text-xl font-semibold mb-3">No PR reviews yet</h3>
+            <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto mb-8">
+              Connect a repository and enable auto-review to automatically analyze pull requests and get AI-powered feedback.
             </p>
             <Link
               href="/dashboard/repos"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-[#4F46E5] text-white rounded-xl hover:bg-[#4338CA] transition-colors font-medium"
             >
+              <FolderGit2 className="w-5 h-5" />
               Connect Repository
             </Link>
           </div>
@@ -154,9 +156,9 @@ export default async function DashboardPage() {
                 <span
                   className={`px-2 py-1 text-xs rounded ${
                     review.status === "completed"
-                      ? "bg-green-100 text-green-700"
+                      ? "bg-[#ECFDF5] text-[#10B981]"
                       : review.status === "failed"
-                      ? "bg-red-100 text-red-700"
+                      ? "bg-[#FEF2F2] text-[#EF4444]"
                       : "bg-gray-100 text-gray-500"
                   }`}
                 >

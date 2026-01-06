@@ -10,6 +10,7 @@ import {
   Clock,
   ExternalLink,
   ChevronDown,
+  FolderGit2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +26,7 @@ interface Review {
   prTitle: string | null;
   prAuthor: string | null;
   prUrl: string | null;
-  status: string;
+  status: "completed" | "failed" | "pending";
   summary: string | null;
   createdAt: Date;
   repository: Repository;
@@ -62,20 +63,20 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
   const statusConfig = {
     completed: {
       icon: CheckCircle,
-      color: "text-green-600",
-      bg: "bg-green-100 dark:bg-green-900",
+      color: "text-[#10B981]",
+      bg: "bg-[#ECFDF5] dark:bg-[#064E3B]",
       label: "Completed",
     },
     failed: {
       icon: XCircle,
-      color: "text-red-600",
-      bg: "bg-red-100 dark:bg-red-900",
+      color: "text-[#EF4444]",
+      bg: "bg-[#FEF2F2] dark:bg-[#7F1D1D]",
       label: "Failed",
     },
     pending: {
       icon: Clock,
-      color: "text-yellow-600",
-      bg: "bg-yellow-100 dark:bg-yellow-900",
+      color: "text-[#F59E0B]",
+      bg: "bg-[#FFFBEB] dark:bg-[#78350F]",
       label: "Pending",
     },
   };
@@ -104,53 +105,93 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <button
           onClick={() => setStatusFilter("all")}
           className={cn(
-            "bg-white dark:bg-gray-800 rounded-lg border p-4 text-left transition-colors",
+            "group bg-white dark:bg-gray-800 rounded-xl border p-5 text-left transition-all",
             statusFilter === "all"
-              ? "border-blue-500 ring-2 ring-blue-200"
+              ? "border-[#4F46E5] shadow-md"
               : "border-gray-200 dark:border-gray-700 hover:border-gray-300"
           )}
         >
+          <div className="flex items-center justify-between mb-2">
+            <div className={cn(
+              "w-10 h-10 rounded-xl flex items-center justify-center",
+              statusFilter === "all"
+                ? "bg-[#4F46E5] text-white"
+                : "bg-gray-100 dark:bg-gray-700 text-gray-500"
+            )}>
+              <GitPullRequest className="w-5 h-5" />
+            </div>
+          </div>
           <div className="text-2xl font-bold">{counts.total}</div>
           <div className="text-sm text-gray-500">Total Reviews</div>
         </button>
         <button
           onClick={() => setStatusFilter("completed")}
           className={cn(
-            "bg-white dark:bg-gray-800 rounded-lg border p-4 text-left transition-colors",
+            "group bg-white dark:bg-gray-800 rounded-xl border p-5 text-left transition-all",
             statusFilter === "completed"
-              ? "border-green-500 ring-2 ring-green-200"
+              ? "border-[#10B981] shadow-md"
               : "border-gray-200 dark:border-gray-700 hover:border-gray-300"
           )}
         >
-          <div className="text-2xl font-bold text-green-600">{counts.completed}</div>
+          <div className="flex items-center justify-between mb-2">
+            <div className={cn(
+              "w-10 h-10 rounded-xl flex items-center justify-center",
+              statusFilter === "completed"
+                ? "bg-[#10B981] text-white"
+                : "bg-gray-100 dark:bg-gray-700 text-gray-500"
+            )}>
+              <CheckCircle className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-[#10B981]">{counts.completed}</div>
           <div className="text-sm text-gray-500">Completed</div>
         </button>
         <button
           onClick={() => setStatusFilter("failed")}
           className={cn(
-            "bg-white dark:bg-gray-800 rounded-lg border p-4 text-left transition-colors",
+            "group bg-white dark:bg-gray-800 rounded-xl border p-5 text-left transition-all",
             statusFilter === "failed"
-              ? "border-red-500 ring-2 ring-red-200"
+              ? "border-[#EF4444] shadow-md"
               : "border-gray-200 dark:border-gray-700 hover:border-gray-300"
           )}
         >
-          <div className="text-2xl font-bold text-red-600">{counts.failed}</div>
+          <div className="flex items-center justify-between mb-2">
+            <div className={cn(
+              "w-10 h-10 rounded-xl flex items-center justify-center",
+              statusFilter === "failed"
+                ? "bg-[#EF4444] text-white"
+                : "bg-gray-100 dark:bg-gray-700 text-gray-500"
+            )}>
+              <XCircle className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-[#EF4444]">{counts.failed}</div>
           <div className="text-sm text-gray-500">Failed</div>
         </button>
         <button
           onClick={() => setStatusFilter("pending")}
           className={cn(
-            "bg-white dark:bg-gray-800 rounded-lg border p-4 text-left transition-colors",
+            "group bg-white dark:bg-gray-800 rounded-xl border p-5 text-left transition-all",
             statusFilter === "pending"
-              ? "border-yellow-500 ring-2 ring-yellow-200"
+              ? "border-[#F59E0B] shadow-md"
               : "border-gray-200 dark:border-gray-700 hover:border-gray-300"
           )}
         >
-          <div className="text-2xl font-bold text-yellow-600">{counts.pending}</div>
+          <div className="flex items-center justify-between mb-2">
+            <div className={cn(
+              "w-10 h-10 rounded-xl flex items-center justify-center",
+              statusFilter === "pending"
+                ? "bg-[#F59E0B] text-white"
+                : "bg-gray-100 dark:bg-gray-700 text-gray-500"
+            )}>
+              <Clock className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-[#F59E0B]">{counts.pending}</div>
           <div className="text-sm text-gray-500">Pending</div>
         </button>
       </div>
@@ -165,7 +206,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
             <Filter className="w-4 h-4" />
             <span className="font-medium">Filters</span>
             {(statusFilter !== "all" || repoFilter !== "all") && (
-              <span className="px-2 py-0.5 bg-blue-100 text-blue-600 rounded text-xs">
+              <span className="px-2 py-0.5 bg-[#EEF2FF] text-[#4F46E5] rounded text-xs">
                 Active
               </span>
             )}
@@ -216,7 +257,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
                   setStatusFilter("all");
                   setRepoFilter("all");
                 }}
-                className="mt-3 text-sm text-blue-600 hover:text-blue-700"
+                className="mt-3 text-sm text-[#4F46E5] hover:text-[#4338CA]"
               >
                 Clear all filters
               </button>
@@ -226,23 +267,39 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
       </div>
 
       {/* Reviews List */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         {filteredReviews.length === 0 ? (
-          <div className="text-center py-12">
-            <GitPullRequest className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">No PR reviews found</h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
+          <div className="p-12 text-center">
+            <div className="empty-state-icon pr-reviews">
+              <GitPullRequest />
+            </div>
+            <h3 className="text-xl font-semibold mb-3">
+              {reviews.length === 0 ? "No PR reviews yet" : "No reviews match filters"}
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto mb-8">
               {reviews.length === 0
-                ? "Connect a repository and enable auto-review to get started"
-                : "No reviews match the selected filters"}
+                ? "Connect a repository and enable auto-review to automatically analyze pull requests and get AI-powered feedback."
+                : "Try adjusting your filters to find what you're looking for."}
             </p>
             {reviews.length === 0 && (
               <Link
                 href="/dashboard/repos"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-[#4F46E5] text-white rounded-xl hover:bg-[#4338CA] transition-colors font-medium"
               >
+                <FolderGit2 className="w-5 h-5" />
                 Connect Repository
               </Link>
+            )}
+            {reviews.length > 0 && (
+              <button
+                onClick={() => {
+                  setStatusFilter("all");
+                  setRepoFilter("all");
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                Clear all filters
+              </button>
             )}
           </div>
         ) : (
@@ -261,7 +318,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
                       <div className="flex items-center gap-3 mb-1">
                         <Link
                           href={`/dashboard/repos/${review.repository.id}`}
-                          className="text-sm text-gray-500 hover:text-blue-600"
+                          className="text-sm text-gray-500 hover:text-[#4F46E5]"
                         >
                           {review.repository.fullName}
                         </Link>
@@ -296,7 +353,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
                         href={review.prUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-blue-600 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-blue-300 transition-colors"
+                        className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-[#4F46E5] border border-gray-200 dark:border-gray-600 rounded-lg hover:border-[#4F46E5]/30 transition-colors"
                       >
                         <ExternalLink className="w-4 h-4" />
                         View PR

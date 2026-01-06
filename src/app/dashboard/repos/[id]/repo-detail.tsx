@@ -86,10 +86,10 @@ export function RepoDetail({
 
   const statusColors = {
     pending: "text-gray-500 bg-gray-100 dark:bg-gray-700",
-    indexing: "text-blue-500 bg-blue-100 dark:bg-blue-900",
-    indexed: "text-green-500 bg-green-100 dark:bg-green-900",
-    failed: "text-red-500 bg-red-100 dark:bg-red-900",
-    stale: "text-yellow-500 bg-yellow-100 dark:bg-yellow-900",
+    indexing: "text-[#4F46E5] bg-[#EEF2FF] dark:bg-[#4F46E5]/30",
+    indexed: "text-[#10B981] bg-[#ECFDF5] dark:bg-[#10B981]/30",
+    failed: "text-[#EF4444] bg-[#FEF2F2] dark:bg-[#EF4444]/30",
+    stale: "text-[#F59E0B] bg-[#FFFBEB] dark:bg-[#F59E0B]/30",
   };
 
   const statusIcons = {
@@ -180,9 +180,9 @@ export function RepoDetail({
 
       {/* Error message */}
       {error && (
-        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-red-500" />
-          <span className="text-red-700 dark:text-red-400">{error}</span>
+        <div className="mb-6 p-4 bg-[#FEF2F2] dark:bg-[#7F1D1D] border border-[#FECACA] dark:border-[#991B1B] rounded-lg flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-[#EF4444]" />
+          <span className="text-[#991B1B] dark:text-[#FECACA]">{error}</span>
         </div>
       )}
 
@@ -238,8 +238,8 @@ export function RepoDetail({
               className={cn(
                 "inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-colors",
                 repository.indexStatus === "indexed"
-                  ? "text-gray-600 border hover:bg-gray-50"
-                  : "bg-blue-600 text-white hover:bg-blue-700",
+                  ? "text-gray-600 border hover:bg-gray-50 dark:text-gray-400 dark:border-gray-600"
+                  : "bg-[#4F46E5] text-white hover:bg-[#4338CA]",
                 (isIndexing || repository.indexStatus === "indexing") &&
                   "opacity-50 cursor-not-allowed"
               )}
@@ -254,7 +254,7 @@ export function RepoDetail({
             <button
               onClick={handleDelete}
               disabled={isDeleting}
-              className="inline-flex items-center gap-2 px-4 py-2 text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-4 py-2 text-[#EF4444] border border-[#FEF2F2] rounded-lg hover:bg-[#FEF2F2] disabled:opacity-50"
             >
               {isDeleting ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -268,21 +268,21 @@ export function RepoDetail({
 
         {/* Stats */}
         <div className="grid grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-          <div className="text-center">
-            <div className="text-2xl font-bold">{repository.fileCount}</div>
-            <div className="text-sm text-gray-500">Files Indexed</div>
+          <div className="text-center stat-item">
+            <div className="stat-value">{repository.fileCount}</div>
+            <div className="stat-label">Files Indexed</div>
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold">{repository.chunkCount}</div>
-            <div className="text-sm text-gray-500">Code Chunks</div>
+          <div className="text-center stat-item border-l border-gray-200 dark:border-gray-700">
+            <div className="stat-value">{repository.chunkCount}</div>
+            <div className="stat-label">Code Chunks</div>
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold">{counts.prReviews}</div>
-            <div className="text-sm text-gray-500">PR Reviews</div>
+          <div className="text-center stat-item border-l border-gray-200 dark:border-gray-700">
+            <div className="stat-value">{counts.prReviews}</div>
+            <div className="stat-label">PR Reviews</div>
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold">{counts.conversations}</div>
-            <div className="text-sm text-gray-500">Conversations</div>
+          <div className="text-center stat-item border-l border-gray-200 dark:border-gray-700">
+            <div className="stat-value">{counts.conversations}</div>
+            <div className="stat-label">Conversations</div>
           </div>
         </div>
       </div>
@@ -306,7 +306,7 @@ export function RepoDetail({
               <button
                 onClick={handleToggleAutoReview}
                 disabled={isUpdating}
-                className="text-blue-600"
+                className="text-[#4F46E5]"
               >
                 {autoReview ? (
                   <ToggleRight className="w-8 h-8" />
@@ -327,8 +327,8 @@ export function RepoDetail({
                 className={cn(
                   "px-2 py-1 rounded text-xs",
                   repository.webhookId
-                    ? "bg-green-100 text-green-700"
-                    : "bg-gray-100 text-gray-500"
+                    ? "bg-[#ECFDF5] text-[#10B981]"
+                    : "status-disconnected"
                 )}
               >
                 {repository.webhookId ? "Connected" : "Disconnected"}
@@ -339,7 +339,7 @@ export function RepoDetail({
           <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
             <Link
               href={`/dashboard/chat?repo=${repository.id}`}
-              className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700"
+              className="cta-link"
             >
               <MessageSquare className="w-4 h-4" />
               Chat with this codebase
@@ -375,10 +375,10 @@ export function RepoDetail({
                       className={cn(
                         "px-2 py-0.5 rounded text-xs",
                         pr.status === "completed"
-                          ? "bg-green-100 text-green-700"
+                          ? "bg-[#ECFDF5] text-[#10B981]"
                           : pr.status === "failed"
-                          ? "bg-red-100 text-red-700"
-                          : "bg-gray-100 text-gray-500"
+                          ? "bg-[#FEF2F2] text-[#EF4444]"
+                          : "bg-gray-100 text-gray-500 dark:bg-gray-700"
                       )}
                     >
                       {pr.status}
@@ -414,18 +414,18 @@ export function RepoDetail({
               <p className="text-sm">No files indexed yet</p>
             </div>
           ) : (
-            <div className="space-y-1 max-h-80 overflow-y-auto">
+            <div className="space-y-1 max-h-80 overflow-y-auto scrollbar-hide">
               {indexedFiles.map((file) => (
                 <div
                   key={file.id}
-                  className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-sm"
+                  className="file-list-item"
                 >
-                  <FileCode className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <FileCode className="file-icon flex-shrink-0" />
                   <span className="truncate" title={file.filePath}>
                     {file.filePath}
                   </span>
                   {file.language && (
-                    <span className="text-xs text-gray-400 flex-shrink-0">
+                    <span className="file-extension flex-shrink-0">
                       {file.language}
                     </span>
                   )}

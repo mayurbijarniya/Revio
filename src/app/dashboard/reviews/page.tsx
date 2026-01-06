@@ -72,7 +72,7 @@ export default async function ReviewsPage() {
         prTitle: r.prTitle,
         prAuthor: r.prAuthor,
         prUrl: r.prUrl,
-        status: r.status,
+        status: r.status as "completed" | "failed" | "pending",
         summary: r.summary,
         createdAt: r.createdAt,
         repository: r.repository,

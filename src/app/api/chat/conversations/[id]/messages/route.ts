@@ -67,8 +67,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Retrieve relevant context for this message
+    // Use low score threshold for complex cross-file queries
     const newContext = await retrieveContext(conversation.repositoryId, content, {
-      maxChunks: 5,
+      maxChunks: 15,  // Increased for complex multi-file queries
+      scoreThreshold: 0.1,  // Lower threshold for broader context
     });
     const formattedContext =
       newContext.chunks.length > 0
