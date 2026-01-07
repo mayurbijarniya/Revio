@@ -46,7 +46,7 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4">
-            <a href="/api/auth/github" className="group relative inline-flex items-center justify-center px-8 py-4 bg-[var(--foreground)] text-[var(--background)] font-mono text-sm font-bold tracking-wide hover:bg-[var(--primary)] transition-colors whitespace-nowrap">
+            <a href="/login" className="group relative inline-flex items-center justify-center px-8 py-4 bg-[var(--foreground)] text-[var(--background)] font-mono text-sm font-bold tracking-wide hover:bg-[var(--primary)] transition-colors whitespace-nowrap">
               <Github className="w-4 h-4 mr-3" />
               [ CONNECT_GITHUB ]
             </a>
