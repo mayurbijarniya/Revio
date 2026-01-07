@@ -85,18 +85,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         prUrl: prDetails.html_url,
         prAuthor: prDetails.user.login,
         status: "pending",
-        requestedById: session.userId,
-        ...(assignToId && { assignedToId: assignToId }),
+        requestedBy: { connect: { id: session.userId } },
+        ...(assignToId && { assignedTo: { connect: { id: assignToId } } }),
       },
       create: {
-        repositoryId: id,
+        repository: { connect: { id } },
         prNumber,
         prTitle: prDetails.title,
         prUrl: prDetails.html_url,
         prAuthor: prDetails.user.login,
         status: "pending",
-        requestedById: session.userId,
-        assignedToId: assignToId || null,
+        requestedBy: { connect: { id: session.userId } },
+        ...(assignToId ? { assignedTo: { connect: { id: assignToId } } } : {}),
       },
     });
 

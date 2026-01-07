@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   BarChart3,
   GitPullRequest,
@@ -63,7 +63,7 @@ export default function AnalyticsDashboard() {
   const [loading, setLoading] = useState(true);
   const [days, setDays] = useState(30);
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/analytics?days=${days}`);
@@ -76,11 +76,11 @@ export default function AnalyticsDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [days]);
 
   useEffect(() => {
     fetchAnalytics();
-  }, [days]);
+  }, [fetchAnalytics]);
 
   if (loading) {
     return (
@@ -118,36 +118,45 @@ export default function AnalyticsDashboard() {
   const maxReviewsPerDay = Math.max(...data.reviews.byDay.map((d) => d.count), 1);
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-3">
-            <BarChart3 className="w-7 h-7 text-[#4F46E5]" />
-            Analytics Dashboard
-          </h1>
-          <p className="text-gray-500 mt-1">
-            Insights for the last {days} days
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <select
-            value={days}
-            onChange={(e) => setDays(parseInt(e.target.value))}
-            className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5]"
-          >
-            <option value={7}>Last 7 days</option>
-            <option value={14}>Last 14 days</option>
-            <option value={30}>Last 30 days</option>
-            <option value={90}>Last 90 days</option>
-          </select>
-          <button
-            onClick={fetchAnalytics}
-            disabled={loading}
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={cn("w-5 h-5", loading && "animate-spin")} />
-          </button>
+    <div className="max-w-6xl mx-auto p-6 space-y-8">
+      {/* Header Card */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <div className="flex items-start justify-between">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-[#EEF2FF] dark:bg-[#1E1B4B] rounded-lg flex items-center justify-center border border-[#E0E7FF] dark:border-[#312E81]">
+              <BarChart3 className="w-6 h-6 text-[#4F46E5] dark:text-[#818CF8]" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold">Analytics Dashboard</h1>
+              <p className="text-gray-500">Overview of repository methods and code quality insights</p>
+              <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                <span className="flex items-center gap-1">
+                  <Clock className="w-4 h-4" />
+                  Last updated: {new Date().toLocaleTimeString()}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <select
+              value={days}
+              onChange={(e) => setDays(parseInt(e.target.value))}
+              className="px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-lg focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5]"
+            >
+              <option value={7}>Last 7 days</option>
+              <option value={14}>Last 14 days</option>
+              <option value={30}>Last 30 days</option>
+              <option value={90}>Last 90 days</option>
+            </select>
+            <button
+              onClick={fetchAnalytics}
+              disabled={loading}
+              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 border border-gray-200 dark:border-gray-700"
+            >
+              <RefreshCw className={cn("w-5 h-5", loading && "animate-spin")} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -296,8 +305,8 @@ export default function AnalyticsDashboard() {
             {data.repositories.byIndexStatus.map((status) => {
               const color = status.status === "indexed" ? "#10B981"
                 : status.status === "indexing" ? "#4F46E5"
-                : status.status === "failed" ? "#EF4444"
-                : "#9CA3AF";
+                  : status.status === "failed" ? "#EF4444"
+                    : "#9CA3AF";
               return (
                 <div key={status.status} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -394,8 +403,8 @@ export default function AnalyticsDashboard() {
                 {data.codeQuality.bySeverity.map((item) => {
                   const color = item.severity === "critical" ? "#EF4444"
                     : item.severity === "warning" ? "#F59E0B"
-                    : item.severity === "suggestion" ? "#4F46E5"
-                    : "#6B7280";
+                      : item.severity === "suggestion" ? "#4F46E5"
+                        : "#6B7280";
                   const maxCount = Math.max(...data.codeQuality.bySeverity.map(s => s.count), 1);
                   return (
                     <div key={item.severity} className="flex items-center gap-3">
@@ -423,8 +432,8 @@ export default function AnalyticsDashboard() {
                 {data.codeQuality.byCategory.slice(0, 5).map((item) => {
                   const icon = item.category === "bug" ? <Bug className="w-4 h-4" />
                     : item.category === "security" ? <Shield className="w-4 h-4" />
-                    : item.category === "performance" ? <Zap className="w-4 h-4" />
-                    : <AlertTriangle className="w-4 h-4" />;
+                      : item.category === "performance" ? <Zap className="w-4 h-4" />
+                        : <AlertTriangle className="w-4 h-4" />;
                   const maxCount = Math.max(...data.codeQuality.byCategory.map(c => c.count), 1);
                   return (
                     <div key={item.category} className="flex items-center gap-3">
