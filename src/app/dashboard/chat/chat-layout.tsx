@@ -1,17 +1,18 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import {
   MessageSquare,
   Plus,
   FolderGit2,
   ChevronDown,
   Loader2,
-  Send,
   AlertCircle,
   Check,
-  Download,
   Trash2,
+  Copy,
+  ArrowUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
@@ -41,13 +42,24 @@ interface Message {
 interface ChatLayoutProps {
   repositories: Repository[];
   conversations: Conversation[];
+  initialConversationId?: string;
+  initialMessages?: Message[];
+  initialSelectedRepos?: Repository[];
 }
 
-export function ChatLayout({ repositories, conversations: initialConversations }: ChatLayoutProps) {
+export function ChatLayout({
+  repositories,
+  conversations: initialConversations,
+  initialConversationId,
+  initialMessages,
+  initialSelectedRepos,
+}: ChatLayoutProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [conversations, setConversations] = useState(initialConversations);
-  const [selectedRepo, setSelectedRepo] = useState<Repository | null>(null);
-  const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [selectedRepos, setSelectedRepos] = useState<Repository[]>(initialSelectedRepos || []);
+  const [selectedConversation, setSelectedConversation] = useState<string | null>(initialConversationId || null);
+  const [messages, setMessages] = useState<Message[]>(initialMessages || []);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -55,6 +67,18 @@ export function ChatLayout({ repositories, conversations: initialConversations }
   const [showRepoDropdown, setShowRepoDropdown] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  // Handle initial conversation from URL
+  useEffect(() => {
+    if (initialConversationId && initialMessages) {
+      setSelectedConversation(initialConversationId);
+      setMessages(initialMessages);
+    }
+    if (initialSelectedRepos) {
+      setSelectedRepos(initialSelectedRepos);
+    }
+  }, [initialConversationId, initialMessages, initialSelectedRepos]);
 
   // Close dropdown when clicking outside
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -69,6 +93,12 @@ export function ChatLayout({ repositories, conversations: initialConversations }
   }, []);
 
   async function loadConversation(conversationId: string) {
+    // Navigate to conversation URL if not already there
+    if (pathname !== `/dashboard/chat/${conversationId}`) {
+      router.push(`/dashboard/chat/${conversationId}`);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     try {
@@ -88,7 +118,7 @@ export function ChatLayout({ repositories, conversations: initialConversations }
   }
 
   async function startNewConversation() {
-    if (!selectedRepo || !input.trim()) return;
+    if (selectedRepos.length === 0 || !input.trim()) return;
 
     setIsLoading(true);
     setError(null);
@@ -97,7 +127,7 @@ export function ChatLayout({ repositories, conversations: initialConversations }
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          repositoryId: selectedRepo.id,
+          repositoryIds: selectedRepos.map((r) => r.id),
           message: input.trim(),
         }),
       });
@@ -110,7 +140,7 @@ export function ChatLayout({ repositories, conversations: initialConversations }
           {
             id: conv.id,
             title: conv.title,
-            repositoryName: selectedRepo.fullName,
+            repositoryName: selectedRepos.map((r) => r.fullName).join(", "),
             lastMessage: input.trim().slice(0, 60),
             updatedAt: new Date(),
           },
@@ -194,9 +224,14 @@ export function ChatLayout({ repositories, conversations: initialConversations }
     setInput("");
     setError(null);
     setShowRepoDropdown(false);
+    setSelectedRepos([]);
+    // Navigate to main chat page if we're on a conversation page
+    if (pathname.startsWith("/dashboard/chat/")) {
+      router.push("/dashboard/chat");
+    }
   }
 
-  function exportConversation() {
+  function copyMarkdown() {
     if (!messages.length) return;
 
     const currentConv = conversations.find((c) => c.id === selectedConversation);
@@ -209,21 +244,14 @@ export function ChatLayout({ repositories, conversations: initialConversations }
     markdown += `---\n\n`;
 
     messages.forEach((msg) => {
-      const role = msg.role === "user" ? "You" : "Revio AI";
-      const time = new Date(msg.createdAt).toLocaleString();
-      markdown += `### ${role} (${time})\n\n`;
+      const role = msg.role === "user" ? "User" : "Revio AI";
+      markdown += `### ${role}\n\n`;
       markdown += `${msg.content}\n\n`;
     });
 
-    const blob = new Blob([markdown], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${title.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    navigator.clipboard.writeText(markdown);
+    setCopySuccess(true);
+    setTimeout(() => setCopySuccess(false), 2000);
   }
 
   function openDeleteDialog(conversationId: string) {
@@ -263,11 +291,11 @@ export function ChatLayout({ repositories, conversations: initialConversations }
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] scrollbar-hide">
+    <div className="flex h-[calc(100vh-4rem)] scrollbar-hide bg-gray-50">
       {/* Sidebar - Fixed 280px width */}
-      <div className="w-72 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex flex-col flex-shrink-0">
+      <div className="w-72 border-r border-gray-200 bg-white flex flex-col flex-shrink-0">
         {/* New Chat Button */}
-        <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+        <div className="p-3 border-b border-gray-200">
           <button
             onClick={handleNewChat}
             className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] transition-all font-medium text-sm"
@@ -278,11 +306,11 @@ export function ChatLayout({ repositories, conversations: initialConversations }
         </div>
 
         {/* Conversation List */}
-        <div className="flex-1 overflow-y-auto p-2 scrollbar-hide">
+        <div className="flex-1 overflow-y-auto p-2">
           {conversations.length === 0 ? (
             <div className="p-3 text-center text-gray-500">
-              <div className="w-10 h-10 mx-auto mb-2 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                <MessageSquare className="w-5 h-5 opacity-50" />
+              <div className="w-10 h-10 mx-auto mb-2 bg-gray-100 rounded-lg flex items-center justify-center">
+                <MessageSquare className="w-5 h-5 text-gray-400" />
               </div>
               <p className="text-xs">No conversations yet</p>
             </div>
@@ -294,8 +322,8 @@ export function ChatLayout({ repositories, conversations: initialConversations }
                   className={cn(
                     "group relative w-full text-left p-2.5 rounded-lg transition-all text-sm",
                     selectedConversation === conv.id
-                      ? "bg-white dark:bg-gray-800 shadow-sm border border-[#4F46E5]/30 dark:border-[#4F46E5]/30"
-                      : "hover:bg-white dark:hover:bg-gray-800 border border-transparent"
+                      ? "bg-indigo-50 border border-indigo-200"
+                      : "hover:bg-gray-100 border border-transparent"
                   )}
                 >
                   <button
@@ -303,8 +331,8 @@ export function ChatLayout({ repositories, conversations: initialConversations }
                     className="w-full text-left"
                   >
                     <div className="font-medium text-xs truncate flex items-center gap-1.5 pr-6">
-                      <FolderGit2 className="w-3 h-3 text-gray-400 shrink-0" />
-                      <span className="truncate">{conv.title}</span>
+                      <FolderGit2 className="w-3 h-3 text-gray-500 shrink-0" />
+                      <span className="text-gray-700">{conv.title}</span>
                     </div>
                   </button>
                   <button
@@ -312,7 +340,7 @@ export function ChatLayout({ repositories, conversations: initialConversations }
                       e.stopPropagation();
                       openDeleteDialog(conv.id);
                     }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[#FEF2F2] dark:hover:bg-[#7F1D1D] text-gray-400 hover:text-[#EF4444] transition-all"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-50 text-gray-400 hover:text-red-500 transition-all"
                     title="Delete conversation"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -325,184 +353,241 @@ export function ChatLayout({ repositories, conversations: initialConversations }
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Header with Export Button - when conversation is selected */}
-        {selectedConversation && messages.length > 0 && (
-          <div className="sticky top-0 z-100 flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-[#4F46E5]" />
-              <span className="font-medium text-sm truncate max-w-[300px]">
-                {conversations.find((c) => c.id === selectedConversation)?.title || "Conversation"}
-              </span>
-            </div>
-            <button
-              onClick={exportConversation}
-              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-[#4F46E5] hover:bg-[#EEF2FF] dark:hover:bg-[#1E1B4B] rounded-lg transition-colors"
-              title="Export conversation as Markdown"
-            >
-              <Download className="w-4 h-4" />
-              Export
-            </button>
-          </div>
-        )}
-
-        {/* Header with Repo Selector - Sticky with z-index 100 */}
+      <div className="flex-1 flex flex-col min-w-0 bg-gray-50">
+        {/* Header with Repo Selector - when creating new chat */}
         {!selectedConversation && repositories.length > 0 && (
-          <div className="sticky top-0 z-100 flex items-center gap-2 px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div className="sticky top-0 z-100 flex items-center gap-3 px-6 py-4 border-b border-gray-200 bg-white">
             {/* Selected Repo Display / Trigger */}
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setShowRepoDropdown(!showRepoDropdown)}
                 className={cn(
-                  "repo-selector-button",
-                  selectedRepo && "active"
+                  "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all",
+                  selectedRepos.length > 0
+                    ? "bg-indigo-50 border-indigo-200 text-gray-700"
+                    : "bg-gray-100 border-gray-200 text-gray-500 hover:border-indigo-400"
                 )}
               >
                 <FolderGit2 className="w-4 h-4" />
-                <span className="truncate max-w-[180px]">
-                  {selectedRepo ? selectedRepo.fullName.split("/")[1] || selectedRepo.fullName : "Select Repo"}
+                <span className="text-sm truncate max-w-[180px]">
+                  {selectedRepos.length === 0
+                    ? "Select Repos"
+                    : selectedRepos.length === 1
+                      ? selectedRepos[0]!.fullName.split("/")[1] || selectedRepos[0]!.fullName
+                      : `${selectedRepos.length} repos`}
                 </span>
-                <ChevronDown className={cn("w-4 h-4 transition-transform ml-auto", showRepoDropdown && "rotate-180")} />
+                <ChevronDown className={cn("w-4 h-4 transition-transform", showRepoDropdown && "rotate-180")} />
               </button>
 
-              {/* Dropdown Overlay - Absolute positioning, z-index 1000 */}
+              {/* Dropdown */}
               {showRepoDropdown && (
-                <div className="repo-dropdown-menu animate-dropdown">
-                  {repositories.map((repo) => (
-                    <button
-                      key={repo.id}
-                      onClick={() => {
-                        setSelectedRepo(repo);
-                        setShowRepoDropdown(false);
-                      }}
-                      className={cn(
-                        "repo-dropdown-item w-full",
-                        selectedRepo?.id === repo.id && "selected"
-                      )}
-                    >
-                      <FolderGit2 className="w-4 h-4 text-gray-400 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="repo-name truncate">{repo.fullName.split("/")[1] || repo.fullName}</div>
-                        {repo.language && <div className="repo-lang">{repo.language}</div>}
-                      </div>
-                      {selectedRepo?.id === repo.id && <Check className="w-4 h-4 shrink-0" />}
-                    </button>
-                  ))}
+                <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-50 animate-dropdown">
+                  {repositories.map((repo) => {
+                    const isSelected = selectedRepos.some((r) => r.id === repo.id);
+                    return (
+                      <button
+                        key={repo.id}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedRepos((prev) => prev.filter((r) => r.id !== repo.id));
+                          } else {
+                            setSelectedRepos((prev) => [...prev, repo]);
+                          }
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-100 transition-colors"
+                      >
+                        <div
+                          className={cn(
+                            "w-4 h-4 rounded border flex items-center justify-center transition-colors",
+                            isSelected
+                              ? "bg-indigo-600 border-indigo-600"
+                              : "border-gray-300"
+                          )}
+                        >
+                          {isSelected && <Check className="w-3 h-3 text-white" />}
+                        </div>
+                        <FolderGit2 className="w-4 h-4 text-gray-500" />
+                        <div className="flex-1 min-w-0 text-left">
+                          <div className="text-sm text-gray-700 truncate">
+                            {repo.fullName.split("/")[1] || repo.fullName}
+                          </div>
+                          {repo.language && (
+                            <div className="text-xs text-gray-500">{repo.language}</div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
 
-            {/* Selected Repo Info Badge */}
-            {selectedRepo && (
-              <div className="flex items-center gap-1.5 px-2 py-1 bg-[#ECFDF5] dark:bg-[#064E3B] text-[#10B981] rounded text-xs">
-                <Check className="w-3 h-3" />
-                <span className="truncate max-w-[200px]">{selectedRepo.fullName}</span>
+            {/* Selected Repos Tags */}
+            {selectedRepos.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {selectedRepos.map((repo) => (
+                  <span
+                    key={repo.id}
+                    className="inline-flex items-center gap-1.5 px-2 py-1 bg-indigo-50 border border-indigo-200 rounded text-xs text-indigo-700"
+                  >
+                    <FolderGit2 className="w-3 h-3" />
+                    <span className="truncate max-w-[120px]">{repo.fullName.split("/")[1]}</span>
+                  </span>
+                ))}
               </div>
             )}
           </div>
         )}
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 scrollbar-hide">
+        {/* Messages Area */}
+        <div className="flex-1 overflow-y-auto px-10 py-6 pb-40 scrollbar-hide">
           {error && (
-            <div className="mb-4 p-3 bg-[#FEF2F2] dark:bg-[#7F1D1D] border border-[#FECACA] dark:border-[#991B1B] rounded-lg flex items-center gap-3">
-              <AlertCircle className="w-4 h-4 text-[#EF4444]" />
-              <span className="text-sm text-[#991B1B] dark:text-[#FECACA]">{error}</span>
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+              <AlertCircle className="w-4 h-4 text-red-500" />
+              <span className="text-sm text-red-600">{error}</span>
             </div>
           )}
 
           {messages.length === 0 && !selectedConversation ? (
-            <div className="h-full flex items-center justify-center p-8">
+            <div className="h-full flex items-center justify-center">
               <div className="text-center max-w-lg">
-                <div className="w-16 h-16 mx-auto mb-4 bg-[#EEF2FF] dark:bg-[#1E1B4B] rounded-2xl flex items-center justify-center">
-                  <MessageSquare className="w-8 h-8 text-[#4F46E5]" />
+                <div className="w-16 h-16 mx-auto mb-4 bg-indigo-100 rounded-2xl flex items-center justify-center">
+                  <MessageSquare className="w-8 h-8 text-indigo-600" />
                 </div>
-                <h2 className="text-xl font-bold mb-2">Chat with your codebase</h2>
-                <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
+                <h2 className="text-xl font-bold text-gray-900 mb-2">Chat with your codebase</h2>
+                <p className="text-gray-600 text-sm mb-4">
                   Ask questions about your code, find specific functions, understand architecture.
                 </p>
-                {!selectedRepo && repositories.length > 0 && (
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#EEF2FF] dark:bg-[#1E1B4B] text-[#4F46E5] rounded-lg text-sm">
+                {selectedRepos.length === 0 && repositories.length > 0 && (
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 border border-gray-200 rounded-lg text-sm text-gray-500">
                     <FolderGit2 className="w-4 h-4" />
-                    Select a repository to get started
+                    Select repositories to get started
                   </div>
                 )}
               </div>
             </div>
           ) : (
-            <div className="space-y-5 max-w-[1200px] mx-auto">
+            <div className="max-w-4xl mx-auto space-y-12">
               {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={cn(
-                    "flex items-start gap-4",
-                    message.role === "user" ? "flex-row-reverse" : ""
+                <div key={message.id} className="animate-fade-in">
+                  {/* User Question - HAS container */}
+                  {message.role === "user" && (
+                    <div className="max-w-3xl mx-auto my-6">
+                      <div className="bg-white border border-gray-200 rounded-lg px-5 py-3 shadow-sm">
+                        <p className="text-sm text-gray-800 text-left leading-relaxed">{message.content}</p>
+                      </div>
+                    </div>
                   )}
-                >
-                  {/* Avatar */}
-                  <div
-                    className={cn(
-                      "w-9 h-9 rounded-full flex items-center justify-center shrink-0 mt-1",
-                      message.role === "user" ? "bg-gray-400" : "bg-[#14B8A6]"
-                    )}
-                  >
-                    {message.role === "user" ? (
-                      <span className="text-white text-sm font-medium">Y</span>
-                    ) : (
-                      <MessageSquare className="w-4 h-4 text-white" />
-                    )}
-                  </div>
 
-                  {/* Message bubble */}
-                  <div
-                    className={cn(
-                      "px-5 py-4 rounded-2xl text-[15px]",
-                      message.role === "user"
-                        ? "bg-[#EEF2FF] border border-[#E0E7FF] rounded-tr-4xl max-w-[80%] leading-relaxed"
-                        : "bg-white border border-gray-200 dark:border-gray-700 rounded-tl-4xl max-w-[85%] leading-loose"
-                    )}
-                  >
-                    <MarkdownRenderer content={message.content} />
-                  </div>
+                  {/* AI Response - NO container, flows directly on background */}
+                  {message.role === "assistant" && (
+                    <div className="max-w-3xl mx-auto px-6">
+                      <div className="text-gray-800 text-sm leading-relaxed space-y-4">
+                        <MarkdownRenderer content={message.content} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
+
               {isLoading && (
                 <div className="flex items-center justify-center py-4">
-                  <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                  <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Input Area - Sticky with z-index 10 */}
-        <div className="sticky bottom-0 z-10 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <form onSubmit={handleSubmit} className="max-w-[1200px] mx-auto">
-            <div className="relative">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={
-                  selectedConversation
-                    ? "Ask a follow-up question..."
-                    : selectedRepo
-                    ? "Ask a question about your code..."
-                    : "Select a repository first"
-                }
-                disabled={isLoading || (!selectedConversation && !selectedRepo)}
-                className="w-full px-5 py-3 pr-12 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all text-[15px] text-gray-900 dark:text-white placeholder:text-gray-500"
-              />
-              <button
-                type="submit"
-                disabled={isLoading || !input.trim() || (!selectedConversation && !selectedRepo)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2 bg-[#4F46E5] hover:bg-[#4338CA] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-              >
-                <Send className="w-5 h-5 text-white" />
-              </button>
+        {/* Bottom Bar - Status + Input combined */}
+        {selectedConversation && messages.length > 0 ? (
+          <div className="fixed bottom-6 left-80 right-6 z-50">
+            <div className="max-w-3xl mx-auto">
+              {/* Status Bar */}
+              <div className="flex justify-between items-center px-4 py-2 bg-gray-50 border border-gray-200 border-b-0 rounded-t-lg">
+                {/* Left: Repository info */}
+                <div className="flex items-center gap-4">
+                  {selectedRepos.length > 0 && (
+                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                      <FolderGit2 className="w-4 h-4 text-gray-500" />
+                      <span className="truncate max-w-[200px] font-medium">
+                        {selectedRepos.map(r => r.fullName).join(", ")}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right: Actions */}
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={copyMarkdown}
+                    className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded text-xs text-gray-600 hover:border-indigo-400 hover:text-indigo-600 transition-colors cursor-pointer"
+                  >
+                    {copySuccess ? (
+                      <>
+                        <Check className="w-3 h-3" />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        Copy as markdown
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Input Area */}
+              <form onSubmit={handleSubmit}>
+                <div className="relative bg-white border border-gray-200 rounded-b-lg shadow-sm">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Ask a follow-up question..."
+                    disabled={isLoading}
+                    className="w-full px-5 py-4 pr-14 bg-transparent rounded-b-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-base leading-relaxed text-gray-900 placeholder:text-gray-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isLoading || !input.trim()}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+                  >
+                    <ArrowUp className="w-4 h-4 text-white" />
+                  </button>
+                </div>
+              </form>
             </div>
-          </form>
-        </div>
+          </div>
+        ) : (
+          /* Input Area for New Chat */
+          <div className="fixed bottom-6 left-80 right-6 z-50">
+            <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
+              <div className="relative bg-white border border-gray-200 rounded-lg shadow-sm">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder={
+                    selectedRepos.length > 0
+                      ? "Ask about the codebase..."
+                      : "Select repositories first"
+                  }
+                  disabled={isLoading || (!selectedConversation && selectedRepos.length === 0)}
+                  className="w-full px-5 py-4 pr-14 bg-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-base leading-relaxed text-gray-900 placeholder:text-gray-500"
+                />
+                <button
+                  type="submit"
+                  disabled={isLoading || !input.trim() || (!selectedConversation && selectedRepos.length === 0)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+                >
+                  <ArrowUp className="w-4 h-4 text-white" />
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </div>
 
       {/* Delete Confirmation Dialog */}

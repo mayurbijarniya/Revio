@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -23,9 +23,17 @@ import {
   ToggleRight,
   X,
   Plus,
+  ChevronDown,
+  ChevronUp,
+  Sliders,
+  Play,
+  GitPullRequestDraft,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ReviewRulesEditor } from "@/components/ui/review-rules-editor";
+import { type ReviewSettings, parseReviewSettings } from "@/types/review";
 
 interface Repository {
   id: string;
@@ -43,6 +51,7 @@ interface Repository {
   autoReview: boolean;
   webhookId: number | null;
   ignoredPaths: string[];
+  reviewRules: ReviewSettings | Record<string, unknown>;
   createdAt: Date;
 }
 
@@ -62,6 +71,17 @@ interface PrReview {
   status: string;
   summary: string | null;
   createdAt: Date;
+}
+
+interface OpenPR {
+  number: number;
+  title: string;
+  author: string;
+  url: string;
+  draft: boolean;
+  createdAt: string;
+  reviewStatus: string | null;
+  lastReviewedAt: string | null;
 }
 
 interface RepoDetailProps {
@@ -90,6 +110,13 @@ export function RepoDetail({
   const [ignoredPaths, setIgnoredPaths] = useState<string[]>(repository.ignoredPaths || []);
   const [newIgnoredPath, setNewIgnoredPath] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [showAdvancedRules, setShowAdvancedRules] = useState(false);
+  const [reviewSettings, setReviewSettings] = useState<ReviewSettings>(
+    parseReviewSettings(repository.reviewRules)
+  );
+  const [openPRs, setOpenPRs] = useState<OpenPR[]>([]);
+  const [isLoadingPRs, setIsLoadingPRs] = useState(false);
+  const [reviewingPR, setReviewingPR] = useState<number | null>(null);
 
   const statusColors = {
     pending: "text-gray-500 bg-gray-100 dark:bg-gray-700",
@@ -108,6 +135,53 @@ export function RepoDetail({
   };
 
   const StatusIcon = statusIcons[repository.indexStatus];
+
+  // Fetch open PRs from GitHub
+  const fetchOpenPRs = useCallback(async () => {
+    setIsLoadingPRs(true);
+    try {
+      const res = await fetch(`/api/repos/${repository.id}/review`);
+      const data = await res.json();
+      if (data.success) {
+        setOpenPRs(data.data.pullRequests);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch open PRs:", err);
+    } finally {
+      setIsLoadingPRs(false);
+    }
+  }, [repository.id]);
+
+  // Fetch open PRs on mount
+  useEffect(() => {
+    fetchOpenPRs();
+  }, [fetchOpenPRs]);
+
+  // Trigger manual PR review
+  async function handleReviewPR(prNumber: number) {
+    setReviewingPR(prNumber);
+    setError(null);
+    try {
+      const res = await fetch(`/api/repos/${repository.id}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prNumber }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Refresh the page to show the new review
+        router.refresh();
+        // Re-fetch open PRs to update review status
+        fetchOpenPRs();
+      } else {
+        setError(data.error?.message || "Failed to trigger PR review");
+      }
+    } catch {
+      setError("Failed to trigger PR review");
+    } finally {
+      setReviewingPR(null);
+    }
+  }
 
   async function handleIndex() {
     setIsIndexing(true);
@@ -222,6 +296,28 @@ export function RepoDetail({
       }
     } catch {
       setError("Failed to update settings");
+    } finally {
+      setIsUpdating(false);
+    }
+  }
+
+  async function handleSaveReviewRules(newSettings: ReviewSettings) {
+    setIsUpdating(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/repos/${repository.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviewRules: newSettings }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setReviewSettings(newSettings);
+      } else {
+        setError(data.error?.message || "Failed to update review rules");
+      }
+    } catch {
+      setError("Failed to update review rules");
     } finally {
       setIsUpdating(false);
     }
@@ -347,6 +443,151 @@ export function RepoDetail({
         </div>
       </div>
 
+      {/* Open PRs - Manual Review Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <GitPullRequest className="w-5 h-5" />
+            Open Pull Requests
+            {openPRs.length > 0 && (
+              <span className="text-sm font-normal text-gray-500">
+                ({openPRs.length})
+              </span>
+            )}
+          </h2>
+          <button
+            onClick={fetchOpenPRs}
+            disabled={isLoadingPRs}
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          >
+            {isLoadingPRs ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+            Refresh
+          </button>
+        </div>
+
+        {isLoadingPRs ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          </div>
+        ) : openPRs.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <GitPullRequest className="w-8 h-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">No open pull requests</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {openPRs.map((pr) => (
+              <div
+                key={pr.number}
+                className="flex items-center justify-between p-4 rounded-lg border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              >
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="flex-shrink-0 mt-1">
+                    {pr.draft ? (
+                      <GitPullRequestDraft className="w-5 h-5 text-gray-400" />
+                    ) : (
+                      <GitPullRequest className="w-5 h-5 text-[#10B981]" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={pr.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-gray-900 dark:text-gray-100 hover:text-[#4F46E5] truncate"
+                      >
+                        #{pr.number} {pr.title}
+                      </a>
+                      {pr.draft && (
+                        <span className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 rounded">
+                          Draft
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <User className="w-3.5 h-3.5" />
+                        {pr.author}
+                      </span>
+                      <span>
+                        opened {new Date(pr.createdAt).toLocaleDateString()}
+                      </span>
+                      {pr.reviewStatus && (
+                        <span
+                          className={cn(
+                            "px-2 py-0.5 rounded text-xs",
+                            pr.reviewStatus === "completed"
+                              ? "bg-[#ECFDF5] text-[#10B981]"
+                              : pr.reviewStatus === "failed"
+                              ? "bg-[#FEF2F2] text-[#EF4444]"
+                              : pr.reviewStatus === "pending"
+                              ? "bg-[#EEF2FF] text-[#4F46E5]"
+                              : "bg-gray-100 text-gray-500"
+                          )}
+                        >
+                          {pr.reviewStatus}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                  <a
+                    href={pr.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    title="View on GitHub"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                  <button
+                    onClick={() => handleReviewPR(pr.number)}
+                    disabled={reviewingPR === pr.number || pr.reviewStatus === "pending"}
+                    className={cn(
+                      "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                      pr.reviewStatus === "pending"
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : pr.reviewStatus === "completed"
+                        ? "bg-white border border-[#4F46E5] text-[#4F46E5] hover:bg-[#EEF2FF]"
+                        : "bg-[#4F46E5] text-white hover:bg-[#4338CA]",
+                      reviewingPR === pr.number && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    {reviewingPR === pr.number ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Reviewing...
+                      </>
+                    ) : pr.reviewStatus === "pending" ? (
+                      <>
+                        <Clock className="w-4 h-4" />
+                        In Progress
+                      </>
+                    ) : pr.reviewStatus === "completed" ? (
+                      <>
+                        <RefreshCw className="w-4 h-4" />
+                        Re-review
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-4 h-4" />
+                        Review
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-3 gap-6">
         {/* Settings */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
@@ -440,6 +681,42 @@ export function RepoDetail({
                       </button>
                     </span>
                   ))}
+                </div>
+              )}
+            </div>
+
+            {/* Advanced Review Rules */}
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => setShowAdvancedRules(!showAdvancedRules)}
+                className="w-full flex items-center justify-between py-2 text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-gray-500" />
+                  <span className="font-medium">Advanced Review Rules</span>
+                  {reviewSettings.customRules.length > 0 && (
+                    <span className="px-1.5 py-0.5 bg-[#4F46E5] text-white text-xs rounded-full">
+                      {reviewSettings.customRules.filter((r) => r.enabled).length}
+                    </span>
+                  )}
+                </div>
+                {showAdvancedRules ? (
+                  <ChevronUp className="w-4 h-4 text-gray-400" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                )}
+              </button>
+              <p className="text-sm text-gray-500 mb-3">
+                Configure custom review rules, severity thresholds, and focus areas
+              </p>
+
+              {showAdvancedRules && (
+                <div className="mt-4">
+                  <ReviewRulesEditor
+                    settings={reviewSettings}
+                    onSave={handleSaveReviewRules}
+                    isLoading={isUpdating}
+                  />
                 </div>
               )}
             </div>

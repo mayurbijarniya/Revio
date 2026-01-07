@@ -74,6 +74,7 @@ export default async function ReviewsPage() {
         prUrl: r.prUrl,
         status: r.status as "completed" | "failed" | "pending",
         summary: r.summary,
+        feedback: r.feedback as "helpful" | "not_helpful" | null,
         createdAt: r.createdAt,
         repository: r.repository,
       }))}

@@ -3,12 +3,19 @@ import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { ChatLayout } from "./chat-layout";
 
-export default async function ChatPage() {
+interface PageProps {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+export default async function ChatPage({ searchParams }: PageProps) {
   const session = await getSession();
 
   if (!session) {
     redirect("/login");
   }
+
+  const params = await searchParams;
+  const conversationId = params.id as string | undefined;
 
   // Get user's repositories that are indexed
   const repositories = await db.repository.findMany({
@@ -51,10 +58,57 @@ export default async function ChatPage() {
     updatedAt: conv.updatedAt,
   }));
 
+  // If conversation ID is provided, load that conversation
+  let initialConversationId: string | undefined;
+  let initialMessages: { id: string; role: "user" | "assistant"; content: string; createdAt: Date }[] | undefined;
+  let initialSelectedRepos: { id: string; fullName: string; language: string | null }[] | undefined;
+
+  if (conversationId) {
+    const conversation = await db.conversation.findFirst({
+      where: {
+        id: conversationId,
+        userId: session.userId,
+      },
+      include: {
+        messages: {
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            role: true,
+            content: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (conversation) {
+      initialConversationId = conversation.id;
+      initialMessages = conversation.messages.map((msg) => ({
+        id: msg.id,
+        role: msg.role as "user" | "assistant",
+        content: msg.content,
+        createdAt: msg.createdAt,
+      }));
+
+      // Load the repos that were used in this conversation
+      const repositoryIds = conversation.repositoryIds?.length > 0
+        ? conversation.repositoryIds
+        : [conversation.repositoryId];
+
+      initialSelectedRepos = repositories.filter((r) =>
+        repositoryIds.includes(r.id)
+      );
+    }
+  }
+
   return (
     <ChatLayout
       repositories={repositories}
       conversations={formattedConversations}
+      initialConversationId={initialConversationId}
+      initialMessages={initialMessages}
+      initialSelectedRepos={initialSelectedRepos}
     />
   );
 }

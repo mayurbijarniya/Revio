@@ -11,6 +11,9 @@ import {
   ExternalLink,
   ChevronDown,
   FolderGit2,
+  ThumbsUp,
+  ThumbsDown,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +31,7 @@ interface Review {
   prUrl: string | null;
   status: "completed" | "failed" | "pending";
   summary: string | null;
+  feedback: "helpful" | "not_helpful" | null;
   createdAt: Date;
   repository: Repository;
 }
@@ -49,6 +53,51 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [repoFilter, setRepoFilter] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
+  const [feedbackLoading, setFeedbackLoading] = useState<string | null>(null);
+  const [localFeedback, setLocalFeedback] = useState<
+    Record<string, "helpful" | "not_helpful" | null>
+  >({});
+
+  async function handleFeedback(
+    reviewId: string,
+    feedback: "helpful" | "not_helpful"
+  ) {
+    const currentFeedback = localFeedback[reviewId] ?? reviews.find((r) => r.id === reviewId)?.feedback;
+
+    setFeedbackLoading(reviewId);
+    try {
+      // If clicking the same feedback, remove it
+      if (currentFeedback === feedback) {
+        const res = await fetch(`/api/reviews/${reviewId}/feedback`, {
+          method: "DELETE",
+        });
+        if (res.ok) {
+          setLocalFeedback((prev) => ({ ...prev, [reviewId]: null }));
+        }
+      } else {
+        // Set new feedback
+        const res = await fetch(`/api/reviews/${reviewId}/feedback`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ feedback }),
+        });
+        if (res.ok) {
+          setLocalFeedback((prev) => ({ ...prev, [reviewId]: feedback }));
+        }
+      }
+    } catch (error) {
+      console.error("Failed to submit feedback:", error);
+    } finally {
+      setFeedbackLoading(null);
+    }
+  }
+
+  function getReviewFeedback(review: Review): "helpful" | "not_helpful" | null {
+    if (review.id in localFeedback) {
+      return localFeedback[review.id] ?? null;
+    }
+    return review.feedback;
+  }
 
   const filteredReviews = reviews.filter((review) => {
     if (statusFilter !== "all" && review.status !== statusFilter) {
@@ -348,17 +397,54 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
                         <span>{formatDate(review.createdAt)}</span>
                       </div>
                     </div>
-                    {review.prUrl && (
-                      <a
-                        href={review.prUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-[#4F46E5] border border-gray-200 dark:border-gray-600 rounded-lg hover:border-[#4F46E5]/30 transition-colors"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                        View PR
-                      </a>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {/* Feedback buttons - only show for completed reviews */}
+                      {review.status === "completed" && (
+                        <div className="flex items-center gap-1 mr-2">
+                          {feedbackLoading === review.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => handleFeedback(review.id, "helpful")}
+                                className={cn(
+                                  "p-1.5 rounded-lg transition-colors",
+                                  getReviewFeedback(review) === "helpful"
+                                    ? "bg-[#ECFDF5] text-[#10B981]"
+                                    : "text-gray-400 hover:text-[#10B981] hover:bg-gray-100 dark:hover:bg-gray-700"
+                                )}
+                                title="Helpful review"
+                              >
+                                <ThumbsUp className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleFeedback(review.id, "not_helpful")}
+                                className={cn(
+                                  "p-1.5 rounded-lg transition-colors",
+                                  getReviewFeedback(review) === "not_helpful"
+                                    ? "bg-[#FEF2F2] text-[#EF4444]"
+                                    : "text-gray-400 hover:text-[#EF4444] hover:bg-gray-100 dark:hover:bg-gray-700"
+                                )}
+                                title="Not helpful"
+                              >
+                                <ThumbsDown className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                      {review.prUrl && (
+                        <a
+                          href={review.prUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-[#4F46E5] border border-gray-200 dark:border-gray-600 rounded-lg hover:border-[#4F46E5]/30 transition-colors"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          View PR
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

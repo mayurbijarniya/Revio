@@ -1,34 +1,86 @@
 @import "tailwindcss";
 
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom Animations */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spin-reverse-slow {
+  from {
+    transform: rotate(360deg);
+  }
+
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 1s linear infinite;
+}
+
+.animate-spin-reverse-slow {
+  animation: spin-reverse-slow 1s linear infinite;
+}
+
 :root {
   /* Brand Colors - Electric Precision */
-  --primary: #4F46E5;        /* Deep indigo - intelligence, trust */
-  --primary-hover: #4338CA;  /* Deeper on hover */
-  --primary-light: #6366F1;  /* Lighter variant */
-  --primary-subtle: #EEF2FF; /* Very light background tint */
+  --primary: #4F46E5;
+  /* Deep indigo - intelligence, trust */
+  --primary-hover: #4338CA;
+  /* Deeper on hover */
+  --primary-light: #6366F1;
+  /* Lighter variant */
+  --primary-subtle: #EEF2FF;
+  /* Very light background tint */
 
-  --accent: #14B8A6;         /* Teal - clarity, action */
-  --accent-hover: #0F766E;   /* Darker on interaction */
-  --accent-light: #5EEAD4;   /* Light highlights */
-  --accent-subtle: #F0FDFA;  /* Background tint */
+  --accent: #14B8A6;
+  /* Teal - clarity, action */
+  --accent-hover: #0F766E;
+  /* Darker on interaction */
+  --accent-light: #5EEAD4;
+  /* Light highlights */
+  --accent-subtle: #F0FDFA;
+  /* Background tint */
 
   /* Status Colors */
-  --success: #10B981;        /* Green - achievements, connected */
-  --success-subtle: #ECFDF5; /* Light green background */
-  --warning: #F59E0B;        /* Amber - attention needed */
-  --warning-subtle: #FFFBEB; /* Light amber background */
-  --error: #EF4444;          /* Red - errors, disconnect */
-  --error-subtle: #FEF2F2;   /* Light red background */
-  --info: #3B82F6;           /* Blue - informational only */
-  --info-subtle: #EFF6FF;    /* Light blue background */
+  --success: #10B981;
+  /* Green - achievements, connected */
+  --success-subtle: #ECFDF5;
+  /* Light green background */
+  --warning: #F59E0B;
+  /* Amber - attention needed */
+  --warning-subtle: #FFFBEB;
+  /* Light amber background */
+  --error: #EF4444;
+  /* Red - errors, disconnect */
+  --error-subtle: #FEF2F2;
+  /* Light red background */
+  --info: #3B82F6;
+  /* Blue - informational only */
+  --info-subtle: #EFF6FF;
+  /* Light blue background */
 
   /* Base Colors */
   --background: #ffffff;
   --foreground: #111827;
   --code-bg: #f6f8fa;
   --code-border: #d0d7de;
-  --inline-code-bg: rgba(175, 184, 193, 0.2);
-  --inline-code-color: #e96900;
+  /* Original was too light */
+  --code-border: #b1b8be;
+  /* Darker, more visible */
+  --inline-code-bg: rgba(175, 184, 193, 0.15);
+  --inline-code-color: #6b7280;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -37,8 +89,11 @@
     --foreground: #c9d1d9;
     --code-bg: #1e2128;
     --code-border: #30363d;
-    --inline-code-bg: rgba(110, 118, 129, 0.4);
-    --inline-code-color: #ffa657;
+    /* Original */
+    --code-border: #424a53;
+    /* Darker/Higher contrast for dark mode */
+    --inline-code-bg: rgba(110, 118, 129, 0.2);
+    --inline-code-color: #c9d1d9;
 
     /* Dark mode brand adjustments */
     --primary-subtle: #1E1B4B;
@@ -53,7 +108,8 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family: 'JetBrains Mono', 'Menlo', 'Consolas', 'Courier New', monospace;
+  /* Enforce global mono */
 }
 
 /* ============================================
@@ -151,7 +207,7 @@ body {
    INLINE CODE
    ============================================ */
 .markdown-renderer code,
-:not(pre) > code {
+:not(pre)>code {
   font-family: 'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace;
   font-size: 0.875em;
   background-color: var(--inline-code-bg);
@@ -162,7 +218,7 @@ body {
   border: 1px solid rgba(175, 184, 193, 0.3);
 }
 
-.dark :not(pre) > code {
+.dark :not(pre)>code {
   border-color: rgba(110, 118, 129, 0.5);
 }
 
@@ -210,7 +266,7 @@ body {
 }
 
 /* Nested ordered lists */
-.markdown-renderer li > ol {
+.markdown-renderer li>ol {
   margin-top: 8px;
   margin-bottom: 8px;
 }
@@ -237,7 +293,7 @@ body {
 }
 
 /* Nested unordered lists */
-.markdown-renderer li > ul {
+.markdown-renderer li>ul {
   margin-top: 8px;
   margin-bottom: 8px;
 }
@@ -440,7 +496,8 @@ body {
   color: #4F46E5;
   font-weight: 600;
   border-left: 3px solid #4F46E5;
-  padding-left: 13px; /* Compensate for border */
+  padding-left: 13px;
+  /* Compensate for border */
 }
 
 /* Navigation icons */
@@ -817,6 +874,26 @@ body {
     opacity: 0;
     transform: translateY(-8px);
   }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================
+   MESSAGE FADE-IN ANIMATION
+   ============================================ */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -888,4 +965,50 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* ============================================
+   CODE BLOCK CONTENT (Syntax Highlighter)
+   ============================================ */
+.code-block-content {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.code-block-content pre {
+  background: #0d0d0d !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+}
+
+.code-block-content code {
+  background: transparent !important;
+}
+
+.code-block-content pre code {
+  color: #d4d4d4 !important;
+}
+
+.code-block-content span {
+  background: transparent !important;
+}
+
+/* Custom scrollbar for code blocks */
+.code-block-content::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.code-block-content::-webkit-scrollbar-track {
+  background: #0d0d0d;
+}
+
+.code-block-content::-webkit-scrollbar-thumb {
+  background: #3a3a3a;
+  border-radius: 4px;
+}
+
+.code-block-content::-webkit-scrollbar-thumb:hover {
+  background: #4a4a4a;
 }

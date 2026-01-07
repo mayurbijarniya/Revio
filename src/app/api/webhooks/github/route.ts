@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { db } from "@/lib/db";
-import { addPrReviewJob } from "@/lib/queue";
 import { WEBHOOK_CONFIG } from "@/lib/constants";
+import { reviewPullRequest, postReviewToGitHub } from "@/lib/services/reviewer";
+import { decrypt } from "@/lib/encryption";
 
 /**
  * Verify GitHub webhook signature
@@ -109,9 +110,12 @@ async function handlePullRequestEvent(
   const pr = body.pull_request as {
     number: number;
     title: string;
+    body: string | null;
     user: { login: string };
     html_url: string;
     draft?: boolean;
+    base: { ref: string };
+    head: { ref: string };
   };
 
   // Only process specific actions
@@ -130,23 +134,114 @@ async function handlePullRequestEvent(
   }
 
   console.warn(
-    `[Webhook] Queueing review for PR #${pr.number} in ${repository.fullName}`
+    `[Webhook] Starting review for PR #${pr.number} in ${repository.fullName}`
   );
 
-  // Queue the PR review job
-  const jobId = await addPrReviewJob({
-    repositoryId: repository.id,
-    prNumber: pr.number,
-    prTitle: pr.title,
-    prAuthor: pr.user.login,
-    accessToken: repository.user.accessToken,
+  // Create pending PR review record immediately so it shows on dashboard
+  await db.prReview.upsert({
+    where: {
+      repositoryId_prNumber: {
+        repositoryId: repository.id,
+        prNumber: pr.number,
+      },
+    },
+    update: {
+      prTitle: pr.title,
+      prUrl: pr.html_url,
+      prAuthor: pr.user.login,
+      status: "pending",
+    },
+    create: {
+      repositoryId: repository.id,
+      prNumber: pr.number,
+      prTitle: pr.title,
+      prUrl: pr.html_url,
+      prAuthor: pr.user.login,
+      status: "pending",
+    },
+  });
+
+  // Process review inline (for serverless environments like Vercel)
+  // This runs synchronously but responds early to avoid webhook timeout
+  processReviewAsync(repository, pr).catch((error) => {
+    console.error(`[Webhook] Review processing failed for PR #${pr.number}:`, error);
   });
 
   return NextResponse.json({
-    message: "PR review queued",
-    jobId,
+    message: "PR review started",
     pr: pr.number,
   });
+}
+
+/**
+ * Process PR review asynchronously (fire and forget)
+ */
+async function processReviewAsync(
+  repository: RepositoryWithUser,
+  pr: {
+    number: number;
+    title: string;
+    body: string | null;
+    user: { login: string };
+    html_url: string;
+    base: { ref: string };
+    head: { ref: string };
+  }
+) {
+  try {
+    // Decrypt the access token
+    const decryptedToken = decrypt(repository.user.accessToken);
+
+    // Get repository details for default branch
+    const repoDetails = await db.repository.findUnique({
+      where: { id: repository.id },
+      select: { defaultBranch: true },
+    });
+
+    // Review the PR
+    const review = await reviewPullRequest(
+      repository.id,
+      {
+        number: pr.number,
+        title: pr.title,
+        body: pr.body,
+        author: pr.user.login,
+        url: pr.html_url,
+        baseBranch: repoDetails?.defaultBranch || pr.base.ref,
+        headBranch: pr.head.ref,
+      },
+      decryptedToken
+    );
+
+    if (!review) {
+      throw new Error("Failed to generate review");
+    }
+
+    // Post review to GitHub
+    await postReviewToGitHub(
+      repository.id,
+      pr.number,
+      review,
+      decryptedToken
+    );
+
+    console.warn(`[Webhook] Completed review for PR #${pr.number}`);
+  } catch (error) {
+    console.error(`[Webhook] Failed to process PR #${pr.number}:`, error);
+
+    // Update the PR review status to failed
+    await db.prReview.update({
+      where: {
+        repositoryId_prNumber: {
+          repositoryId: repository.id,
+          prNumber: pr.number,
+        },
+      },
+      data: {
+        status: "failed",
+      },
+    });
+  }
 }
 
 /**
