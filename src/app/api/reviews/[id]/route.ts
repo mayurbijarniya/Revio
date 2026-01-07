@@ -69,18 +69,25 @@ export async function GET(_request: Request, { params }: RouteParams) {
       ruleId?: string;
     }> | null;
 
-    const suggestions = review.suggestions as Array<{
-      title?: string;
-      description?: string;
-      priority?: string;
-    }> | null;
+    // Handle backward compatibility for suggestions (may be strings or objects)
+    const rawSuggestions = review.suggestions as Array<string | { title?: string; description?: string; priority?: string }> | null;
+    const suggestions = rawSuggestions?.map((s, idx) => {
+      if (typeof s === "string") {
+        // Old format: convert string to object
+        return { title: `Positive #${idx + 1}`, description: s };
+      }
+      return s;
+    }) || [];
 
-    const filesAnalyzed = review.filesAnalyzed as Array<{
-      path?: string;
-      changes?: number;
-      additions?: number;
-      deletions?: number;
-    }> | null;
+    // Handle backward compatibility for filesAnalyzed (may be strings or objects)
+    const rawFilesAnalyzed = review.filesAnalyzed as Array<string | { path?: string; changes?: number; additions?: number; deletions?: number }> | null;
+    const filesAnalyzed = rawFilesAnalyzed?.map((f) => {
+      if (typeof f === "string") {
+        // Old format: convert string to object
+        return { path: f };
+      }
+      return f;
+    }) || [];
 
     // Group issues by file
     const issuesByFile: Record<string, typeof issues> = {};

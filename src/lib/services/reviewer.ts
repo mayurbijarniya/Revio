@@ -163,6 +163,19 @@ export async function reviewPullRequest(
 
   const processingTime = Date.now() - startTime;
 
+  // Transform positives (strings) to suggestions format (objects with title/description)
+  const formattedSuggestions = (review.positives || []).map((positive: string, idx: number) => ({
+    title: `Positive #${idx + 1}`,
+    description: positive,
+  }));
+
+  // Transform files to proper format with path property
+  const formattedFiles = changedFiles.map((f) => ({
+    path: f.path,
+    additions: f.additions ? f.additions.split("\n").length : 0,
+    deletions: f.deletions ? f.deletions.split("\n").length : 0,
+  }));
+
   // Save review to database
   const savedReview = await db.prReview.upsert({
     where: {
@@ -177,8 +190,8 @@ export async function reviewPullRequest(
       prAuthor: prData.author,
       summary: review.summary,
       issues: JSON.parse(JSON.stringify(review.issues)),
-      suggestions: JSON.parse(JSON.stringify(review.positives)),
-      filesAnalyzed: JSON.parse(JSON.stringify(changedFiles.map((f) => f.path))),
+      suggestions: JSON.parse(JSON.stringify(formattedSuggestions)),
+      filesAnalyzed: JSON.parse(JSON.stringify(formattedFiles)),
       recommendation: review.recommendation,
       riskLevel: review.riskLevel,
       status: "completed",
@@ -192,8 +205,8 @@ export async function reviewPullRequest(
       prAuthor: prData.author,
       summary: review.summary,
       issues: JSON.parse(JSON.stringify(review.issues)),
-      suggestions: JSON.parse(JSON.stringify(review.positives)),
-      filesAnalyzed: JSON.parse(JSON.stringify(changedFiles.map((f) => f.path))),
+      suggestions: JSON.parse(JSON.stringify(formattedSuggestions)),
+      filesAnalyzed: JSON.parse(JSON.stringify(formattedFiles)),
       recommendation: review.recommendation,
       riskLevel: review.riskLevel,
       status: "completed",
