@@ -1,38 +1,29 @@
 import { NextResponse } from "next/server";
-import { GITHUB_OAUTH_CONFIG } from "@/types/auth";
 
 /**
  * GET /api/auth/github
- * Initiates GitHub OAuth flow by redirecting to GitHub authorization page
+ * Initiates GitHub App installation flow
+ * This combines OAuth + App installation in one step
  */
 export async function GET() {
-  const clientId = process.env.GITHUB_CLIENT_ID;
+  const appClientId = process.env.GITHUB_APP_CLIENT_ID;
 
-  if (!clientId) {
+  if (!appClientId) {
     return NextResponse.json(
-      { success: false, error: { code: "AUTH_001", message: "GitHub OAuth not configured" } },
+      { success: false, error: { code: "AUTH_001", message: "GitHub App not configured" } },
       { status: 500 }
     );
   }
 
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/github/callback`;
-  const scope = GITHUB_OAUTH_CONFIG.scopes.join(" ");
-
   // Generate a random state for CSRF protection
   const state = crypto.randomUUID();
 
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    scope,
-    state,
-    allow_signup: "true",
-  });
-
-  const authUrl = `${GITHUB_OAUTH_CONFIG.authorizationUrl}?${params.toString()}`;
+  // Use GitHub App installation URL
+  // This will prompt user to install the app AND authorize OAuth in one flow
+  const installUrl = `https://github.com/apps/revio-bot/installations/new?state=${state}`;
 
   // Create response with redirect
-  const response = NextResponse.redirect(authUrl);
+  const response = NextResponse.redirect(installUrl);
 
   // Store state in cookie for verification in callback
   response.cookies.set("oauth_state", state, {

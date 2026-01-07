@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { GitHubService } from "./github";
+import { createBotGitHubService } from "./github-app";
 import { retrieveMultiContext, formatContextForPrompt } from "./retriever";
 import { generateReviewResponse } from "./gemini";
 import {
@@ -259,27 +260,74 @@ export async function postReviewToGitHub(
     throw new Error("Invalid repository name");
   }
 
-  const github = new GitHubService(accessToken);
-
   // Format the main comment
   const commentBody = formatReviewForGitHub(review);
 
   // Create inline comments
   const inlineComments = createInlineComments(review);
 
-  // Post PR review with inline comments
-  const commentId = await github.createPrReview(
-    owner,
-    repo,
-    prNumber,
-    commentBody,
+  // Determine review event type
+  const reviewEvent =
     review.recommendation === "approve"
       ? "APPROVE"
       : review.recommendation === "request_changes"
       ? "REQUEST_CHANGES"
-      : "COMMENT",
-    inlineComments
-  );
+      : "COMMENT";
+
+  let commentId: number | null = null;
+
+  // Try using GitHub App bot first (can approve/request changes on any PR)
+  const botService = await createBotGitHubService(owner, repo);
+
+  if (botService) {
+    // Use the bot to post reviews - it can approve anyone's PRs
+    console.log("Using Revio Bot to post review");
+    const botGithub = new GitHubService(botService.token);
+    commentId = await botGithub.createPrReview(
+      owner,
+      repo,
+      prNumber,
+      commentBody,
+      reviewEvent,
+      inlineComments
+    );
+  } else {
+    // Fall back to user's token if GitHub App not installed
+    console.log("GitHub App not installed, using user token");
+    const github = new GitHubService(accessToken);
+
+    // Post PR review with inline comments
+    // If posting APPROVE/REQUEST_CHANGES for own PR fails, fall back to COMMENT
+    try {
+      commentId = await github.createPrReview(
+        owner,
+        repo,
+        prNumber,
+        commentBody,
+        reviewEvent,
+        inlineComments
+      );
+    } catch (error: unknown) {
+      // Check if error is "cannot approve own PR" - fall back to COMMENT
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (
+        errorMessage.includes("Can not approve your own pull request") ||
+        errorMessage.includes("Can not request changes on your own pull request")
+      ) {
+        console.warn(`Cannot ${reviewEvent} own PR, falling back to COMMENT`);
+        commentId = await github.createPrReview(
+          owner,
+          repo,
+          prNumber,
+          commentBody,
+          "COMMENT",
+          inlineComments
+        );
+      } else {
+        throw error;
+      }
+    }
+  }
 
   // Update the PR review record with the comment ID
   await db.prReview.update({
