@@ -28,6 +28,9 @@ model User {
   usage                 Usage[]
   ownedOrganizations    Organization[]        @relation("OrganizationOwner")
   organizationMembers   OrganizationMember[]
+  activities            Activity[]
+  reviewsRequested      PrReview[]            @relation("ReviewsRequested")
+  reviewsAssigned       PrReview[]            @relation("ReviewsAssigned")
 
   @@map("users")
 }
@@ -46,6 +49,7 @@ model Organization {
   members      OrganizationMember[]
   repositories Repository[]
   usage        Usage[]
+  activities   Activity[]
 
   @@map("organizations")
 }
@@ -105,6 +109,7 @@ model Repository {
   conversations Conversation[]
   prReviews     PrReview[]
   usage         Usage[]
+  activities    Activity[]
 
   @@unique([userId, githubRepoId])
   @@index([userId])
@@ -174,6 +179,10 @@ model PrReview {
   prUrl         String?  @map("pr_url") @db.VarChar(1000)
   prAuthor      String?  @map("pr_author") @db.VarChar(255)
 
+  // Team assignment
+  requestedById String?  @map("requested_by_id") @db.Uuid
+  assignedToId  String?  @map("assigned_to_id") @db.Uuid
+
   // Review content
   summary       String?  @db.Text
   issues        Json     @default("[]")
@@ -196,10 +205,13 @@ model PrReview {
   createdAt DateTime @default(now()) @map("created_at")
 
   // Relations
-  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  repository  Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  requestedBy User?      @relation("ReviewsRequested", fields: [requestedById], references: [id], onDelete: SetNull)
+  assignedTo  User?      @relation("ReviewsAssigned", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   @@unique([repositoryId, prNumber])
   @@index([repositoryId])
+  @@index([assignedToId])
   @@map("pr_reviews")
 }
 
@@ -222,4 +234,25 @@ model Usage {
 
   @@index([userId, createdAt])
   @@map("usage")
+}
+
+// Activity Feed (for organizations)
+model Activity {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  repositoryId   String?  @map("repository_id") @db.Uuid
+  type           String   @db.VarChar(50) // repo_added, repo_removed, pr_reviewed, member_joined, member_left, settings_updated
+  title          String   @db.VarChar(255)
+  description    String?  @db.Text
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repository   Repository?  @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@map("activities")
 }

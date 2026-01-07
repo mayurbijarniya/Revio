@@ -16,6 +16,7 @@ import {
   User,
   CreditCard,
   Building2,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +50,11 @@ const navItems = [
     href: "/dashboard/reviews",
     label: "PR Reviews",
     icon: GitPullRequest,
+  },
+  {
+    href: "/dashboard/analytics",
+    label: "Analytics",
+    icon: BarChart3,
   },
   {
     href: "/dashboard/billing",

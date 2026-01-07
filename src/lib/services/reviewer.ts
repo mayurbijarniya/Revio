@@ -12,6 +12,7 @@ import {
 } from "@/lib/prompts/review";
 import { REVIEW_CONFIG, AI_CONFIG } from "@/lib/constants";
 import { parseReviewSettings } from "@/types/review";
+import { logActivity } from "./activity";
 
 /**
  * PR data for review
@@ -138,7 +139,7 @@ export async function reviewPullRequest(
   const processingTime = Date.now() - startTime;
 
   // Save review to database
-  await db.prReview.upsert({
+  const savedReview = await db.prReview.upsert({
     where: {
       repositoryId_prNumber: {
         repositoryId,
@@ -170,6 +171,23 @@ export async function reviewPullRequest(
       processingTimeMs: processingTime,
     },
   });
+
+  // Log activity if repository is in an organization
+  if (repository.organizationId && savedReview.requestedById) {
+    await logActivity({
+      organizationId: repository.organizationId,
+      userId: savedReview.requestedById,
+      type: "pr_reviewed",
+      title: `Completed review for PR #${prData.number}`,
+      description: `${review.issues.length} issues found in "${prData.title}"`,
+      repositoryId,
+      metadata: {
+        prNumber: prData.number,
+        issueCount: review.issues.length,
+        recommendation: review.recommendation,
+      },
+    });
+  }
 
   return review;
 }

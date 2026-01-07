@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import {
   Users,
   Settings,
@@ -12,7 +13,17 @@ import {
   Plus,
   Loader2,
   CheckCircle,
+  FolderGit2,
+  Activity,
+  RefreshCw,
+  ExternalLink,
+  Clock,
+  GitPullRequest,
+  UserPlus,
+  UserMinus,
+  FileCode,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface OrgMember {
   id: string;
@@ -22,6 +33,35 @@ interface OrgMember {
     githubUsername: string;
     avatarUrl: string | null;
   };
+}
+
+interface OrgRepository {
+  id: string;
+  name: string;
+  fullName: string;
+  private: boolean;
+  language: string | null;
+  indexStatus: string;
+  prReviewCount: number;
+  conversationCount: number;
+}
+
+interface OrgActivity {
+  id: string;
+  type: string;
+  title: string;
+  description: string | null;
+  createdAt: string;
+  user: {
+    id: string;
+    githubUsername: string;
+    avatarUrl: string | null;
+  };
+  repository: {
+    id: string;
+    name: string;
+    fullName: string;
+  } | null;
 }
 
 interface OrganizationPageProps {
@@ -46,6 +86,48 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
   const [inviteRole, setInviteRole] = useState<"admin" | "member" | "viewer">("member");
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [repositories, setRepositories] = useState<OrgRepository[]>([]);
+  const [activities, setActivities] = useState<OrgActivity[]>([]);
+  const [loadingRepos, setLoadingRepos] = useState(true);
+  const [loadingActivities, setLoadingActivities] = useState(true);
+
+  // Fetch organization repositories
+  const fetchRepositories = useCallback(async () => {
+    setLoadingRepos(true);
+    try {
+      const res = await fetch(`/api/orgs/${organization.id}/repos`);
+      const data = await res.json();
+      if (data.success) {
+        setRepositories(data.data.repositories);
+      }
+    } catch (error) {
+      console.warn("Failed to fetch repositories:", error);
+    } finally {
+      setLoadingRepos(false);
+    }
+  }, [organization.id]);
+
+  // Fetch organization activities
+  const fetchActivities = useCallback(async () => {
+    setLoadingActivities(true);
+    try {
+      const res = await fetch(`/api/orgs/${organization.id}/activity?limit=20`);
+      const data = await res.json();
+      if (data.success) {
+        setActivities(data.data.activities);
+      }
+    } catch (error) {
+      console.warn("Failed to fetch activities:", error);
+    } finally {
+      setLoadingActivities(false);
+    }
+  }, [organization.id]);
+
+  // Fetch data on mount
+  useEffect(() => {
+    fetchRepositories();
+    fetchActivities();
+  }, [fetchRepositories, fetchActivities]);
 
   const showSuccess = (message: string) => {
     setSuccessMsg(message);
@@ -186,6 +268,75 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
         )}
       </div>
 
+      {/* Repositories Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <FolderGit2 className="w-5 h-5" />
+            Repositories ({repositories.length})
+          </h2>
+          <button
+            onClick={fetchRepositories}
+            disabled={loadingRepos}
+            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {loadingRepos ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+          </button>
+        </div>
+        {loadingRepos ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          </div>
+        ) : repositories.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            <FolderGit2 className="w-10 h-10 mx-auto mb-3 opacity-50" />
+            <p className="text-sm">No repositories in this organization</p>
+            <p className="text-xs mt-1">Add repositories from the repository settings page</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100 dark:divide-gray-700">
+            {repositories.map((repo) => (
+              <Link
+                key={repo.id}
+                href={`/dashboard/repos/${repo.id}`}
+                className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <FolderGit2 className="w-5 h-5 text-gray-400" />
+                  <div>
+                    <div className="font-medium">{repo.fullName}</div>
+                    <div className="flex items-center gap-3 text-sm text-gray-500 mt-0.5">
+                      {repo.language && <span>{repo.language}</span>}
+                      <span className="flex items-center gap-1">
+                        <GitPullRequest className="w-3.5 h-3.5" />
+                        {repo.prReviewCount} reviews
+                      </span>
+                      <span
+                        className={cn(
+                          "px-2 py-0.5 rounded text-xs",
+                          repo.indexStatus === "indexed"
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                            : repo.indexStatus === "indexing"
+                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                            : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+                        )}
+                      >
+                        {repo.indexStatus}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <ExternalLink className="w-4 h-4 text-gray-400" />
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Invite Section */}
       {canManageMembers && (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
@@ -292,6 +443,85 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
             );
           })}
         </div>
+      </div>
+
+      {/* Activity Feed */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Activity className="w-5 h-5" />
+            Recent Activity
+          </h2>
+          <button
+            onClick={fetchActivities}
+            disabled={loadingActivities}
+            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {loadingActivities ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+          </button>
+        </div>
+        {loadingActivities ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          </div>
+        ) : activities.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            <Activity className="w-10 h-10 mx-auto mb-3 opacity-50" />
+            <p className="text-sm">No recent activity</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100 dark:divide-gray-700">
+            {activities.map((activity) => {
+              const ActivityIcon = activity.type === "repo_added" ? FolderGit2
+                : activity.type === "repo_removed" ? FolderGit2
+                : activity.type === "pr_reviewed" ? GitPullRequest
+                : activity.type === "member_joined" ? UserPlus
+                : activity.type === "member_left" ? UserMinus
+                : activity.type === "repo_indexed" ? FileCode
+                : Clock;
+
+              const iconColor = activity.type === "repo_added" ? "text-green-500"
+                : activity.type === "repo_removed" ? "text-red-500"
+                : activity.type === "pr_reviewed" ? "text-blue-500"
+                : activity.type === "member_joined" ? "text-green-500"
+                : activity.type === "member_left" ? "text-orange-500"
+                : "text-gray-500";
+
+              return (
+                <div key={activity.id} className="px-6 py-4 flex items-start gap-4">
+                  <div className={cn("p-2 rounded-full bg-gray-100 dark:bg-gray-700", iconColor)}>
+                    <ActivityIcon className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm">
+                      <span className="font-medium">{activity.user.githubUsername}</span>
+                      {" "}
+                      <span className="text-gray-600 dark:text-gray-400">{activity.title}</span>
+                    </p>
+                    {activity.description && (
+                      <p className="text-xs text-gray-500 mt-1">{activity.description}</p>
+                    )}
+                    <p className="text-xs text-gray-400 mt-1">
+                      {new Date(activity.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                  {activity.repository && (
+                    <Link
+                      href={`/dashboard/repos/${activity.repository.id}`}
+                      className="text-xs text-blue-500 hover:underline whitespace-nowrap"
+                    >
+                      {activity.repository.name}
+                    </Link>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Danger Zone */}
