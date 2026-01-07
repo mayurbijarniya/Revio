@@ -23,6 +23,10 @@ import {
   UserMinus,
   FileCode,
   ArrowLeft,
+  BarChart3,
+  TrendingUp,
+  AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -65,6 +69,26 @@ interface OrgActivity {
   } | null;
 }
 
+interface TeamAnalytics {
+  team: {
+    totalReviews: number;
+    completedReviews: number;
+    pendingReviews: number;
+    totalIssuesFound: number;
+    criticalIssuesFound: number;
+    satisfactionRate: number;
+    avgProcessingTimeMs: number;
+  };
+  developers: Array<{
+    userId: string;
+    username: string;
+    avatarUrl: string | null;
+    prsAuthored: number;
+    reviewsRequested: number;
+    avgIssuesPerPr: number;
+  }>;
+}
+
 interface OrganizationPageProps {
   organization: {
     id: string;
@@ -89,8 +113,10 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [repositories, setRepositories] = useState<OrgRepository[]>([]);
   const [activities, setActivities] = useState<OrgActivity[]>([]);
+  const [analytics, setAnalytics] = useState<TeamAnalytics | null>(null);
   const [loadingRepos, setLoadingRepos] = useState(true);
   const [loadingActivities, setLoadingActivities] = useState(true);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(true);
 
   // Fetch organization repositories
   const fetchRepositories = useCallback(async () => {
@@ -124,11 +150,28 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
     }
   }, [organization.id]);
 
+  // Fetch team analytics
+  const fetchAnalytics = useCallback(async () => {
+    setLoadingAnalytics(true);
+    try {
+      const res = await fetch(`/api/orgs/${organization.id}/analytics?days=30`);
+      const data = await res.json();
+      if (data.success) {
+        setAnalytics(data.data);
+      }
+    } catch (error) {
+      console.warn("Failed to fetch analytics:", error);
+    } finally {
+      setLoadingAnalytics(false);
+    }
+  }, [organization.id]);
+
   // Fetch data on mount
   useEffect(() => {
     fetchRepositories();
     fetchActivities();
-  }, [fetchRepositories, fetchActivities]);
+    fetchAnalytics();
+  }, [fetchRepositories, fetchActivities, fetchAnalytics]);
 
   const showSuccess = (message: string) => {
     setSuccessMsg(message);
@@ -295,6 +338,125 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
       </div>
 
       <div className="space-y-6">
+        {/* Team Analytics Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
+              Team Analytics
+              <span className="text-sm font-normal text-gray-500">(Last 30 days)</span>
+            </h2>
+            <button
+              onClick={fetchAnalytics}
+              disabled={loadingAnalytics}
+              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {loadingAnalytics ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+          {loadingAnalytics ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            </div>
+          ) : analytics ? (
+            <div className="p-6">
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
+                    <GitPullRequest className="w-4 h-4" />
+                    Total Reviews
+                  </div>
+                  <div className="text-2xl font-bold">{analytics.team.totalReviews}</div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {analytics.team.completedReviews} completed, {analytics.team.pendingReviews} pending
+                  </div>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
+                    <AlertTriangle className="w-4 h-4" />
+                    Issues Found
+                  </div>
+                  <div className="text-2xl font-bold">{analytics.team.totalIssuesFound}</div>
+                  <div className="text-xs text-red-500 mt-1">
+                    {analytics.team.criticalIssuesFound} critical/high severity
+                  </div>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
+                    <CheckCircle2 className="w-4 h-4" />
+                    Satisfaction
+                  </div>
+                  <div className="text-2xl font-bold">{analytics.team.satisfactionRate}%</div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Based on review feedback
+                  </div>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
+                    <Clock className="w-4 h-4" />
+                    Avg Review Time
+                  </div>
+                  <div className="text-2xl font-bold">
+                    {Math.round(analytics.team.avgProcessingTimeMs / 1000)}s
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Per review processing
+                  </div>
+                </div>
+              </div>
+
+              {/* Top Contributors */}
+              {analytics.developers.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4" />
+                    Top Contributors
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {analytics.developers.slice(0, 6).map((dev) => (
+                      <div
+                        key={dev.userId}
+                        className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+                      >
+                        {dev.avatarUrl ? (
+                          <Image
+                            src={dev.avatarUrl}
+                            alt={dev.username}
+                            width={32}
+                            height={32}
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
+                            <User className="w-4 h-4 text-gray-500" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm truncate">{dev.username}</div>
+                          <div className="text-xs text-gray-500">
+                            {dev.prsAuthored} PRs · {dev.avgIssuesPerPr} avg issues
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+              <BarChart3 className="w-10 h-10 mx-auto mb-3 opacity-50" />
+              <p className="text-sm">No analytics data available</p>
+              <p className="text-xs mt-1">Analytics will appear when reviews are generated</p>
+            </div>
+          )}
+        </div>
+
         {/* Repositories Section */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">

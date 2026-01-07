@@ -1,8 +1,3 @@
-import simpleGit from "simple-git";
-import { glob } from "glob";
-import * as fs from "fs/promises";
-import * as path from "path";
-import * as os from "os";
 import { db } from "@/lib/db";
 import { INDEXING_CONFIG } from "@/lib/constants";
 import {
@@ -17,18 +12,34 @@ import {
   createCollection,
   upsertChunks,
   deleteCollection,
+  deleteChunksByFile,
 } from "./qdrant";
+import { GitHubService } from "./github";
+
+interface IndexingResult {
+  fileCount: number;
+  chunkCount: number;
+  isIncremental: boolean;
+  stats: {
+    added: number;
+    modified: number;
+    deleted: number;
+    unchanged: number;
+  };
+}
 
 /**
- * Index a repository
+ * Index a repository using GitHub API (serverless-compatible)
+ * Supports incremental indexing by comparing file hashes
  */
 export async function indexRepository(
   repositoryId: string,
   _userId: string,
   fullName: string,
   defaultBranch: string,
-  accessToken: string
-): Promise<{ fileCount: number; chunkCount: number }> {
+  accessToken: string,
+  forceFullIndex: boolean = false
+): Promise<IndexingResult> {
   const parts = fullName.split("/");
   const owner = parts[0];
   const repo = parts[1];
@@ -37,8 +48,6 @@ export async function indexRepository(
     throw new Error("Invalid repository fullName format");
   }
 
-  const tempDir = path.join(os.tmpdir(), `revio-${repositoryId}`);
-
   try {
     // Update status to indexing
     await db.repository.update({
@@ -46,41 +55,156 @@ export async function indexRepository(
       data: { indexStatus: "indexing", indexProgress: 0, indexError: null },
     });
 
-    // Clone repository
+    // Initialize GitHub service
+    const github = new GitHubService(accessToken);
+
+    // Fetch repository file tree
     await updateProgress(repositoryId, 5);
-    await cloneRepository(owner, repo, defaultBranch, accessToken, tempDir);
+    const tree = await github.getRepositoryTree(owner, repo, defaultBranch);
 
-    // Discover files
-    await updateProgress(repositoryId, 15);
-    const files = await discoverFiles(tempDir);
+    // Filter files based on language and skip patterns
+    await updateProgress(repositoryId, 10);
+    const filesToIndex = tree.filter((file) => {
+      if (file.size > INDEXING_CONFIG.maxFileSize) return false;
+      const language = getLanguageFromPath(file.path);
+      if (!language) return false;
+      if (shouldSkipFile(file.path)) return false;
+      return true;
+    });
 
-    // Filter and read files
+    // Get existing indexed files for incremental comparison
+    const existingFiles = await db.indexedFile.findMany({
+      where: { repositoryId },
+      select: { filePath: true, fileHash: true },
+    });
+
+    const existingFileMap = new Map(
+      existingFiles.map((f) => [f.filePath, f.fileHash])
+    );
+
+    // Determine if we can do incremental indexing
+    const hasExistingIndex = existingFiles.length > 0;
+    const doIncremental = hasExistingIndex && !forceFullIndex;
+
+    if (!doIncremental) {
+      // Full index: delete existing collection and start fresh
+      await updateProgress(repositoryId, 15);
+      await deleteCollection(repositoryId);
+      await createCollection(repositoryId);
+    } else {
+      // Incremental: ensure collection exists
+      await updateProgress(repositoryId, 15);
+      await createCollection(repositoryId);
+    }
+
+    // Fetch file contents from GitHub API
     await updateProgress(repositoryId, 20);
-    const fileInfos = await readFiles(tempDir, files);
+    const filesWithContent = await github.getFilesContent(
+      owner,
+      repo,
+      filesToIndex.map((f) => ({ path: f.path, sha: f.sha })),
+      10
+    );
 
-    // Create Qdrant collection
+    // Calculate hashes and determine what changed
+    const currentFileInfos: FileInfo[] = [];
+    const stats = { added: 0, modified: 0, deleted: 0, unchanged: 0 };
+    const filesToProcess: FileInfo[] = [];
+    const currentFilePaths = new Set<string>();
+
+    for (const file of filesWithContent) {
+      if (!file.content.trim()) continue;
+
+      const language = getLanguageFromPath(file.path);
+      if (!language) continue;
+
+      const hash = calculateFileHash(file.content);
+      const fileInfo: FileInfo = {
+        path: file.path,
+        content: file.content,
+        language,
+        hash,
+      };
+
+      currentFileInfos.push(fileInfo);
+      currentFilePaths.add(file.path);
+
+      if (doIncremental) {
+        const existingHash = existingFileMap.get(file.path);
+        if (!existingHash) {
+          // New file
+          stats.added++;
+          filesToProcess.push(fileInfo);
+        } else if (existingHash !== hash) {
+          // Modified file - need to delete old chunks first
+          stats.modified++;
+          await deleteChunksByFile(repositoryId, file.path);
+          filesToProcess.push(fileInfo);
+        } else {
+          // Unchanged
+          stats.unchanged++;
+        }
+      } else {
+        // Full index - process all files
+        filesToProcess.push(fileInfo);
+      }
+    }
+
+    // Handle deleted files (only in incremental mode)
+    if (doIncremental) {
+      for (const existingPath of existingFileMap.keys()) {
+        if (!currentFilePaths.has(existingPath)) {
+          stats.deleted++;
+          await deleteChunksByFile(repositoryId, existingPath);
+        }
+      }
+    }
+
+    // Process files in parallel batches
     await updateProgress(repositoryId, 25);
-    await deleteCollection(repositoryId); // Clean up any existing
-    await createCollection(repositoryId);
-
-    // Process files in batches
     let totalChunks = 0;
-    const batchSize = 10;
-    const totalFiles = fileInfos.length;
+    const batchSize = 10; // Files per batch
+    const concurrentBatches = 3; // Number of batches to process in parallel
+    const totalFiles = filesToProcess.length;
 
-    for (let i = 0; i < fileInfos.length; i += batchSize) {
-      const batch = fileInfos.slice(i, i + batchSize);
-      const chunks = await processFileBatch(repositoryId, batch);
-      totalChunks += chunks;
+    if (totalFiles > 0) {
+      // Create all batches
+      const batches: FileInfo[][] = [];
+      for (let i = 0; i < filesToProcess.length; i += batchSize) {
+        batches.push(filesToProcess.slice(i, i + batchSize));
+      }
 
-      // Update progress (25% to 90%)
-      const progress = 25 + Math.floor(((i + batch.length) / totalFiles) * 65);
-      await updateProgress(repositoryId, progress);
+      // Process batches in parallel groups
+      let processedFiles = 0;
+      for (let i = 0; i < batches.length; i += concurrentBatches) {
+        const currentBatches = batches.slice(i, i + concurrentBatches);
+
+        // Process multiple batches concurrently
+        const results = await Promise.all(
+          currentBatches.map((batch) => processFileBatch(repositoryId, batch))
+        );
+
+        // Sum up chunks from all batches
+        totalChunks += results.reduce((sum, count) => sum + count, 0);
+
+        // Update progress (25% to 90%)
+        processedFiles += currentBatches.reduce((sum, batch) => sum + batch.length, 0);
+        const progress = 25 + Math.floor((processedFiles / totalFiles) * 65);
+        await updateProgress(repositoryId, progress);
+      }
+    } else {
+      // No files to process in incremental mode
+      await updateProgress(repositoryId, 90);
     }
 
     // Save indexed files to database
     await updateProgress(repositoryId, 95);
-    await saveIndexedFiles(repositoryId, fileInfos);
+    await saveIndexedFiles(repositoryId, currentFileInfos);
+
+    // Get total chunk count from existing + new
+    const existingChunkCount = doIncremental
+      ? await getExistingChunkCount(repositoryId, stats)
+      : 0;
 
     // Update final status
     await db.repository.update({
@@ -89,12 +213,17 @@ export async function indexRepository(
         indexStatus: "indexed",
         indexProgress: 100,
         indexedAt: new Date(),
-        fileCount: fileInfos.length,
-        chunkCount: totalChunks,
+        fileCount: currentFileInfos.length,
+        chunkCount: existingChunkCount + totalChunks,
       },
     });
 
-    return { fileCount: fileInfos.length, chunkCount: totalChunks };
+    return {
+      fileCount: currentFileInfos.length,
+      chunkCount: existingChunkCount + totalChunks,
+      isIncremental: doIncremental,
+      stats,
+    };
   } catch (error) {
     console.error("Indexing failed:", error);
 
@@ -107,14 +236,25 @@ export async function indexRepository(
     });
 
     throw error;
-  } finally {
-    // Clean up temp directory
-    try {
-      await fs.rm(tempDir, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
-    }
   }
+}
+
+/**
+ * Estimate existing chunk count after deletions
+ */
+async function getExistingChunkCount(
+  repositoryId: string,
+  stats: { modified: number; deleted: number }
+): Promise<number> {
+  const repo = await db.repository.findUnique({
+    where: { id: repositoryId },
+    select: { chunkCount: true },
+  });
+
+  // Rough estimate: subtract chunks from modified/deleted files
+  // Assume average of 10 chunks per file
+  const removedChunks = (stats.modified + stats.deleted) * 10;
+  return Math.max(0, (repo?.chunkCount ?? 0) - removedChunks);
 }
 
 async function updateProgress(repositoryId: string, progress: number) {
@@ -122,78 +262,6 @@ async function updateProgress(repositoryId: string, progress: number) {
     where: { id: repositoryId },
     data: { indexProgress: progress },
   });
-}
-
-async function cloneRepository(
-  owner: string,
-  repo: string,
-  branch: string,
-  accessToken: string,
-  destPath: string
-): Promise<void> {
-  // Ensure temp dir exists
-  await fs.mkdir(destPath, { recursive: true });
-
-  const git = simpleGit();
-  const cloneUrl = `https://x-access-token:${accessToken}@github.com/${owner}/${repo}.git`;
-
-  await git.clone(cloneUrl, destPath, [
-    "--depth",
-    "1",
-    "--branch",
-    branch,
-    "--single-branch",
-  ]);
-}
-
-async function discoverFiles(repoPath: string): Promise<string[]> {
-  const pattern = "**/*";
-  const files = await glob(pattern, {
-    cwd: repoPath,
-    nodir: true,
-    dot: false,
-    ignore: [...INDEXING_CONFIG.skipPatterns],
-  });
-
-  return files.filter((file) => {
-    const language = getLanguageFromPath(file);
-    return language !== null && !shouldSkipFile(file);
-  });
-}
-
-async function readFiles(
-  repoPath: string,
-  files: string[]
-): Promise<FileInfo[]> {
-  const fileInfos: FileInfo[] = [];
-
-  for (const file of files) {
-    const filePath = path.join(repoPath, file);
-    const stats = await fs.stat(filePath);
-
-    // Skip large files
-    if (stats.size > INDEXING_CONFIG.maxFileSize) {
-      continue;
-    }
-
-    try {
-      const content = await fs.readFile(filePath, "utf-8");
-      const language = getLanguageFromPath(file);
-
-      if (language && content.trim().length > 0) {
-        fileInfos.push({
-          path: file,
-          content,
-          language,
-          hash: calculateFileHash(content),
-        });
-      }
-    } catch {
-      // Skip files that can't be read
-    }
-  }
-
-  return fileInfos;
 }
 
 async function processFileBatch(
@@ -241,7 +309,7 @@ async function saveIndexedFiles(
       filePath: file.path,
       fileHash: file.hash,
       language: file.language,
-      chunkCount: 0, // Updated separately if needed
+      chunkCount: 0,
     })),
   });
 }

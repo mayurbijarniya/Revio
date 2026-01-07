@@ -394,4 +394,86 @@ export class GitHubService {
       created_at: pr.created_at,
     }));
   }
+
+  /**
+   * Get repository file tree (all files recursively)
+   * Uses Git Trees API for efficient fetching
+   */
+  async getRepositoryTree(
+    owner: string,
+    repo: string,
+    branch: string
+  ): Promise<Array<{ path: string; size: number; sha: string }>> {
+    const { data } = await this.octokit.rest.git.getTree({
+      owner,
+      repo,
+      tree_sha: branch,
+      recursive: "true",
+    });
+
+    // Filter to only include files (blobs), not directories (trees)
+    return data.tree
+      .filter((item) => item.type === "blob" && item.path && item.size !== undefined)
+      .map((item) => ({
+        path: item.path as string,
+        size: item.size as number,
+        sha: item.sha as string,
+      }));
+  }
+
+  /**
+   * Get raw file content by blob SHA (more efficient for large repos)
+   */
+  async getBlobContent(
+    owner: string,
+    repo: string,
+    sha: string
+  ): Promise<string> {
+    const { data } = await this.octokit.rest.git.getBlob({
+      owner,
+      repo,
+      file_sha: sha,
+    });
+
+    if (data.encoding === "base64") {
+      return Buffer.from(data.content, "base64").toString("utf-8");
+    }
+
+    return data.content;
+  }
+
+  /**
+   * Get multiple files content in parallel batches
+   */
+  async getFilesContent(
+    owner: string,
+    repo: string,
+    files: Array<{ path: string; sha: string }>,
+    batchSize: number = 10
+  ): Promise<Array<{ path: string; content: string }>> {
+    const results: Array<{ path: string; content: string }> = [];
+
+    for (let i = 0; i < files.length; i += batchSize) {
+      const batch = files.slice(i, i + batchSize);
+      const batchResults = await Promise.all(
+        batch.map(async (file) => {
+          try {
+            const content = await this.getBlobContent(owner, repo, file.sha);
+            return { path: file.path, content };
+          } catch {
+            // Skip files that can't be read (binary, too large, etc.)
+            return null;
+          }
+        })
+      );
+
+      results.push(
+        ...batchResults.filter(
+          (r): r is { path: string; content: string } => r !== null
+        )
+      );
+    }
+
+    return results;
+  }
 }

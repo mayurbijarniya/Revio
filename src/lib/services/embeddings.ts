@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { createHash } from "crypto";
 import { AI_CONFIG } from "@/lib/constants";
 
 const getOpenAIClient = () => {
@@ -8,6 +9,106 @@ const getOpenAIClient = () => {
   }
   return new OpenAI({ apiKey });
 };
+
+/**
+ * In-memory embedding cache with LRU eviction
+ * Key: content hash, Value: embedding vector
+ */
+class EmbeddingCache {
+  private cache: Map<string, number[]> = new Map();
+  private maxSize: number;
+  private hits: number = 0;
+  private misses: number = 0;
+
+  constructor(maxSize: number = 10000) {
+    this.maxSize = maxSize;
+  }
+
+  private hashContent(text: string): string {
+    return createHash("sha256").update(text).digest("hex").substring(0, 16);
+  }
+
+  get(text: string): number[] | undefined {
+    const hash = this.hashContent(text);
+    const embedding = this.cache.get(hash);
+    if (embedding) {
+      this.hits++;
+      // Move to end for LRU
+      this.cache.delete(hash);
+      this.cache.set(hash, embedding);
+      return embedding;
+    }
+    this.misses++;
+    return undefined;
+  }
+
+  set(text: string, embedding: number[]): void {
+    const hash = this.hashContent(text);
+
+    // Evict oldest entries if at capacity
+    if (this.cache.size >= this.maxSize) {
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey) {
+        this.cache.delete(firstKey);
+      }
+    }
+
+    this.cache.set(hash, embedding);
+  }
+
+  getMany(texts: string[]): Map<number, number[]> {
+    const results = new Map<number, number[]>();
+    texts.forEach((text, index) => {
+      const embedding = this.get(text);
+      if (embedding) {
+        results.set(index, embedding);
+      }
+    });
+    return results;
+  }
+
+  setMany(texts: string[], embeddings: number[][]): void {
+    texts.forEach((text, index) => {
+      const embedding = embeddings[index];
+      if (embedding) {
+        this.set(text, embedding);
+      }
+    });
+  }
+
+  getStats(): { hits: number; misses: number; size: number; hitRate: number } {
+    const total = this.hits + this.misses;
+    return {
+      hits: this.hits,
+      misses: this.misses,
+      size: this.cache.size,
+      hitRate: total > 0 ? this.hits / total : 0,
+    };
+  }
+
+  clear(): void {
+    this.cache.clear();
+    this.hits = 0;
+    this.misses = 0;
+  }
+}
+
+// Global embedding cache instance
+const embeddingCache = new EmbeddingCache(10000);
+
+/**
+ * Get embedding cache statistics
+ */
+export function getEmbeddingCacheStats() {
+  return embeddingCache.getStats();
+}
+
+/**
+ * Clear the embedding cache
+ */
+export function clearEmbeddingCache() {
+  embeddingCache.clear();
+}
 
 /**
  * Code chunk for embedding
@@ -51,27 +152,66 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 }
 
 /**
- * Generate embeddings for multiple texts (batch)
+ * Generate embeddings for multiple texts (batch) with caching
  */
-export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
+export async function generateEmbeddings(
+  texts: string[],
+  useCache: boolean = true
+): Promise<number[][]> {
   if (texts.length === 0) return [];
 
   const client = getOpenAIClient();
+  const embeddings: number[][] = new Array(texts.length);
 
-  // OpenAI allows up to 2048 inputs per request
-  const batchSize = 100;
-  const embeddings: number[][] = [];
+  // Check cache first
+  const uncachedIndices: number[] = [];
+  const uncachedTexts: string[] = [];
 
-  for (let i = 0; i < texts.length; i += batchSize) {
-    const batch = texts.slice(i, i + batchSize);
-
-    const response = await client.embeddings.create({
-      model: AI_CONFIG.embedding.model,
-      input: batch,
-      dimensions: AI_CONFIG.embedding.dimensions,
+  if (useCache) {
+    texts.forEach((text, index) => {
+      const cached = embeddingCache.get(text);
+      if (cached) {
+        embeddings[index] = cached;
+      } else {
+        uncachedIndices.push(index);
+        uncachedTexts.push(text);
+      }
     });
+  } else {
+    texts.forEach((_, index) => {
+      uncachedIndices.push(index);
+    });
+    uncachedTexts.push(...texts);
+  }
 
-    embeddings.push(...response.data.map((d) => d.embedding));
+  // Generate embeddings for uncached texts
+  if (uncachedTexts.length > 0) {
+    // OpenAI allows up to 2048 inputs per request
+    const batchSize = 100;
+    const newEmbeddings: number[][] = [];
+
+    for (let i = 0; i < uncachedTexts.length; i += batchSize) {
+      const batch = uncachedTexts.slice(i, i + batchSize);
+
+      const response = await client.embeddings.create({
+        model: AI_CONFIG.embedding.model,
+        input: batch,
+        dimensions: AI_CONFIG.embedding.dimensions,
+      });
+
+      newEmbeddings.push(...response.data.map((d) => d.embedding));
+    }
+
+    // Store in cache and result array
+    uncachedIndices.forEach((originalIndex, newIndex) => {
+      const embedding = newEmbeddings[newIndex];
+      if (embedding) {
+        embeddings[originalIndex] = embedding;
+        if (useCache) {
+          embeddingCache.set(texts[originalIndex] ?? "", embedding);
+        }
+      }
+    });
   }
 
   return embeddings;

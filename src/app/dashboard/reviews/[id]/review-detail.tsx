@@ -1,0 +1,558 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  ExternalLink,
+  Clock,
+  Zap,
+  FileCode,
+  AlertTriangle,
+  AlertCircle,
+  Info,
+  Lightbulb,
+  CheckCircle2,
+  XCircle,
+  ThumbsUp,
+  ThumbsDown,
+  ChevronDown,
+  ChevronRight,
+  Shield,
+  Bug,
+  Gauge,
+  Palette,
+  Brain,
+  AlertOctagon,
+  TestTube,
+  FileText,
+  Loader2,
+  GitPullRequest,
+  User,
+  Calendar,
+} from "lucide-react";
+
+interface ReviewIssue {
+  file?: string;
+  filePath?: string;
+  line?: number;
+  severity?: string;
+  category?: string;
+  title?: string;
+  description?: string;
+  suggestion?: string;
+  ruleId?: string;
+}
+
+interface ReviewSuggestion {
+  title?: string;
+  description?: string;
+  priority?: string;
+}
+
+interface FileAnalyzed {
+  path?: string;
+  changes?: number;
+  additions?: number;
+  deletions?: number;
+}
+
+interface ReviewData {
+  id: string;
+  prNumber: number;
+  prTitle: string | null;
+  prUrl: string;
+  prAuthor: string | null;
+  status: string;
+  summary: string | null;
+  issues: ReviewIssue[];
+  issuesByFile: Record<string, ReviewIssue[]>;
+  issueCount: number;
+  severityCounts: Record<string, number>;
+  categoryCounts: Record<string, number>;
+  suggestions: ReviewSuggestion[];
+  filesAnalyzed: FileAnalyzed[];
+  feedback: string | null;
+  feedbackComment: string | null;
+  feedbackAt: string | null;
+  processingTimeMs: number | null;
+  tokensUsed: number | null;
+  githubCommentId: string | null;
+  createdAt: string;
+  repository: {
+    id: string;
+    name: string;
+    fullName: string;
+  };
+  requestedBy: {
+    id: string;
+    githubUsername: string;
+    avatarUrl: string | null;
+  } | null;
+  assignedTo: {
+    id: string;
+    githubUsername: string;
+    avatarUrl: string | null;
+  } | null;
+}
+
+interface ReviewDetailProps {
+  reviewId: string;
+}
+
+const SEVERITY_CONFIG: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
+  critical: { icon: AlertOctagon, color: "text-red-600", bg: "bg-red-100" },
+  high: { icon: AlertTriangle, color: "text-orange-600", bg: "bg-orange-100" },
+  warning: { icon: AlertCircle, color: "text-amber-600", bg: "bg-amber-100" },
+  medium: { icon: AlertCircle, color: "text-amber-600", bg: "bg-amber-100" },
+  low: { icon: Info, color: "text-blue-600", bg: "bg-blue-100" },
+  info: { icon: Info, color: "text-blue-600", bg: "bg-blue-100" },
+  suggestion: { icon: Lightbulb, color: "text-green-600", bg: "bg-green-100" },
+};
+
+const CATEGORY_CONFIG: Record<string, { icon: React.ElementType; label: string }> = {
+  security: { icon: Shield, label: "Security" },
+  bug: { icon: Bug, label: "Bug" },
+  performance: { icon: Gauge, label: "Performance" },
+  style: { icon: Palette, label: "Style" },
+  logic: { icon: Brain, label: "Logic" },
+  error_handling: { icon: AlertOctagon, label: "Error Handling" },
+  testing: { icon: TestTube, label: "Testing" },
+  documentation: { icon: FileText, label: "Documentation" },
+  other: { icon: FileCode, label: "Other" },
+};
+
+export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
+  const [review, setReview] = useState<ReviewData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+
+  const fetchReview = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/reviews/${reviewId}`);
+      const data = await res.json();
+
+      if (!data.success) {
+        setError(data.error?.message || "Failed to load review");
+        return;
+      }
+
+      setReview(data.data);
+      // Expand all files by default
+      if (data.data.issuesByFile) {
+        setExpandedFiles(new Set(Object.keys(data.data.issuesByFile)));
+      }
+    } catch {
+      setError("Failed to load review");
+    } finally {
+      setLoading(false);
+    }
+  }, [reviewId]);
+
+  useEffect(() => {
+    fetchReview();
+  }, [fetchReview]);
+
+  const handleFeedback = async (feedback: "helpful" | "not_helpful") => {
+    if (!review) return;
+
+    try {
+      setFeedbackLoading(true);
+
+      // Toggle off if same feedback
+      if (review.feedback === feedback) {
+        await fetch(`/api/reviews/${reviewId}/feedback`, { method: "DELETE" });
+        setReview({ ...review, feedback: null, feedbackAt: null });
+      } else {
+        const res = await fetch(`/api/reviews/${reviewId}/feedback`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ feedback }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setReview({ ...review, feedback, feedbackAt: new Date().toISOString() });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to submit feedback:", err);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
+  const toggleFile = (file: string) => {
+    const newExpanded = new Set(expandedFiles);
+    if (newExpanded.has(file)) {
+      newExpanded.delete(file);
+    } else {
+      newExpanded.add(file);
+    }
+    setExpandedFiles(newExpanded);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-[#4F46E5]" />
+      </div>
+    );
+  }
+
+  if (error || !review) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 text-red-600 p-4 rounded-lg">
+          {error || "Review not found"}
+        </div>
+        <Link
+          href="/dashboard/reviews"
+          className="mt-4 inline-flex items-center gap-2 text-[#4F46E5] hover:underline"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Reviews
+        </Link>
+      </div>
+    );
+  }
+
+  const statusConfig = {
+    completed: { icon: CheckCircle2, color: "text-green-600", bg: "bg-green-100", label: "Completed" },
+    failed: { icon: XCircle, color: "text-red-600", bg: "bg-red-100", label: "Failed" },
+    pending: { icon: Clock, color: "text-amber-600", bg: "bg-amber-100", label: "Pending" },
+  };
+
+  const status = statusConfig[review.status as keyof typeof statusConfig] || statusConfig.pending;
+  const StatusIcon = status.icon;
+
+  return (
+    <div className="p-6 max-w-6xl mx-auto">
+      {/* Header */}
+      <div className="mb-6">
+        <Link
+          href="/dashboard/reviews"
+          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Reviews
+        </Link>
+
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <GitPullRequest className="h-6 w-6 text-[#4F46E5]" />
+              <h1 className="text-2xl font-bold text-gray-900">
+                #{review.prNumber} {review.prTitle || "Pull Request"}
+              </h1>
+              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-medium ${status.bg} ${status.color}`}>
+                <StatusIcon className="h-4 w-4" />
+                {status.label}
+              </span>
+            </div>
+            <div className="flex items-center gap-4 text-sm text-gray-500">
+              <Link
+                href={`/dashboard/repos/${review.repository.id}`}
+                className="hover:text-[#4F46E5]"
+              >
+                {review.repository.fullName}
+              </Link>
+              {review.prAuthor && (
+                <span className="flex items-center gap-1">
+                  <User className="h-4 w-4" />
+                  {review.prAuthor}
+                </span>
+              )}
+              <span className="flex items-center gap-1">
+                <Calendar className="h-4 w-4" />
+                {new Date(review.createdAt).toLocaleDateString()}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <a
+              href={review.prUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+            >
+              <ExternalLink className="h-4 w-4" />
+              View on GitHub
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="text-sm text-gray-500 mb-1">Total Issues</div>
+          <div className="text-2xl font-bold text-gray-900">{review.issueCount}</div>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="text-sm text-gray-500 mb-1">Files Analyzed</div>
+          <div className="text-2xl font-bold text-gray-900">{review.filesAnalyzed.length}</div>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="text-sm text-gray-500 mb-1">Processing Time</div>
+          <div className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Clock className="h-5 w-5 text-gray-400" />
+            {review.processingTimeMs ? `${(review.processingTimeMs / 1000).toFixed(1)}s` : "-"}
+          </div>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="text-sm text-gray-500 mb-1">Tokens Used</div>
+          <div className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Zap className="h-5 w-5 text-gray-400" />
+            {review.tokensUsed?.toLocaleString() || "-"}
+          </div>
+        </div>
+      </div>
+
+      {/* Severity Breakdown */}
+      {review.issueCount > 0 && (
+        <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+          <h3 className="font-semibold text-gray-900 mb-3">Issue Severity Breakdown</h3>
+          <div className="flex flex-wrap gap-4">
+            {Object.entries(review.severityCounts)
+              .filter(([, count]) => count > 0)
+              .map(([severity, count]) => {
+                const config = SEVERITY_CONFIG[severity] ?? SEVERITY_CONFIG.info;
+                const SevIcon = config?.icon ?? Info;
+                return (
+                  <div key={severity} className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg ${config?.bg ?? "bg-blue-100"}`}>
+                    <SevIcon className={`h-4 w-4 ${config?.color ?? "text-blue-600"}`} />
+                    <span className={`font-medium ${config?.color ?? "text-blue-600"}`}>
+                      {count} {severity.charAt(0).toUpperCase() + severity.slice(1)}
+                    </span>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
+      {/* Summary */}
+      {review.summary && (
+        <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-3">Review Summary</h2>
+          <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap">
+            {review.summary}
+          </div>
+        </div>
+      )}
+
+      {/* Feedback Section */}
+      {review.status === "completed" && (
+        <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-600">Was this review helpful?</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleFeedback("helpful")}
+                disabled={feedbackLoading}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors ${
+                  review.feedback === "helpful"
+                    ? "bg-green-100 text-green-700"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                <ThumbsUp className="h-4 w-4" />
+                Helpful
+              </button>
+              <button
+                onClick={() => handleFeedback("not_helpful")}
+                disabled={feedbackLoading}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors ${
+                  review.feedback === "not_helpful"
+                    ? "bg-red-100 text-red-700"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                <ThumbsDown className="h-4 w-4" />
+                Not Helpful
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Issues by File */}
+      {review.issueCount > 0 && (
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-6">
+          <div className="p-4 border-b border-gray-200 bg-gray-50">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Issues Found ({review.issueCount})
+            </h2>
+          </div>
+
+          <div className="divide-y divide-gray-200">
+            {Object.entries(review.issuesByFile).map(([file, issues]) => (
+              <div key={file}>
+                {/* File Header */}
+                <button
+                  onClick={() => toggleFile(file)}
+                  className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 text-left"
+                >
+                  {expandedFiles.has(file) ? (
+                    <ChevronDown className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-gray-400" />
+                  )}
+                  <FileCode className="h-5 w-5 text-gray-400" />
+                  <span className="font-medium text-gray-900 flex-1">{file}</span>
+                  <span className="text-sm text-gray-500">{issues?.length || 0} issues</span>
+                </button>
+
+                {/* Issues List */}
+                {expandedFiles.has(file) && issues && (
+                  <div className="border-t border-gray-100 bg-gray-50">
+                    {issues.map((issue, idx) => {
+                      const sevConfig = SEVERITY_CONFIG[issue.severity || "info"] ?? SEVERITY_CONFIG.info;
+                      const SevIcon = sevConfig?.icon ?? Info;
+                      const catConfig = CATEGORY_CONFIG[issue.category || "other"] ?? CATEGORY_CONFIG.other;
+                      const CatIcon = catConfig?.icon ?? FileCode;
+                      const sevBg = sevConfig?.bg ?? "bg-blue-100";
+                      const sevColor = sevConfig?.color ?? "text-blue-600";
+                      const catLabel = catConfig?.label ?? "Other";
+
+                      return (
+                        <div
+                          key={idx}
+                          className="p-4 border-b border-gray-100 last:border-b-0"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={`p-1.5 rounded ${sevBg}`}>
+                              <SevIcon className={`h-4 w-4 ${sevColor}`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-medium text-gray-900">
+                                  {issue.title || "Issue"}
+                                </span>
+                                {issue.line && (
+                                  <span className="text-sm text-gray-500">
+                                    Line {issue.line}
+                                  </span>
+                                )}
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${sevBg} ${sevColor}`}>
+                                  {issue.severity || "info"}
+                                </span>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                                  <CatIcon className="h-3 w-3" />
+                                  {catLabel}
+                                </span>
+                              </div>
+                              {issue.description && (
+                                <p className="text-sm text-gray-600 mb-2">
+                                  {issue.description}
+                                </p>
+                              )}
+                              {issue.suggestion && (
+                                <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                  <div className="flex items-center gap-2 text-green-700 text-sm font-medium mb-1">
+                                    <Lightbulb className="h-4 w-4" />
+                                    Suggestion
+                                  </div>
+                                  <p className="text-sm text-green-800">
+                                    {issue.suggestion}
+                                  </p>
+                                </div>
+                              )}
+                              {issue.ruleId && (
+                                <div className="mt-2 text-xs text-gray-400">
+                                  Rule: {issue.ruleId}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* No Issues State */}
+      {review.status === "completed" && review.issueCount === 0 && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6 text-center">
+          <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
+          <h3 className="text-lg font-semibold text-green-800 mb-1">No Issues Found!</h3>
+          <p className="text-green-600">This pull request looks good. Great job!</p>
+        </div>
+      )}
+
+      {/* Suggestions */}
+      {review.suggestions && review.suggestions.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-6">
+          <div className="p-4 border-b border-gray-200 bg-gray-50">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Suggestions ({review.suggestions.length})
+            </h2>
+          </div>
+          <div className="divide-y divide-gray-200">
+            {review.suggestions.map((suggestion, idx) => (
+              <div key={idx} className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-1.5 rounded bg-blue-100">
+                    <Lightbulb className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-1">
+                      {suggestion.title || `Suggestion ${idx + 1}`}
+                    </h4>
+                    <p className="text-sm text-gray-600">{suggestion.description}</p>
+                    {suggestion.priority && (
+                      <span className="inline-block mt-2 text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">
+                        Priority: {suggestion.priority}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Files Analyzed */}
+      {review.filesAnalyzed && review.filesAnalyzed.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="p-4 border-b border-gray-200 bg-gray-50">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Files Analyzed ({review.filesAnalyzed.length})
+            </h2>
+          </div>
+          <div className="divide-y divide-gray-200 max-h-[400px] overflow-y-auto">
+            {review.filesAnalyzed.map((file, idx) => (
+              <div key={idx} className="flex items-center gap-3 p-3 hover:bg-gray-50">
+                <FileCode className="h-4 w-4 text-gray-400" />
+                <span className="flex-1 text-sm font-mono text-gray-700">
+                  {file.path || "Unknown file"}
+                </span>
+                {(file.additions !== undefined || file.deletions !== undefined) && (
+                  <span className="text-xs text-gray-500">
+                    {file.additions !== undefined && (
+                      <span className="text-green-600">+{file.additions}</span>
+                    )}
+                    {file.additions !== undefined && file.deletions !== undefined && " / "}
+                    {file.deletions !== undefined && (
+                      <span className="text-red-600">-{file.deletions}</span>
+                    )}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
