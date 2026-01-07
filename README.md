@@ -1,5 +1,9 @@
 # Revio
 
+[![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+
 **AI-Powered Code Review Platform**
 
 Revio is an intelligent code review agent that understands your codebase context. Connect your GitHub repositories to get automated PR reviews, natural language code search, and chat-based code assistance.
