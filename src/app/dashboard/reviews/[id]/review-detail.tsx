@@ -28,6 +28,7 @@ import {
   FileText,
   Loader2,
   GitPullRequest,
+  GitMerge,
   User,
   Calendar,
 } from "lucide-react";
@@ -72,6 +73,10 @@ interface ReviewData {
   categoryCounts: Record<string, number>;
   suggestions: ReviewSuggestion[];
   filesAnalyzed: FileAnalyzed[];
+  recommendation: string | null;
+  riskLevel: string | null;
+  mergeVerdict: "ready" | "needs_changes" | "review" | "pending";
+  mergeMessage: string;
   feedback: string | null;
   feedbackComment: string | null;
   feedbackAt: string | null;
@@ -311,6 +316,117 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
           </div>
         </div>
       </div>
+
+      {/* Merge Readiness Verdict */}
+      {review.status === "completed" && (
+        <div
+          className={`rounded-lg p-4 mb-6 border-2 ${
+            review.mergeVerdict === "ready"
+              ? "bg-green-50 border-green-300"
+              : review.mergeVerdict === "needs_changes"
+              ? "bg-red-50 border-red-300"
+              : review.mergeVerdict === "review"
+              ? "bg-amber-50 border-amber-300"
+              : "bg-gray-50 border-gray-300"
+          }`}
+        >
+          <div className="flex items-center gap-4">
+            <div
+              className={`p-3 rounded-full ${
+                review.mergeVerdict === "ready"
+                  ? "bg-green-100"
+                  : review.mergeVerdict === "needs_changes"
+                  ? "bg-red-100"
+                  : review.mergeVerdict === "review"
+                  ? "bg-amber-100"
+                  : "bg-gray-100"
+              }`}
+            >
+              {review.mergeVerdict === "ready" ? (
+                <GitMerge className="h-6 w-6 text-green-600" />
+              ) : review.mergeVerdict === "needs_changes" ? (
+                <XCircle className="h-6 w-6 text-red-600" />
+              ) : review.mergeVerdict === "review" ? (
+                <AlertCircle className="h-6 w-6 text-amber-600" />
+              ) : (
+                <Clock className="h-6 w-6 text-gray-600" />
+              )}
+            </div>
+            <div className="flex-1">
+              <h3
+                className={`text-lg font-semibold ${
+                  review.mergeVerdict === "ready"
+                    ? "text-green-800"
+                    : review.mergeVerdict === "needs_changes"
+                    ? "text-red-800"
+                    : review.mergeVerdict === "review"
+                    ? "text-amber-800"
+                    : "text-gray-800"
+                }`}
+              >
+                {review.mergeVerdict === "ready"
+                  ? "Ready to Merge"
+                  : review.mergeVerdict === "needs_changes"
+                  ? "Changes Required"
+                  : review.mergeVerdict === "review"
+                  ? "Review Recommended"
+                  : "Review Pending"}
+              </h3>
+              <p
+                className={`text-sm ${
+                  review.mergeVerdict === "ready"
+                    ? "text-green-600"
+                    : review.mergeVerdict === "needs_changes"
+                    ? "text-red-600"
+                    : review.mergeVerdict === "review"
+                    ? "text-amber-600"
+                    : "text-gray-600"
+                }`}
+              >
+                {review.mergeMessage}
+              </p>
+            </div>
+            {review.recommendation && (
+              <div className="text-right">
+                <div className="text-xs text-gray-500 mb-1">AI Recommendation</div>
+                <span
+                  className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ${
+                    review.recommendation === "approve"
+                      ? "bg-green-100 text-green-700"
+                      : review.recommendation === "request_changes"
+                      ? "bg-red-100 text-red-700"
+                      : "bg-gray-100 text-gray-700"
+                  }`}
+                >
+                  {review.recommendation === "approve"
+                    ? "Approve"
+                    : review.recommendation === "request_changes"
+                    ? "Request Changes"
+                    : "Comment"}
+                </span>
+              </div>
+            )}
+            {review.riskLevel && (
+              <div className="text-right">
+                <div className="text-xs text-gray-500 mb-1">Risk Level</div>
+                <span
+                  className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ${
+                    review.riskLevel === "critical"
+                      ? "bg-red-100 text-red-700"
+                      : review.riskLevel === "high"
+                      ? "bg-orange-100 text-orange-700"
+                      : review.riskLevel === "medium"
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-green-100 text-green-700"
+                  }`}
+                >
+                  {review.riskLevel.charAt(0).toUpperCase() + review.riskLevel.slice(1)}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Severity Breakdown */}
       {review.issueCount > 0 && (

@@ -26,6 +26,49 @@ export interface RetrievedContext {
 }
 
 /**
+ * Search filters for narrowing down results
+ */
+export interface SearchFilters {
+  /** File extensions to include (e.g., ['ts', 'tsx']) */
+  extensions?: string[];
+  /** Directory patterns to include (e.g., ['src/components', 'lib/']) */
+  paths?: string[];
+  /** Code construct types to include (e.g., ['function', 'class']) */
+  types?: string[];
+}
+
+/**
+ * Apply filters to search results
+ */
+function applyFilters(results: SearchResult[], filters: SearchFilters): SearchResult[] {
+  let filtered = results;
+
+  // Filter by extensions
+  if (filters.extensions && filters.extensions.length > 0) {
+    const exts = filters.extensions.map((e) => e.toLowerCase().replace(/^\./, ""));
+    filtered = filtered.filter((r) => {
+      const ext = r.filePath.split(".").pop()?.toLowerCase() || "";
+      return exts.includes(ext);
+    });
+  }
+
+  // Filter by paths
+  if (filters.paths && filters.paths.length > 0) {
+    filtered = filtered.filter((r) => {
+      return filters.paths!.some((path) => r.filePath.toLowerCase().includes(path.toLowerCase()));
+    });
+  }
+
+  // Filter by types
+  if (filters.types && filters.types.length > 0) {
+    const types = filters.types.map((t) => t.toLowerCase());
+    filtered = filtered.filter((r) => types.includes(r.type.toLowerCase()));
+  }
+
+  return filtered;
+}
+
+/**
  * Retrieve relevant code context for a query
  */
 export async function retrieveContext(
@@ -35,27 +78,33 @@ export async function retrieveContext(
     maxChunks?: number;
     maxTokens?: number;
     scoreThreshold?: number;
+    filters?: SearchFilters;
   } = {}
 ): Promise<RetrievedContext> {
   const {
     maxChunks = REVIEW_CONFIG.maxContextChunks,
     maxTokens = REVIEW_CONFIG.maxContextTokens,
     scoreThreshold = REVIEW_CONFIG.minScoreThreshold,
+    filters,
   } = options;
 
   // Generate embedding for the query
   const queryEmbedding = await generateEmbedding(query);
 
-  // Search for similar chunks
+  // Search for similar chunks - get more if we have filters
+  const searchLimit = filters ? maxChunks * 4 : maxChunks * 2;
   const results = await searchChunks(
     repositoryId,
     queryEmbedding,
-    maxChunks * 2, // Get more than needed for filtering
+    searchLimit,
     scoreThreshold
   );
 
+  // Apply filters if provided
+  const filteredResults = filters ? applyFilters(results, filters) : results;
+
   // Convert and deduplicate results
-  const chunks = deduplicateAndRank(results);
+  const chunks = deduplicateAndRank(filteredResults);
 
   // Limit by tokens
   const { selectedChunks, totalTokens } = selectByTokenLimit(chunks, maxTokens);
@@ -208,31 +257,37 @@ export async function retrieveMultiRepoContext(
     maxChunks?: number;
     maxTokens?: number;
     scoreThreshold?: number;
+    filters?: SearchFilters;
   } = {}
 ): Promise<RetrievedContext> {
   const {
     maxChunks = REVIEW_CONFIG.maxContextChunks,
     maxTokens = REVIEW_CONFIG.maxContextTokens,
     scoreThreshold = REVIEW_CONFIG.minScoreThreshold,
+    filters,
   } = options;
 
   // Generate embedding for the query
   const queryEmbedding = await generateEmbedding(query);
 
-  // Search each repository
+  // Search each repository - get more if we have filters
   const allResults: SearchResult[] = [];
+  const searchMultiplier = filters ? 4 : 2;
   for (const repositoryId of repositoryIds) {
     const results = await searchChunks(
       repositoryId,
       queryEmbedding,
-      Math.ceil(maxChunks / repositoryIds.length) * 2, // Get more for filtering
+      Math.ceil(maxChunks / repositoryIds.length) * searchMultiplier,
       scoreThreshold
     );
     allResults.push(...results);
   }
 
+  // Apply filters if provided
+  const filteredResults = filters ? applyFilters(allResults, filters) : allResults;
+
   // Convert and deduplicate results
-  const chunks = deduplicateAndRank(allResults);
+  const chunks = deduplicateAndRank(filteredResults);
 
   // Limit by tokens
   const { selectedChunks, totalTokens } = selectByTokenLimit(chunks, maxTokens);

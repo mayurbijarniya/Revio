@@ -107,6 +107,30 @@ export async function GET(_request: Request, { params }: RouteParams) {
       }
     }
 
+    // Determine merge readiness based on recommendation and issues
+    const recommendation = (review as { recommendation?: string }).recommendation || null;
+    const riskLevel = (review as { riskLevel?: string }).riskLevel || null;
+
+    // Calculate merge readiness verdict
+    let mergeVerdict: "ready" | "needs_changes" | "review" | "pending" = "pending";
+    let mergeMessage = "Review is still in progress.";
+
+    if (review.status === "completed") {
+      const criticalCount = severityCounts.critical || 0;
+      const highCount = severityCounts.high || 0;
+
+      if (recommendation === "approve" && criticalCount === 0 && highCount === 0) {
+        mergeVerdict = "ready";
+        mergeMessage = "This PR looks good and is ready to merge!";
+      } else if (recommendation === "request_changes" || criticalCount > 0 || highCount > 0) {
+        mergeVerdict = "needs_changes";
+        mergeMessage = `This PR requires changes before merging. Found ${criticalCount} critical and ${highCount} high severity issues.`;
+      } else {
+        mergeVerdict = "review";
+        mergeMessage = "This PR has some items to address but may be mergeable after review.";
+      }
+    }
+
     return jsonSuccess({
       id: review.id,
       prNumber: review.prNumber,
@@ -122,6 +146,10 @@ export async function GET(_request: Request, { params }: RouteParams) {
       categoryCounts,
       suggestions: suggestions || [],
       filesAnalyzed: filesAnalyzed || [],
+      recommendation,
+      riskLevel,
+      mergeVerdict,
+      mergeMessage,
       feedback: review.feedback,
       feedbackComment: review.feedbackComment,
       feedbackAt: review.feedbackAt,
