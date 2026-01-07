@@ -12,6 +12,18 @@ Revio is an intelligent code review agent that understands your codebase context
 - **Security Analysis** - Automatic detection of security vulnerabilities and best practice violations
 - **Analytics Dashboard** - Track review metrics, code quality trends, and team activity
 
+## How It Works
+
+Revio transforms the traditional code review process by leveraging advanced AI models combined with deep codebase understanding. When you connect a repository, Revio indexes your entire codebase using semantic embeddings, creating a searchable knowledge graph of your code structure, patterns, and relationships. This isn't just keyword matching - Revio understands the intent and purpose behind your code.
+
+When a pull request is opened, Revio's AI agent retrieves relevant context from your indexed codebase, including related functions, similar patterns, and architectural conventions your team follows. This context-aware approach means reviews aren't generic suggestions from an AI that doesn't understand your project - they're specific, actionable insights that respect your codebase's unique style and requirements.
+
+The review process analyzes multiple dimensions: code correctness, security vulnerabilities, performance implications, maintainability concerns, and adherence to your team's established patterns. Each issue is categorized by severity (critical, warning, or suggestion) and includes concrete recommendations for improvement. For security issues, Revio provides detailed explanations of the vulnerability, potential attack vectors, and remediation steps.
+
+Beyond PR reviews, the Code Chat feature lets you have natural conversations about your codebase. Ask questions like "How does authentication work in this project?" or "Show me all the places where we handle payment processing" and get accurate, contextual answers backed by your actual code. This is especially valuable for onboarding new team members or when working with unfamiliar parts of a large codebase.
+
+The Analytics Dashboard provides insights into your team's code quality trends over time, tracking metrics like issues per review, common vulnerability categories, and files that frequently require fixes. This data helps identify systemic issues and measure the impact of your code quality initiatives.
+
 ## Tech Stack
 
 - **Framework**: Next.js 15 (App Router)
