@@ -384,9 +384,12 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
                           {status.label}
                         </span>
                       </div>
-                      <h3 className="font-medium truncate pr-4">
+                      <Link
+                        href={`/dashboard/reviews/${review.id}`}
+                        className="font-medium truncate pr-4 hover:text-[#4F46E5] transition-colors block"
+                      >
                         {review.prTitle || `Pull Request #${review.prNumber}`}
-                      </h3>
+                      </Link>
                       {review.summary && (
                         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
                           {review.summary}
@@ -433,6 +436,12 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
                           )}
                         </div>
                       )}
+                      <Link
+                        href={`/dashboard/reviews/${review.id}`}
+                        className="flex items-center gap-1 px-3 py-1.5 text-sm bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] transition-colors"
+                      >
+                        View Details
+                      </Link>
                       {review.prUrl && (
                         <a
                           href={review.prUrl}
@@ -441,7 +450,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
                           className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-[#4F46E5] border border-gray-200 dark:border-gray-600 rounded-lg hover:border-[#4F46E5]/30 transition-colors"
                         >
                           <ExternalLink className="w-4 h-4" />
-                          View PR
+                          GitHub
                         </a>
                       )}
                     </div>

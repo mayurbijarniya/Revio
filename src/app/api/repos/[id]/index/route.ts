@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { getUserAccessToken } from "@/lib/auth";
@@ -9,11 +10,18 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+const indexOptionsSchema = z.object({
+  forceFullIndex: z.boolean().optional().default(false),
+});
+
 /**
  * POST /api/repos/[id]/index
  * Trigger indexing for a repository
+ *
+ * Body:
+ * - forceFullIndex: boolean (optional) - Force full re-index instead of incremental
  */
-export async function POST(_request: NextRequest, { params }: RouteParams) {
+export async function POST(request: NextRequest, { params }: RouteParams) {
   const session = await getSession();
 
   if (!session) {
@@ -23,6 +31,16 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
 
   try {
+    // Parse options from request body
+    let forceFullIndex = false;
+    try {
+      const body = await request.json();
+      const options = indexOptionsSchema.parse(body);
+      forceFullIndex = options.forceFullIndex;
+    } catch {
+      // Default to incremental if no body or parse error
+    }
+
     // Find the repository
     const repo = await db.repository.findFirst({
       where: {
@@ -46,20 +64,24 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       return jsonError("AUTH_001", "Invalid GitHub token", 401);
     }
 
-    // Start indexing (synchronous for now, can be moved to queue later)
-    // For production, use: await addIndexingJob({ ... })
+    // Start indexing with incremental support
     const result = await indexRepository(
       repo.id,
       session.userId,
       repo.fullName,
       repo.defaultBranch,
-      accessToken
+      accessToken,
+      forceFullIndex
     );
 
     return jsonSuccess({
-      message: "Indexing complete",
+      message: result.isIncremental
+        ? "Incremental indexing complete"
+        : "Full indexing complete",
       fileCount: result.fileCount,
       chunkCount: result.chunkCount,
+      isIncremental: result.isIncremental,
+      stats: result.stats,
     });
   } catch (error) {
     console.error("Failed to index repo:", error);

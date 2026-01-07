@@ -184,10 +184,12 @@ model PrReview {
   assignedToId  String?  @map("assigned_to_id") @db.Uuid
 
   // Review content
-  summary       String?  @db.Text
-  issues        Json     @default("[]")
-  suggestions   Json     @default("[]")
-  filesAnalyzed Json     @default("[]") @map("files_analyzed")
+  summary        String?  @db.Text
+  issues         Json     @default("[]")
+  suggestions    Json     @default("[]")
+  filesAnalyzed  Json     @default("[]") @map("files_analyzed")
+  recommendation String?  @db.VarChar(20) // "approve" | "request_changes" | "comment"
+  riskLevel      String?  @map("risk_level") @db.VarChar(20) // "low" | "medium" | "high" | "critical"
 
   // Status
   status          String @default("pending") @db.VarChar(50)

@@ -13,6 +13,13 @@ import {
 import { REVIEW_CONFIG, AI_CONFIG } from "@/lib/constants";
 import { parseReviewSettings } from "@/types/review";
 import { logActivity } from "./activity";
+import {
+  scanCode,
+  calculateSecurityScore,
+  getSeverityCounts,
+  type SecurityIssue,
+} from "./security-scanner";
+import { getLanguageFromPath } from "./chunker";
 
 /**
  * PR data for review
@@ -109,13 +116,31 @@ export async function reviewPullRequest(
     });
   });
 
-  // Build review prompt with filtered files
+  // Run security scanning on changed files
+  const securityIssues: SecurityIssue[] = [];
+  for (const file of filteredFiles) {
+    const language = getLanguageFromPath(file.path);
+    if (language) {
+      const issues = scanCode(file.path, file.additions, language);
+      securityIssues.push(...issues);
+    }
+  }
+
+  // Format security issues for prompt context
+  let securityContext = "";
+  if (securityIssues.length > 0) {
+    const severityCounts = getSeverityCounts(securityIssues);
+    const securityScore = calculateSecurityScore(securityIssues);
+    securityContext = formatSecurityContext(securityIssues, severityCounts, securityScore);
+  }
+
+  // Build review prompt with filtered files and security context
   const truncatedDiff = filterDiffByPaths(diff, filteredFiles.map((f) => f.path));
   const reviewPrompt = buildReviewPrompt(
     prData.title,
     prData.body,
     truncatedDiff.slice(0, REVIEW_CONFIG.maxDiffBytes),
-    codebaseContext
+    codebaseContext + (securityContext ? "\n\n" + securityContext : "")
   );
 
   // Build system prompt with custom rules
@@ -154,6 +179,8 @@ export async function reviewPullRequest(
       issues: JSON.parse(JSON.stringify(review.issues)),
       suggestions: JSON.parse(JSON.stringify(review.positives)),
       filesAnalyzed: JSON.parse(JSON.stringify(changedFiles.map((f) => f.path))),
+      recommendation: review.recommendation,
+      riskLevel: review.riskLevel,
       status: "completed",
       processingTimeMs: processingTime,
     },
@@ -167,6 +194,8 @@ export async function reviewPullRequest(
       issues: JSON.parse(JSON.stringify(review.issues)),
       suggestions: JSON.parse(JSON.stringify(review.positives)),
       filesAnalyzed: JSON.parse(JSON.stringify(changedFiles.map((f) => f.path))),
+      recommendation: review.recommendation,
+      riskLevel: review.riskLevel,
       status: "completed",
       processingTimeMs: processingTime,
     },
@@ -321,4 +350,55 @@ function filterDiffByPaths(diff: string, allowedPaths: string[]): string {
   }
 
   return result.join("");
+}
+
+/**
+ * Format security issues for inclusion in the review prompt
+ */
+function formatSecurityContext(
+  issues: SecurityIssue[],
+  severityCounts: Record<SecurityIssue["severity"], number>,
+  score: number
+): string {
+  const lines: string[] = [
+    "## Automated Security Scan Results",
+    `Security Score: ${score}/100`,
+    "",
+    "### Issue Summary",
+    `- Critical: ${severityCounts.critical}`,
+    `- High: ${severityCounts.high}`,
+    `- Medium: ${severityCounts.medium}`,
+    `- Low: ${severityCounts.low}`,
+    "",
+    "### Detected Issues",
+  ];
+
+  // Group by severity
+  const criticalHighIssues = issues.filter(
+    (i) => i.severity === "critical" || i.severity === "high"
+  );
+
+  for (const issue of criticalHighIssues.slice(0, 10)) {
+    lines.push(`
+**[${issue.severity.toUpperCase()}] ${issue.title}**
+- File: \`${issue.file}\` (line ${issue.line})
+- Description: ${issue.description}
+- CWE: ${issue.cwe || "N/A"}
+- OWASP: ${issue.owasp || "N/A"}
+- Code: \`${issue.code.slice(0, 100)}\`
+- Suggestion: ${issue.suggestion || "Review and fix manually"}
+`);
+  }
+
+  if (issues.length > 10) {
+    lines.push(`\n*... and ${issues.length - 10} more issues*`);
+  }
+
+  lines.push(`
+IMPORTANT: The automated security scan has detected potential vulnerabilities.
+Please include these findings in your review with appropriate severity ratings.
+Critical and high severity issues should typically block approval.
+`);
+
+  return lines.join("\n");
 }

@@ -73,9 +73,21 @@ export const createConversationSchema = z.object({
   message: z.string().min(1, "Message is required").max(10000, "Message too long"),
 });
 
+export const searchFiltersSchema = z.object({
+  /** File extensions to include (e.g., ['ts', 'tsx']) */
+  extensions: z.array(z.string()).optional(),
+  /** Directory patterns to include (e.g., ['src/components', 'lib/']) */
+  paths: z.array(z.string()).optional(),
+  /** Code construct types to include (e.g., ['function', 'class']) */
+  types: z.array(z.string()).optional(),
+});
+
 export const sendMessageSchema = z.object({
   content: z.string().min(1, "Message is required").max(10000, "Message too long"),
+  filters: searchFiltersSchema.optional(),
 });
+
+export type SearchFilters = z.infer<typeof searchFiltersSchema>;
 
 export const updateConversationSchema = z.object({
   title: z.string().min(1, "Title is required").max(200, "Title too long"),

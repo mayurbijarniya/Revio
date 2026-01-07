@@ -21,6 +21,7 @@ import {
   Shield,
   Zap,
   FileWarning,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -77,6 +78,76 @@ export default function AnalyticsDashboard() {
       setLoading(false);
     }
   }, [days]);
+
+  const exportToCSV = () => {
+    if (!data) return;
+
+    // Build CSV content
+    const lines: string[] = [];
+
+    // Overview section
+    lines.push("=== OVERVIEW ===");
+    lines.push("Metric,Value");
+    lines.push(`Repositories,${data.overview.totalRepositories}`);
+    lines.push(`Files Indexed,${data.overview.totalIndexedFiles}`);
+    lines.push(`PR Reviews,${data.overview.totalReviews}`);
+    lines.push(`Conversations,${data.overview.totalConversations}`);
+    lines.push(`Messages,${data.overview.totalMessages}`);
+    lines.push("");
+
+    // Reviews by status
+    lines.push("=== REVIEWS BY STATUS ===");
+    lines.push("Status,Count");
+    data.reviews.byStatus.forEach(s => lines.push(`${s.status},${s.count}`));
+    lines.push("");
+
+    // Reviews by day
+    lines.push("=== REVIEWS BY DAY ===");
+    lines.push("Date,Total,Completed,Failed");
+    data.reviews.byDay.forEach(d => lines.push(`${d.date},${d.count},${d.completed},${d.failed}`));
+    lines.push("");
+
+    // Code quality
+    lines.push("=== CODE QUALITY ===");
+    lines.push(`Total Issues,${data.codeQuality.totalIssues}`);
+    lines.push(`Avg Issues Per Review,${data.codeQuality.avgIssuesPerReview}`);
+    lines.push("");
+
+    // By severity
+    lines.push("=== ISSUES BY SEVERITY ===");
+    lines.push("Severity,Count");
+    data.codeQuality.bySeverity.forEach(s => lines.push(`${s.severity},${s.count}`));
+    lines.push("");
+
+    // By category
+    lines.push("=== ISSUES BY CATEGORY ===");
+    lines.push("Category,Count");
+    data.codeQuality.byCategory.forEach(c => lines.push(`${c.category},${c.count}`));
+    lines.push("");
+
+    // Top files with issues
+    lines.push("=== TOP FILES WITH ISSUES ===");
+    lines.push("File,Issue Count");
+    data.codeQuality.topFilesWithIssues.forEach(f => lines.push(`"${f.file}",${f.count}`));
+    lines.push("");
+
+    // Top repositories
+    lines.push("=== TOP REPOSITORIES ===");
+    lines.push("Repository,Review Count");
+    data.reviews.topRepositories.forEach(r => lines.push(`${r.fullName},${r.reviewCount}`));
+
+    // Create and download file
+    const csvContent = lines.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `revio-analytics-${days}days-${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   useEffect(() => {
     fetchAnalytics();
@@ -153,8 +224,18 @@ export default function AnalyticsDashboard() {
               onClick={fetchAnalytics}
               disabled={loading}
               className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 border border-gray-200 dark:border-gray-700"
+              title="Refresh data"
             >
               <RefreshCw className={cn("w-5 h-5", loading && "animate-spin")} />
+            </button>
+            <button
+              onClick={exportToCSV}
+              disabled={!data}
+              className="flex items-center gap-2 px-3 py-2 bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] transition-colors disabled:opacity-50"
+              title="Export to CSV"
+            >
+              <Download className="w-4 h-4" />
+              <span className="text-sm">Export CSV</span>
             </button>
           </div>
         </div>

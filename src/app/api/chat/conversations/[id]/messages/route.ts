@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { jsonSuccess, jsonError } from "@/lib/api-utils";
 import { sendMessageSchema } from "@/types/chat";
-import { retrieveContext, retrieveMultiRepoContext, formatContextForPrompt } from "@/lib/services/retriever";
+import { retrieveContext, retrieveMultiRepoContext, formatContextForPrompt, type SearchFilters } from "@/lib/services/retriever";
 import {
   generateChatResponse,
   generateChatResponseStream,
@@ -38,8 +38,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
-    const { content } = parsed.data;
+    const { content, filters } = parsed.data;
     const isStreaming = request.headers.get("accept")?.includes("text/event-stream");
+
+    // Convert filters from Zod type to retriever type
+    const searchFilters: SearchFilters | undefined = filters ? {
+      extensions: filters.extensions,
+      paths: filters.paths,
+      types: filters.types,
+    } : undefined;
 
     // Verify conversation ownership and get repository
     const conversation = await db.conversation.findFirst({
@@ -89,10 +96,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       ? await retrieveContext(repositoryIds[0]!, content, {
           maxChunks: 15,
           scoreThreshold: 0.1,
+          filters: searchFilters,
         })
       : await retrieveMultiRepoContext(repositoryIds, content, {
           maxChunks: 15,
           scoreThreshold: 0.1,
+          filters: searchFilters,
         });
     const formattedContext =
       newContext.chunks.length > 0

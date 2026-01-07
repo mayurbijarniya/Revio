@@ -22,7 +22,6 @@
     "bullmq": "latest",
     "clsx": "latest",
     "crypto-js": "latest",
-    "glob": "latest",
     "jose": "latest",
     "lucide-react": "latest",
     "next": "latest",
@@ -32,7 +31,6 @@
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^16.1.0",
     "remark-gfm": "^4.0.1",
-    "simple-git": "latest",
     "tailwind-merge": "latest",
     "zod": "latest",
     "zustand": "latest"

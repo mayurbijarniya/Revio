@@ -13,6 +13,8 @@ import {
   Trash2,
   Copy,
   ArrowUp,
+  Filter,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
@@ -38,6 +40,32 @@ interface Message {
   content: string;
   createdAt: Date;
 }
+
+interface SearchFilters {
+  extensions: string[];
+  paths: string[];
+  types: string[];
+}
+
+const COMMON_EXTENSIONS = [
+  { value: "ts", label: "TypeScript" },
+  { value: "tsx", label: "TSX" },
+  { value: "js", label: "JavaScript" },
+  { value: "jsx", label: "JSX" },
+  { value: "py", label: "Python" },
+  { value: "go", label: "Go" },
+  { value: "rs", label: "Rust" },
+  { value: "java", label: "Java" },
+];
+
+const CODE_TYPES = [
+  { value: "function", label: "Functions" },
+  { value: "class", label: "Classes" },
+  { value: "interface", label: "Interfaces" },
+  { value: "type", label: "Types" },
+  { value: "method", label: "Methods" },
+  { value: "constant", label: "Constants" },
+];
 
 interface ChatLayoutProps {
   repositories: Repository[];
@@ -68,6 +96,13 @@ export function ChatLayout({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<SearchFilters>({
+    extensions: [],
+    paths: [],
+    types: [],
+  });
+  const [pathInput, setPathInput] = useState("");
 
   // Handle initial conversation from URL
   useEffect(() => {
@@ -175,7 +210,7 @@ export function ChatLayout({
       const res = await fetch(`/api/chat/conversations/${selectedConversation}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: userMessage.content }),
+        body: JSON.stringify({ content: userMessage.content, filters: getApiFilters() }),
       });
       const data = await res.json();
       if (data.success) {
@@ -225,10 +260,64 @@ export function ChatLayout({
     setError(null);
     setShowRepoDropdown(false);
     setSelectedRepos([]);
+    setShowFilters(false);
+    setFilters({ extensions: [], paths: [], types: [] });
+    setPathInput("");
     // Navigate to main chat page if we're on a conversation page
     if (pathname.startsWith("/dashboard/chat/")) {
       router.push("/dashboard/chat");
     }
+  }
+
+  function toggleExtension(ext: string) {
+    setFilters((prev) => ({
+      ...prev,
+      extensions: prev.extensions.includes(ext)
+        ? prev.extensions.filter((e) => e !== ext)
+        : [...prev.extensions, ext],
+    }));
+  }
+
+  function toggleType(type: string) {
+    setFilters((prev) => ({
+      ...prev,
+      types: prev.types.includes(type)
+        ? prev.types.filter((t) => t !== type)
+        : [...prev.types, type],
+    }));
+  }
+
+  function addPath() {
+    if (pathInput.trim() && !filters.paths.includes(pathInput.trim())) {
+      setFilters((prev) => ({
+        ...prev,
+        paths: [...prev.paths, pathInput.trim()],
+      }));
+      setPathInput("");
+    }
+  }
+
+  function removePath(path: string) {
+    setFilters((prev) => ({
+      ...prev,
+      paths: prev.paths.filter((p) => p !== path),
+    }));
+  }
+
+  function clearFilters() {
+    setFilters({ extensions: [], paths: [], types: [] });
+  }
+
+  const hasActiveFilters = filters.extensions.length > 0 || filters.paths.length > 0 || filters.types.length > 0;
+
+  // Prepare filters for API call (only if active)
+  function getApiFilters() {
+    if (!hasActiveFilters) return undefined;
+    return {
+      extensions: filters.extensions.length > 0 ? filters.extensions : undefined,
+      paths: filters.paths.length > 0 ? filters.paths : undefined,
+      types: filters.types.length > 0 ? filters.types : undefined,
+    };
   }
 
   function copyMarkdown() {
@@ -356,6 +445,7 @@ export function ChatLayout({
       <div className="flex-1 flex flex-col min-w-0 bg-gray-50">
         {/* Header with Repo Selector - when creating new chat */}
         {!selectedConversation && repositories.length > 0 && (
+          <>
           <div className="sticky top-0 z-100 flex items-center gap-3 px-6 py-4 border-b border-gray-200 bg-white">
             {/* Selected Repo Display / Trigger */}
             <div className="relative" ref={dropdownRef}>
@@ -436,7 +526,125 @@ export function ChatLayout({
                 ))}
               </div>
             )}
+
+            {/* Filter Button */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={cn(
+                "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ml-auto",
+                hasActiveFilters
+                  ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+                  : "bg-gray-100 border-gray-200 text-gray-600 hover:border-indigo-400"
+              )}
+            >
+              <Filter className="w-4 h-4" />
+              <span className="text-sm">Filters</span>
+              {hasActiveFilters && (
+                <span className="w-5 h-5 bg-indigo-600 text-white text-xs rounded-full flex items-center justify-center">
+                  {filters.extensions.length + filters.paths.length + filters.types.length}
+                </span>
+              )}
+            </button>
           </div>
+
+          {/* Filter Panel */}
+          {showFilters && (
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 animate-dropdown">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-900">Search Filters</h3>
+                {hasActiveFilters && (
+                  <button
+                    onClick={clearFilters}
+                    className="text-xs text-gray-500 hover:text-gray-700"
+                  >
+                    Clear all
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* File Extensions */}
+                <div>
+                  <label className="text-xs font-medium text-gray-700 mb-2 block">File Types</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {COMMON_EXTENSIONS.map((ext) => (
+                      <button
+                        key={ext.value}
+                        onClick={() => toggleExtension(ext.value)}
+                        className={cn(
+                          "px-2 py-1 text-xs rounded border transition-colors",
+                          filters.extensions.includes(ext.value)
+                            ? "bg-indigo-100 border-indigo-300 text-indigo-700"
+                            : "bg-white border-gray-200 text-gray-600 hover:border-indigo-300"
+                        )}
+                      >
+                        .{ext.value}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Code Types */}
+                <div>
+                  <label className="text-xs font-medium text-gray-700 mb-2 block">Code Types</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {CODE_TYPES.map((type) => (
+                      <button
+                        key={type.value}
+                        onClick={() => toggleType(type.value)}
+                        className={cn(
+                          "px-2 py-1 text-xs rounded border transition-colors",
+                          filters.types.includes(type.value)
+                            ? "bg-indigo-100 border-indigo-300 text-indigo-700"
+                            : "bg-white border-gray-200 text-gray-600 hover:border-indigo-300"
+                        )}
+                      >
+                        {type.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Directory Paths */}
+                <div>
+                  <label className="text-xs font-medium text-gray-700 mb-2 block">Directory Paths</label>
+                  <div className="flex gap-1.5 mb-2">
+                    <input
+                      type="text"
+                      value={pathInput}
+                      onChange={(e) => setPathInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addPath()}
+                      placeholder="e.g., src/components"
+                      className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:border-indigo-400"
+                    />
+                    <button
+                      onClick={addPath}
+                      disabled={!pathInput.trim()}
+                      className="px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                      Add
+                    </button>
+                  </div>
+                  {filters.paths.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {filters.paths.map((path) => (
+                        <span
+                          key={path}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 border border-indigo-200 rounded text-xs text-indigo-700"
+                        >
+                          {path}
+                          <button onClick={() => removePath(path)} className="hover:text-indigo-900">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          </>
         )}
 
         {/* Messages Area */}
