@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import {
   Users,
   Settings,
@@ -12,7 +13,18 @@ import {
   Plus,
   Loader2,
   CheckCircle,
+  FolderGit2,
+  Activity,
+  RefreshCw,
+  ExternalLink,
+  Clock,
+  GitPullRequest,
+  UserPlus,
+  UserMinus,
+  FileCode,
+  ArrowLeft,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface OrgMember {
   id: string;
@@ -22,6 +34,35 @@ interface OrgMember {
     githubUsername: string;
     avatarUrl: string | null;
   };
+}
+
+interface OrgRepository {
+  id: string;
+  name: string;
+  fullName: string;
+  private: boolean;
+  language: string | null;
+  indexStatus: string;
+  prReviewCount: number;
+  conversationCount: number;
+}
+
+interface OrgActivity {
+  id: string;
+  type: string;
+  title: string;
+  description: string | null;
+  createdAt: string;
+  user: {
+    id: string;
+    githubUsername: string;
+    avatarUrl: string | null;
+  };
+  repository: {
+    id: string;
+    name: string;
+    fullName: string;
+  } | null;
 }
 
 interface OrganizationPageProps {
@@ -46,6 +87,48 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
   const [inviteRole, setInviteRole] = useState<"admin" | "member" | "viewer">("member");
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [repositories, setRepositories] = useState<OrgRepository[]>([]);
+  const [activities, setActivities] = useState<OrgActivity[]>([]);
+  const [loadingRepos, setLoadingRepos] = useState(true);
+  const [loadingActivities, setLoadingActivities] = useState(true);
+
+  // Fetch organization repositories
+  const fetchRepositories = useCallback(async () => {
+    setLoadingRepos(true);
+    try {
+      const res = await fetch(`/api/orgs/${organization.id}/repos`);
+      const data = await res.json();
+      if (data.success) {
+        setRepositories(data.data.repositories);
+      }
+    } catch (error) {
+      console.warn("Failed to fetch repositories:", error);
+    } finally {
+      setLoadingRepos(false);
+    }
+  }, [organization.id]);
+
+  // Fetch organization activities
+  const fetchActivities = useCallback(async () => {
+    setLoadingActivities(true);
+    try {
+      const res = await fetch(`/api/orgs/${organization.id}/activity?limit=20`);
+      const data = await res.json();
+      if (data.success) {
+        setActivities(data.data.activities);
+      }
+    } catch (error) {
+      console.warn("Failed to fetch activities:", error);
+    } finally {
+      setLoadingActivities(false);
+    }
+  }, [organization.id]);
+
+  // Fetch data on mount
+  useEffect(() => {
+    fetchRepositories();
+    fetchActivities();
+  }, [fetchRepositories, fetchActivities]);
 
   const showSuccess = (message: string) => {
     setSuccessMsg(message);
@@ -158,159 +241,341 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
   };
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-6xl mx-auto p-6">
+      {/* Back button */}
+      <Link
+        href="/dashboard/orgs"
+        className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-6"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back to organizations
+      </Link>
+
       {/* Success Message */}
       {successMsg && (
-        <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2">
+        <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2">
           <CheckCircle className="w-5 h-5 text-green-500" />
           <p className="text-green-700 dark:text-green-400">{successMsg}</p>
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
-            <Users className="w-6 h-6 text-white" />
+      {/* Header Card */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
+        <div className="flex items-start justify-between">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-[#EEF2FF] dark:bg-[#1E1B4B] rounded-lg flex items-center justify-center border border-[#E0E7FF] dark:border-[#312E81]">
+              <Users className="w-6 h-6 text-[#4F46E5] dark:text-[#818CF8]" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold">{organization.name}</h1>
+              <p className="text-gray-500">@{organization.slug}</p>
+              <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                <span className="flex items-center gap-1">
+                  <FolderGit2 className="w-4 h-4" />
+                  {organization._count.repositories} repositories
+                </span>
+                <span className="flex items-center gap-1">
+                  <User className="w-4 h-4" />
+                  {organization.members.length} members
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#EEF2FF] text-[#4F46E5] capitalize">
+                  {organization.plan} Plan
+                </span>
+              </div>
+            </div>
           </div>
-          <div>
-            <h1 className="text-3xl font-bold">{organization.name}</h1>
-            <p className="text-gray-500">@{organization.slug} • {organization._count.repositories} repositories</p>
-          </div>
+
+          {organization.isOwner && (
+            <button className="flex items-center gap-2 px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              <Settings className="w-4 h-4" />
+              Settings
+            </button>
+          )}
         </div>
-        {organization.isOwner && (
-          <button className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50">
-            <Settings className="w-4 h-4" />
-            Settings
-          </button>
-        )}
       </div>
 
-      {/* Invite Section */}
-      {canManageMembers && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-          <h2 className="text-lg font-semibold mb-4">Invite Team Members</h2>
-          <form onSubmit={handleInvite} className="flex flex-col sm:flex-row gap-4">
-            <input
-              type="text"
-              placeholder="GitHub username"
-              value={inviteUsername}
-              onChange={(e) => setInviteUsername(e.target.value)}
-              className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
-            />
-            <select
-              value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value as typeof inviteRole)}
-              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
-            >
-              <option value="viewer">Viewer</option>
-              <option value="member">Member</option>
-              <option value="admin">Admin</option>
-            </select>
+      <div className="space-y-6">
+        {/* Repositories Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <FolderGit2 className="w-5 h-5" />
+              Repositories
+              <span className="text-sm font-normal text-gray-500">
+                ({repositories.length})
+              </span>
+            </h2>
             <button
-              type="submit"
-              disabled={loading || !inviteUsername.trim()}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              onClick={fetchRepositories}
+              disabled={loadingRepos}
+              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
             >
-              {loading ? (
+              {loadingRepos ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <>
-                  <Plus className="w-4 h-4" />
-                  Invite
-                </>
+                <RefreshCw className="w-4 h-4" />
               )}
             </button>
-          </form>
+          </div>
+          {loadingRepos ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            </div>
+          ) : repositories.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <FolderGit2 className="w-10 h-10 mx-auto mb-3 opacity-50" />
+              <p className="text-sm">No repositories in this organization</p>
+              <p className="text-xs mt-1">Add repositories from the repository settings page</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100 dark:divide-gray-700">
+              {repositories.map((repo) => (
+                <Link
+                  key={repo.id}
+                  href={`/dashboard/repos/${repo.id}`}
+                  className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <FolderGit2 className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <div className="font-medium">{repo.fullName}</div>
+                      <div className="flex items-center gap-3 text-sm text-gray-500 mt-0.5">
+                        {repo.language && <span>{repo.language}</span>}
+                        <span className="flex items-center gap-1">
+                          <GitPullRequest className="w-3.5 h-3.5" />
+                          {repo.prReviewCount} reviews
+                        </span>
+                        <span
+                          className={cn(
+                            "px-2 py-0.5 rounded text-xs",
+                            repo.indexStatus === "indexed"
+                              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                              : repo.indexStatus === "indexing"
+                                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+                          )}
+                        >
+                          {repo.indexStatus}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <ExternalLink className="w-4 h-4 text-gray-400" />
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
-      )}
 
-      {/* Members List */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold">
-            Team Members ({organization.members.length})
-          </h2>
-        </div>
-        <div className="divide-y divide-gray-200 dark:divide-gray-700">
-          {organization.members.map((member) => {
-            const RoleIcon = roleIcons[member.role as keyof typeof roleIcons] || User;
+        {/* Invite Section */}
+        {canManageMembers && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h2 className="text-lg font-semibold mb-4">Invite Team Members</h2>
+            <form onSubmit={handleInvite} className="flex flex-col sm:flex-row gap-4">
+              <input
+                type="text"
+                placeholder="GitHub username"
+                value={inviteUsername}
+                onChange={(e) => setInviteUsername(e.target.value)}
+                className="flex-1 px-4 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-lg focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5]"
+              />
+              <select
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value as typeof inviteRole)}
+                className="px-4 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-lg focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5]"
+              >
+                <option value="viewer">Viewer</option>
+                <option value="member">Member</option>
+                <option value="admin">Admin</option>
+              </select>
+              <button
+                type="submit"
+                disabled={loading || !inviteUsername.trim()}
+                className="flex items-center gap-2 px-4 py-2 bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] disabled:opacity-50"
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4" />
+                    Invite
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        )}
 
-            return (
-              <div key={member.id} className="px-6 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  {member.user.avatarUrl ? (
-                    <Image
-                      src={member.user.avatarUrl}
-                      alt={member.user.githubUsername}
-                      width={40}
-                      height={40}
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
-                      <User className="w-5 h-5 text-gray-600" />
+        {/* Members List */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-semibold">
+              Team Members ({organization.members.length})
+            </h2>
+          </div>
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
+            {organization.members.map((member) => {
+              const RoleIcon = roleIcons[member.role as keyof typeof roleIcons] || User;
+
+              return (
+                <div key={member.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                  <div className="flex items-center gap-4">
+                    {member.user.avatarUrl ? (
+                      <Image
+                        src={member.user.avatarUrl}
+                        alt={member.user.githubUsername}
+                        width={40}
+                        height={40}
+                        className="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-700"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center border border-gray-200 dark:border-gray-600">
+                        <User className="w-5 h-5 text-gray-500" />
+                      </div>
+                    )}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{member.user.githubUsername}</span>
+                        {member.role === "owner" && (
+                          <span className="px-2 py-0.5 text-xs bg-[#FFFBEB] text-[#B45309] border border-[#FEF3C7] rounded-full">
+                            Owner
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
+                        <RoleIcon className="w-3 h-3" />
+                        <span className="capitalize">{member.role}</span>
+                      </div>
+                    </div>
+                  </div>
+                  {canManageMembers && member.role !== "owner" && (
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={member.role}
+                        onChange={(e) => handleUpdateRole(member.id, e.target.value, member.user.githubUsername)}
+                        disabled={loading}
+                        className="px-3 py-1 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-lg focus:ring-2 focus:ring-[#4F46E5] disabled:opacity-50"
+                      >
+                        <option value="viewer">Viewer</option>
+                        <option value="member">Member</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                      <button
+                        onClick={() => handleRemoveMember(member.id, member.user.githubUsername)}
+                        disabled={loading}
+                        className="p-2 text-[#EF4444] hover:bg-[#FEF2F2] rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   )}
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{member.user.githubUsername}</span>
-                      {member.role === "owner" && (
-                        <span className="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded-full">
-                          Owner
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
-                      <RoleIcon className="w-3 h-3" />
-                      <span className="capitalize">{member.role}</span>
-                    </div>
-                  </div>
                 </div>
-                {canManageMembers && member.role !== "owner" && (
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={member.role}
-                      onChange={(e) => handleUpdateRole(member.id, e.target.value, member.user.githubUsername)}
-                      disabled={loading}
-                      className="px-3 py-1 text-sm border rounded-lg focus:ring-2 focus:ring-primary disabled:opacity-50"
-                    >
-                      <option value="viewer">Viewer</option>
-                      <option value="member">Member</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                    <button
-                      onClick={() => handleRemoveMember(member.id, member.user.githubUsername)}
-                      disabled={loading}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Danger Zone */}
-      {organization.isOwner && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-red-200 dark:border-red-800 p-6">
-          <h2 className="text-lg font-semibold text-red-600 mb-4">Danger Zone</h2>
-          <div className="flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-            <div>
-              <p className="font-medium">Delete Organization</p>
-              <p className="text-sm text-gray-500">
-                Permanently delete this organization and all its data
-              </p>
-            </div>
-            <button className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
-              Delete Organization
-            </button>
+              );
+            })}
           </div>
         </div>
-      )}
+
+        {/* Activity Feed */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Activity className="w-5 h-5" />
+              Recent Activity
+            </h2>
+            <button
+              onClick={fetchActivities}
+              disabled={loadingActivities}
+              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {loadingActivities ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+          {loadingActivities ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            </div>
+          ) : activities.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <Activity className="w-10 h-10 mx-auto mb-3 opacity-50" />
+              <p className="text-sm">No recent activity</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100 dark:divide-gray-700">
+              {activities.map((activity) => {
+                const ActivityIcon = activity.type === "repo_added" ? FolderGit2
+                  : activity.type === "repo_removed" ? FolderGit2
+                    : activity.type === "pr_reviewed" ? GitPullRequest
+                      : activity.type === "member_joined" ? UserPlus
+                        : activity.type === "member_left" ? UserMinus
+                          : activity.type === "repo_indexed" ? FileCode
+                            : Clock;
+
+                const iconColor = activity.type === "repo_added" ? "text-green-500"
+                  : activity.type === "repo_removed" ? "text-red-500"
+                    : activity.type === "pr_reviewed" ? "text-blue-500"
+                      : activity.type === "member_joined" ? "text-green-500"
+                        : activity.type === "member_left" ? "text-orange-500"
+                          : "text-gray-500";
+
+                return (
+                  <div key={activity.id} className="px-6 py-4 flex items-start gap-4">
+                    <div className={cn("p-2 rounded-lg bg-gray-50 dark:bg-gray-700/50", iconColor)}>
+                      <ActivityIcon className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm">
+                        <span className="font-medium">{activity.user.githubUsername}</span>
+                        {" "}
+                        <span className="text-gray-600 dark:text-gray-400">{activity.title}</span>
+                      </p>
+                      {activity.description && (
+                        <p className="text-xs text-gray-500 mt-1">{activity.description}</p>
+                      )}
+                      <p className="text-xs text-gray-400 mt-1">
+                        {new Date(activity.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                    {activity.repository && (
+                      <Link
+                        href={`/dashboard/repos/${activity.repository.id}`}
+                        className="text-xs text-[#4F46E5] hover:underline whitespace-nowrap"
+                      >
+                        {activity.repository.name}
+                      </Link>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Danger Zone */}
+        {organization.isOwner && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-900/50 overflow-hidden">
+            <div className="px-6 py-4 border-b border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10">
+              <h2 className="text-lg font-semibold text-red-600 dark:text-red-400">Danger Zone</h2>
+            </div>
+            <div className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Delete Organization</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Permanently delete this organization and all its data. This action cannot be undone.
+                  </p>
+                </div>
+                <button className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium">
+                  Delete Organization
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

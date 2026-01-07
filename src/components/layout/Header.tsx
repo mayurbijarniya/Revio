@@ -48,7 +48,7 @@ export function Header({ user }: HeaderProps) {
                         </Link>
                     ) : (
                         <Link
-                            href="/api/auth/github"
+                            href="/login"
                             className="flex items-center gap-2 text-sm font-bold bg-[var(--foreground)] text-[var(--background)] px-4 py-2 hover:opacity-90 transition-opacity"
                         >
                             <Github className="w-4 h-4" />

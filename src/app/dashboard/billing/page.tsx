@@ -8,7 +8,6 @@ import {
   Users,
   CreditCard,
   Loader2,
-  Sparkles,
   Crown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -209,64 +208,67 @@ export default function BillingPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Billing & Subscription</h1>
-        <p className="text-gray-500 mt-2">
-          Manage your subscription and billing settings
-        </p>
+    <div className="max-w-6xl mx-auto p-6 space-y-8">
+      {/* Header Card */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <div className="flex items-start justify-between">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-[#EEF2FF] dark:bg-[#1E1B4B] rounded-lg flex items-center justify-center border border-[#E0E7FF] dark:border-[#312E81]">
+              <CreditCard className="w-6 h-6 text-[#4F46E5] dark:text-[#818CF8]" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold">Billing & Subscription</h1>
+              <p className="text-gray-500">Manage your subscription, billing details, and invoices</p>
+              {user && (
+                <div className="mt-2 inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#EEF2FF] text-[#4F46E5] border border-[#E0E7FF]">
+                  Current Plan: <span className="capitalize">{currentPlan}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+            <button
+              onClick={() => setBillingCycle("monthly")}
+              className={cn(
+                "px-3 py-1.5 text-sm font-medium rounded-md transition-all",
+                billingCycle === "monthly"
+                  ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
+                  : "text-gray-500 hover:text-gray-900 dark:hover:text-gray-300"
+              )}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setBillingCycle("yearly")}
+              className={cn(
+                "px-3 py-1.5 text-sm font-medium rounded-md transition-all",
+                billingCycle === "yearly"
+                  ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
+                  : "text-gray-500 hover:text-gray-900 dark:hover:text-gray-300"
+              )}
+            >
+              Yearly <span className="text-[#10B981] text-xs ml-1">-20%</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Success Message */}
       {successMsg && (
-        <div className="p-4 bg-[#ECFDF5] dark:bg-[#064E3B] border border-[#D1FAE5] dark:border-[#059669] rounded-lg">
-          <p className="text-[#10B981] dark:text-[#34D399]">{successMsg}</p>
+        <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2">
+          <Check className="w-5 h-5 text-green-500" />
+          <p className="text-green-700 dark:text-green-400">{successMsg}</p>
         </div>
       )}
 
-      {/* Current Plan */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">Current Plan</h2>
-            <p className="text-gray-500 mt-1">
-              You are currently on the{" "}
-              <span className="font-medium text-[#4F46E5] capitalize">
-                {currentPlan}
-              </span>{" "}
-              plan
-            </p>
-          </div>
-          {currentPlan === "free" ? (
-            <button
-              onClick={() => handleUpgrade("pro")}
-              disabled={loadingPlan !== null}
-              className="px-4 py-2 bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] disabled:opacity-50"
-            >
-              {loadingPlan ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                "Upgrade to Pro"
-              )}
-            </button>
-          ) : (
-            <button
-              onClick={() => handleDowngrade("free")}
-              disabled={loadingPlan !== null}
-              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600 disabled:opacity-50 transition-colors"
-            >
-              {loadingPlan ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                "Downgrade to Free"
-              )}
-            </button>
-          )}
-        </div>
-
-        {/* Usage Stats */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Usage Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          <Zap className="w-5 h-5 text-[#F59E0B]" />
+          Current Usage
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <UsageCard
             label="Repositories"
             used={currentUsage.repositories}
@@ -286,188 +288,129 @@ export default function BillingPage() {
       </div>
 
       {/* Pricing Plans */}
-      <div>
-        <h2 className="text-2xl font-bold mb-6">Choose Your Plan</h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {PLANS.map((plan) => {
+          const Icon = plan.icon;
+          const isCurrentPlan = currentPlan === plan.id;
+          const price = billingCycle === "yearly" && plan.yearlyPrice ? plan.yearlyPrice : plan.price;
+          const period = billingCycle === "yearly" && plan.yearlyPrice ? "/year" : plan.period;
 
-        {/* Billing Toggle */}
-        <div className="flex items-center justify-center gap-4 mb-8">
-          <span className={cn(
-            "text-sm font-medium transition-colors",
-            billingCycle === "monthly" ? "text-gray-900 dark:text-white" : "text-gray-500"
-          )}>Monthly</span>
-          <button
-            onClick={() => setBillingCycle(billingCycle === "monthly" ? "yearly" : "monthly")}
-            className="relative w-14 h-7 bg-gray-200 dark:bg-gray-700 rounded-full cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2"
-          >
-            <span
+          return (
+            <div
+              key={plan.id}
               className={cn(
-                "absolute top-1 w-5 h-5 bg-white rounded-full shadow-md transition-all duration-200",
-                billingCycle === "yearly" ? "left-8" : "left-1"
+                "relative rounded-lg border p-6 flex flex-col h-full transition-all",
+                isCurrentPlan
+                  ? "border-[#4F46E5] bg-[#EEF2FF] dark:bg-[#4F46E5]/10 ring-1 ring-[#4F46E5]"
+                  : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-[#4F46E5]/50"
               )}
-            />
-          </button>
-          <span className={cn(
-            "text-sm font-medium transition-colors",
-            billingCycle === "yearly" ? "text-gray-900 dark:text-white" : "text-gray-500"
-          )}>
-            Yearly <span className="text-[#10B981] text-xs font-medium ml-1">- Save 20%</span>
-          </span>
-        </div>
-
-        {/* Plans Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {PLANS.map((plan) => {
-            const Icon = plan.icon;
-            const isCurrentPlan = currentPlan === plan.id;
-
-            return (
-              <div
-                key={plan.id}
-                className={cn(
-                  "pricing-card relative",
-                  plan.popular && "border-[#4F46E5] border-2",
-                  isCurrentPlan && !plan.popular && "border-[#10B981] border-2 bg-[#ECFDF5] dark:bg-[#064E3B]"
-                )}
-              >
-                {/* Popular Badge */}
-                {plan.popular && (
-                  <div className="plan-badge popular">
-                    Most Popular
-                  </div>
-                )}
-
-                {/* Current Plan Badge */}
-                {isCurrentPlan && !plan.popular && (
-                  <div className="plan-badge current">
-                    Current
-                  </div>
-                )}
-
-                {/* Plan Header */}
-                <div className="text-center mb-6">
-                  <div
-                    className={cn(
-                      "w-12 h-12 mx-auto mb-4 rounded-xl flex items-center justify-center",
-                      plan.popular
-                        ? "bg-[#4F46E5] text-white"
-                        : isCurrentPlan
-                        ? "bg-[#10B981] text-white"
-                        : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
-                    )}
-                  >
-                    <Icon className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-xl font-bold">{plan.name}</h3>
-                  <p className="text-gray-500 text-sm mt-1">{plan.description}</p>
-                  <div className="mt-4">
-                    <span className="text-4xl font-bold">
-                      {billingCycle === "yearly" && plan.yearlyPrice ? plan.yearlyPrice : plan.price}
-                    </span>
-                    <span className="text-gray-500">
-                      {billingCycle === "yearly" && plan.yearlyPrice ? "/year" : plan.period}
-                    </span>
-                  </div>
-                  {billingCycle === "yearly" && plan.yearlyPrice && (
-                    <p className="text-sm text-[#10B981] font-medium mt-1">
-                      Save {Math.round((parseInt(plan.price) * 12 - parseInt(plan.yearlyPrice)) / (parseInt(plan.price) * 12) * 100)}%
-                    </p>
-                  )}
+            >
+              {plan.popular && !isCurrentPlan && (
+                <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4">
+                  <span className="bg-[#4F46E5] text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+                    Popular
+                  </span>
                 </div>
+              )}
 
-                {/* Features */}
-                <ul className="space-y-3 mb-6">
-                  {plan.features.map((feature, i) => (
-                    <li key={i} className="flex items-start gap-3">
-                      <Check className="w-5 h-5 text-[#10B981] shrink-0 mt-0.5" />
-                      <span className="text-sm">{feature.text}</span>
-                    </li>
-                  ))}
-                  {plan.notIncluded.map((feature, i) => (
-                    <li key={i} className="flex items-start gap-3 opacity-50">
-                      <Check className="w-5 h-5 text-gray-300 dark:text-gray-600 shrink-0 mt-0.5" />
-                      <span className="text-sm line-through">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
+              {isCurrentPlan && (
+                <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4">
+                  <span className="bg-[#10B981] text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+                    Current
+                  </span>
+                </div>
+              )}
 
-                {/* CTA Button */}
-                <button
-                  onClick={() =>
-                    isCurrentPlan
-                      ? plan.id === "free"
-                        ? handleDowngrade("free")
-                        : null
-                      : plan.id === "free"
+              <div className="mb-6">
+                <div className={cn(
+                  "w-10 h-10 rounded-lg flex items-center justify-center mb-4",
+                  isCurrentPlan ? "bg-[#4F46E5] text-white" : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                )}>
+                  <Icon className="w-5 h-5" />
+                </div>
+                <h3 className={cn("text-lg font-bold mb-1", isCurrentPlan ? "text-[#4F46E5]" : "")}>
+                  {plan.name}
+                </h3>
+                <p className="text-sm text-gray-500 h-10">{plan.description}</p>
+              </div>
+
+              <div className="mb-6">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-bold">{price}</span>
+                  <span className="text-gray-500">{period}</span>
+                </div>
+                {billingCycle === "yearly" && plan.yearlyPrice && (
+                  <p className="text-xs text-[#10B981] font-medium mt-1">
+                    Save {Math.round((parseInt(plan.price.replace("$", "")) * 12 - parseInt(plan.yearlyPrice.replace("$", ""))) / (parseInt(plan.price.replace("$", "")) * 12) * 100)}%
+                  </p>
+                )}
+              </div>
+
+              <ul className="space-y-3 mb-8 flex-1">
+                {plan.features.map((feature, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm">
+                    <Check className="w-4 h-4 text-[#10B981] shrink-0 mt-0.5" />
+                    <span>{feature.text}</span>
+                  </li>
+                ))}
+                {plan.notIncluded.map((feature, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm opacity-50">
+                    <Check className="w-4 h-4 text-gray-300 shrink-0 mt-0.5" />
+                    <span className="line-through text-gray-400">{feature}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                onClick={() =>
+                  isCurrentPlan
+                    ? plan.id === "free"
+                      ? handleDowngrade("free")
+                      : null
+                    : plan.id === "free"
                       ? handleDowngrade("free")
                       : handleUpgrade(plan.id)
-                  }
-                  disabled={
-                    loadingPlan !== null ||
-                    (isCurrentPlan && plan.id !== "free")
-                  }
-                  className={cn(
-                    "w-full py-3 rounded-xl font-semibold transition-all flex items-center justify-center gap-2",
-                    isCurrentPlan && plan.id !== "free"
-                      ? "bg-[#ECFDF5] dark:bg-[#064E3B] border border-[#D1FAE5] dark:border-[#059669] text-[#10B981] dark:text-[#34D399]"
-                      : plan.popular
-                      ? "bg-[#4F46E5] text-white hover:bg-[#4338CA]"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                  )}
-                >
-                  {loadingPlan === plan.id ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : isCurrentPlan && plan.id !== "free" ? (
-                    "Current Plan"
-                  ) : isCurrentPlan && plan.id === "free" ? (
-                    "Downgrade"
-                  ) : plan.id === "free" ? (
-                    "Downgrade to Free"
-                  ) : (
-                    <>
-                      <Sparkles className="w-5 h-5" />
-                      Upgrade to {plan.name}
-                    </>
-                  )}
-                </button>
-              </div>
-            );
-          })}
-        </div>
+                }
+                disabled={loadingPlan !== null || (isCurrentPlan && plan.id !== "free")}
+                className={cn(
+                  "w-full py-2.5 rounded-lg font-medium transition-colors text-sm",
+                  isCurrentPlan
+                    ? "bg-[#4F46E5] text-white cursor-default"
+                    : "bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-100"
+                )}
+              >
+                {loadingPlan === plan.id ? (
+                  <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                ) : isCurrentPlan ? (
+                  "Current Plan"
+                ) : plan.id === "free" ? (
+                  "Downgrade to Free"
+                ) : (
+                  `Upgrade to ${plan.name}`
+                )}
+              </button>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Payment Methods (Placeholder) */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+      {/* Payment Methods */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-              <CreditCard className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-            </div>
+            <CreditCard className="w-5 h-5 text-gray-400" />
             <div>
-              <h3 className="font-semibold">Payment Method</h3>
-              <p className="text-sm text-gray-500">
-                Manage your payment methods
-              </p>
+              <h3 className="font-semibold">Payment Methods</h3>
+              <p className="text-sm text-gray-500">Securely manage your payment options</p>
             </div>
           </div>
-          <button className="text-sm text-[#4F46E5] hover:text-[#4338CA]">
-            Add Payment Method
+          <button className="text-sm text-[#4F46E5] hover:text-[#4338CA] font-medium">
+            Add New Method
           </button>
         </div>
-        <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+        <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg text-center border border-gray-100 dark:border-gray-700 border-dashed">
           <p className="text-sm text-gray-500">
-            No payment methods on file. Upgrade to a paid plan to add a payment
-            method.
-          </p>
-        </div>
-      </div>
-
-      {/* Billing History (Placeholder) */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-        <h3 className="font-semibold mb-4">Billing History</h3>
-        <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-          <p className="text-sm text-gray-500">
-            No billing history yet. Upgrade to a paid plan to see your billing
-            history.
+            No payment methods on file. Upgrade to a paid plan to add a card.
           </p>
         </div>
       </div>
@@ -523,10 +466,10 @@ function UsageCard({
               percentage > 90
                 ? "bg-[#EF4444]"
                 : percentage > 80
-                ? "bg-[#EF4444]"
-                : percentage > 60
-                ? "bg-[#F59E0B]"
-                : "bg-[#10B981]"
+                  ? "bg-[#EF4444]"
+                  : percentage > 60
+                    ? "bg-[#F59E0B]"
+                    : "bg-[#10B981]"
             )}
             style={{ width: `${percentage}%` }}
           />

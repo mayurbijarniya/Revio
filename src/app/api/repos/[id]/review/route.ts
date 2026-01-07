@@ -13,6 +13,7 @@ interface RouteParams {
 
 const reviewSchema = z.object({
   prNumber: z.number().int().positive(),
+  assignToId: z.string().uuid().optional(), // Optional: assign to team member
 });
 
 /**
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return jsonError("VALIDATION_001", "Invalid request: prNumber required", 400);
     }
 
-    const { prNumber } = parsed.data;
+    const { prNumber, assignToId } = parsed.data;
 
     // Find the repository
     const repository = await db.repository.findFirst({
@@ -84,14 +85,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         prUrl: prDetails.html_url,
         prAuthor: prDetails.user.login,
         status: "pending",
+        requestedBy: { connect: { id: session.userId } },
+        ...(assignToId && { assignedTo: { connect: { id: assignToId } } }),
       },
       create: {
-        repositoryId: id,
+        repository: { connect: { id } },
         prNumber,
         prTitle: prDetails.title,
         prUrl: prDetails.html_url,
         prAuthor: prDetails.user.login,
         status: "pending",
+        requestedBy: { connect: { id: session.userId } },
+        ...(assignToId ? { assignedTo: { connect: { id: assignToId } } } : {}),
       },
     });
 
@@ -202,6 +207,19 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         prNumber: true,
         status: true,
         createdAt: true,
+        assignedTo: {
+          select: {
+            id: true,
+            githubUsername: true,
+            avatarUrl: true,
+          },
+        },
+        requestedBy: {
+          select: {
+            id: true,
+            githubUsername: true,
+          },
+        },
       },
     });
 
@@ -219,6 +237,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         createdAt: pr.created_at,
         reviewStatus: reviewMap.get(pr.number)?.status || null,
         lastReviewedAt: reviewMap.get(pr.number)?.createdAt || null,
+        assignedTo: reviewMap.get(pr.number)?.assignedTo || null,
+        requestedBy: reviewMap.get(pr.number)?.requestedBy || null,
       })),
     });
   } catch (error) {
