@@ -153,16 +153,21 @@ export async function deleteChunksByFile(
   const client = getQdrantClient();
   const collectionName = getCollectionName(repositoryId);
 
-  await client.delete(collectionName, {
-    filter: {
-      must: [
-        {
-          key: "filePath",
-          match: { value: filePath },
-        },
-      ],
-    },
-  });
+  try {
+    await client.delete(collectionName, {
+      filter: {
+        must: [
+          {
+            key: "filePath",
+            match: { value: filePath },
+          },
+        ],
+      },
+    });
+  } catch (error) {
+    // Collection might not exist yet, which is fine
+    console.warn(`Failed to delete chunks for ${filePath}:`, error);
+  }
 }
 
 /**
