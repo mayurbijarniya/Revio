@@ -14,7 +14,6 @@ import {
   X,
   ChevronDown,
   User,
-  Zap,
   CreditCard,
   Building2,
 } from "lucide-react";
@@ -77,7 +76,7 @@ export function DashboardNav({ user }: DashboardNavProps) {
           {/* Logo and main nav */}
           <div className="flex items-center gap-8">
             <Link href="/dashboard" className="nav-logo">
-              <Zap className="nav-logo-icon" />
+              <Image src="/logo.svg" alt="Revio" width={28} height={28} className="nav-logo-icon" />
               <span className="nav-logo-text">Revio</span>
             </Link>
 

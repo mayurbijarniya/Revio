@@ -159,6 +159,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updateData.ignoredPaths = body.ignoredPaths;
     }
 
+    if (body.reviewRules && typeof body.reviewRules === "object") {
+      updateData.reviewRules = body.reviewRules;
+    }
+
     const updated = await db.repository.update({
       where: { id },
       data: updateData,
@@ -169,6 +173,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         id: updated.id,
         autoReview: updated.autoReview,
         ignoredPaths: updated.ignoredPaths,
+        reviewRules: updated.reviewRules,
       },
     });
   } catch (error) {

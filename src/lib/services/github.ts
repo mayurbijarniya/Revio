@@ -317,4 +317,81 @@ export class GitHubService {
 
     return data.id;
   }
+
+  /**
+   * Get a specific pull request
+   */
+  async getPullRequest(
+    owner: string,
+    repo: string,
+    prNumber: number
+  ): Promise<{
+    number: number;
+    title: string;
+    body: string | null;
+    html_url: string;
+    user: { login: string };
+    base: { ref: string };
+    head: { ref: string; sha: string };
+    draft: boolean;
+    state: string;
+    created_at: string;
+    updated_at: string;
+  }> {
+    const { data } = await this.octokit.rest.pulls.get({
+      owner,
+      repo,
+      pull_number: prNumber,
+    });
+
+    return {
+      number: data.number,
+      title: data.title,
+      body: data.body,
+      html_url: data.html_url,
+      user: { login: data.user?.login || "unknown" },
+      base: { ref: data.base.ref },
+      head: { ref: data.head.ref, sha: data.head.sha },
+      draft: data.draft || false,
+      state: data.state,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+    };
+  }
+
+  /**
+   * List pull requests for a repository
+   */
+  async listPullRequests(
+    owner: string,
+    repo: string,
+    options: { state?: "open" | "closed" | "all"; per_page?: number } = {}
+  ): Promise<
+    Array<{
+      number: number;
+      title: string;
+      html_url: string;
+      user: { login: string };
+      draft: boolean;
+      state: string;
+      created_at: string;
+    }>
+  > {
+    const { data } = await this.octokit.rest.pulls.list({
+      owner,
+      repo,
+      state: options.state || "open",
+      per_page: options.per_page || 30,
+    });
+
+    return data.map((pr) => ({
+      number: pr.number,
+      title: pr.title,
+      html_url: pr.html_url,
+      user: { login: pr.user?.login || "unknown" },
+      draft: pr.draft || false,
+      state: pr.state,
+      created_at: pr.created_at,
+    }));
+  }
 }

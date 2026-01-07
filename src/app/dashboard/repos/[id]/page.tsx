@@ -78,6 +78,7 @@ export default async function RepoDetailPage({ params }: PageProps) {
         autoReview: repository.autoReview,
         webhookId: repository.webhookId,
         ignoredPaths: repository.ignoredPaths,
+        reviewRules: repository.reviewRules as Record<string, unknown>,
         createdAt: repository.createdAt,
       }}
       indexedFiles={repository.indexedFiles}

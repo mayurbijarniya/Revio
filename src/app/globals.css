@@ -1,5 +1,38 @@
 @import "tailwindcss";
 
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom Animations */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spin-reverse-slow {
+  from {
+    transform: rotate(360deg);
+  }
+
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 1s linear infinite;
+}
+
+.animate-spin-reverse-slow {
+  animation: spin-reverse-slow 1s linear infinite;
+}
+
 :root {
   /* Brand Colors - Electric Precision */
   --primary: #4F46E5;
@@ -43,6 +76,9 @@
   --foreground: #111827;
   --code-bg: #f6f8fa;
   --code-border: #d0d7de;
+  /* Original was too light */
+  --code-border: #b1b8be;
+  /* Darker, more visible */
   --inline-code-bg: rgba(175, 184, 193, 0.15);
   --inline-code-color: #6b7280;
 }
@@ -53,6 +89,9 @@
     --foreground: #c9d1d9;
     --code-bg: #1e2128;
     --code-border: #30363d;
+    /* Original */
+    --code-border: #424a53;
+    /* Darker/Higher contrast for dark mode */
     --inline-code-bg: rgba(110, 118, 129, 0.2);
     --inline-code-color: #c9d1d9;
 
@@ -69,7 +108,8 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family: 'JetBrains Mono', 'Menlo', 'Consolas', 'Courier New', monospace;
+  /* Enforce global mono */
 }
 
 /* ============================================

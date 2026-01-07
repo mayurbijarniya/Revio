@@ -3,7 +3,7 @@ import { GitHubService } from "./github";
 import { retrieveMultiContext, formatContextForPrompt } from "./retriever";
 import { generateReviewResponse } from "./gemini";
 import {
-  REVIEW_SYSTEM_PROMPT,
+  buildReviewSystemPrompt,
   buildReviewPrompt,
   parseReviewResponse,
   formatReviewForGitHub,
@@ -11,6 +11,7 @@ import {
   type ReviewResult,
 } from "@/lib/prompts/review";
 import { REVIEW_CONFIG, AI_CONFIG } from "@/lib/constants";
+import { parseReviewSettings } from "@/types/review";
 
 /**
  * PR data for review
@@ -92,18 +93,36 @@ export async function reviewPullRequest(
     changedFiles.length > AI_CONFIG.review.complexThresholds.changedFiles ||
     diff.length > AI_CONFIG.review.complexThresholds.diffLength;
 
-  // Build review prompt
-  const truncatedDiff = diff.slice(0, REVIEW_CONFIG.maxDiffBytes);
+  // Parse review settings from repository
+  const reviewSettings = parseReviewSettings(repository.reviewRules);
+
+  // Filter out ignored paths from changed files
+  const ignoredPaths = repository.ignoredPaths || [];
+  const filteredFiles = changedFiles.filter((file) => {
+    return !ignoredPaths.some((pattern) => {
+      // Simple glob matching
+      const regex = new RegExp(
+        "^" + pattern.replace(/\*/g, ".*").replace(/\?/g, ".") + "$"
+      );
+      return regex.test(file.path);
+    });
+  });
+
+  // Build review prompt with filtered files
+  const truncatedDiff = filterDiffByPaths(diff, filteredFiles.map((f) => f.path));
   const reviewPrompt = buildReviewPrompt(
     prData.title,
     prData.body,
-    truncatedDiff,
+    truncatedDiff.slice(0, REVIEW_CONFIG.maxDiffBytes),
     codebaseContext
   );
 
+  // Build system prompt with custom rules
+  const systemPrompt = buildReviewSystemPrompt(reviewSettings);
+
   // Generate review
   const rawResponse = await generateReviewResponse(
-    REVIEW_SYSTEM_PROMPT,
+    systemPrompt,
     reviewPrompt,
     { isComplex }
   );
@@ -257,4 +276,31 @@ function parseChangedFiles(diff: string): ChangedFile[] {
   }
 
   return files;
+}
+
+/**
+ * Filter diff to only include specified file paths
+ */
+function filterDiffByPaths(diff: string, allowedPaths: string[]): string {
+  if (allowedPaths.length === 0) return diff;
+
+  const allowedSet = new Set(allowedPaths);
+  const fileBlocks = diff.split(/^(diff --git)/m);
+  const result: string[] = [];
+
+  for (let i = 0; i < fileBlocks.length; i++) {
+    const block = fileBlocks[i];
+    if (block === "diff --git" && i + 1 < fileBlocks.length) {
+      const content = fileBlocks[i + 1];
+      const pathMatch = content?.match(/a\/(.+?)\s+b\/(.+)/);
+      const path = pathMatch?.[2] ?? pathMatch?.[1] ?? "";
+
+      if (allowedSet.has(path)) {
+        result.push("diff --git" + content);
+      }
+      i++; // Skip the content block since we processed it
+    }
+  }
+
+  return result.join("");
 }

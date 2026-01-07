@@ -78,18 +78,23 @@ export async function POST(request: NextRequest) {
     const repoName = parts[1];
 
     let webhookId: number | null = null;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+    const isLocalhost = appUrl.includes("localhost") || appUrl.includes("127.0.0.1");
 
     // Try to create webhook (may fail if user doesn't have admin access)
-    if (owner && repoName) {
+    // Skip webhook creation for localhost since GitHub can't deliver webhooks to local URLs
+    if (owner && repoName && !isLocalhost) {
       try {
         const github = new GitHubService(accessToken);
-        const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/github`;
+        const webhookUrl = `${appUrl}/api/webhooks/github`;
         webhookId = await github.createWebhook(owner, repoName, webhookUrl, webhookSecret);
       } catch (webhookError) {
         // Webhook creation failed - continue without webhook
         // User can still use chat and manual reviews
         console.warn("Webhook creation failed:", webhookError);
       }
+    } else if (isLocalhost) {
+      console.warn("Skipping webhook creation for localhost. Use manual PR review instead.");
     }
 
     // Create repository record
@@ -144,6 +149,11 @@ export async function POST(request: NextRequest) {
           autoReview: repo.autoReview,
           webhookActive: !!webhookId,
         },
+        message: isLocalhost
+          ? "Repository connected. Webhooks are not available on localhost - use manual PR reviews instead."
+          : webhookId
+            ? "Repository connected with automatic PR reviews enabled."
+            : "Repository connected. Webhook creation failed - use manual PR reviews instead.",
       },
       201
     );

@@ -188,6 +188,11 @@ model PrReview {
   tokensUsed       Int @default(0) @map("tokens_used")
   processingTimeMs Int? @map("processing_time_ms")
 
+  // Feedback
+  feedback         String?   @db.VarChar(20) // "helpful" | "not_helpful" | null
+  feedbackComment  String?   @map("feedback_comment") @db.Text
+  feedbackAt       DateTime? @map("feedback_at")
+
   createdAt DateTime @default(now()) @map("created_at")
 
   // Relations
