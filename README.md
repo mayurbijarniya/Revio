@@ -74,8 +74,6 @@ Create a `.env` file with the following:
 ```env
 DATABASE_URL="postgresql://..."
 DIRECT_URL="postgresql://..."
-GITHUB_CLIENT_ID="..."
-GITHUB_CLIENT_SECRET="..."
 GITHUB_APP_ID="your_github_app_id"
 GITHUB_APP_CLIENT_ID="your_github_app_client_id"
 GITHUB_APP_CLIENT_SECRET="your_github_app_client_secret"
