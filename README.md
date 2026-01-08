@@ -1,6 +1,6 @@
 # Revio
 
-**AI-Powered Code Review Platform**
+**Code Review Platform**
 
 Revio is an intelligent code review agent that understands your codebase context. Connect your GitHub repositories to get automated PR reviews, natural language code search, and chat-based code assistance.
 
