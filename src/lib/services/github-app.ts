@@ -1,18 +1,41 @@
 import { SignJWT, importPKCS8 } from "jose";
 import { Octokit } from "@octokit/rest";
+import * as crypto from "crypto";
 
 const GITHUB_APP_ID = process.env.GITHUB_APP_ID!;
 const GITHUB_APP_PRIVATE_KEY = process.env.GITHUB_APP_PRIVATE_KEY!;
 
 /**
+ * Convert RSA private key (PKCS#1) to PKCS#8 format
+ */
+function convertToPKCS8(privateKey: string): string {
+  // Replace escaped newlines with actual newlines
+  const key = privateKey.replace(/\\n/g, "\n");
+
+  // If already PKCS#8 format, return as-is
+  if (key.includes("BEGIN PRIVATE KEY")) {
+    return key;
+  }
+
+  // Convert RSA private key to PKCS#8 using Node.js crypto
+  const keyObject = crypto.createPrivateKey({
+    key: key,
+    format: "pem",
+  });
+
+  return keyObject.export({
+    type: "pkcs8",
+    format: "pem",
+  }) as string;
+}
+
+/**
  * Generate a JWT for GitHub App authentication
  */
 async function generateAppJWT(): Promise<string> {
-  // Parse the private key
-  const privateKey = await importPKCS8(
-    GITHUB_APP_PRIVATE_KEY.replace(/\\n/g, "\n"),
-    "RS256"
-  );
+  // Convert key to PKCS#8 format and import
+  const pkcs8Key = convertToPKCS8(GITHUB_APP_PRIVATE_KEY);
+  const privateKey = await importPKCS8(pkcs8Key, "RS256");
 
   // Create JWT valid for 10 minutes (GitHub's max)
   const now = Math.floor(Date.now() / 1000);
