@@ -193,7 +193,7 @@ model PrReview {
 
   // Status
   status          String @default("pending") @db.VarChar(50)
-  githubCommentId Int?   @map("github_comment_id")
+  githubCommentId BigInt?   @map("github_comment_id")
 
   // Metrics
   tokensUsed       Int @default(0) @map("tokens_used")

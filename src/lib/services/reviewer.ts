@@ -338,7 +338,7 @@ export async function postReviewToGitHub(
       },
     },
     data: {
-      githubCommentId: commentId,
+      githubCommentId: commentId ? BigInt(commentId) : null,
     },
   });
 

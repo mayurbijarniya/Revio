@@ -258,7 +258,7 @@ export function formatReviewForGitHub(review: ReviewResult): string {
   };
   comment += recommendationText[review.recommendation];
 
-  comment += `\n\n---\n*Powered by [Revio](https://revio.dev) AI Code Review*`;
+  comment += `\n\n---\n*Powered by [Revio](https://revio.mayur.app) AI Code Review*`;
 
   return comment;
 }
