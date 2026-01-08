@@ -5,6 +5,9 @@ import { WEBHOOK_CONFIG } from "@/lib/constants";
 import { reviewPullRequest, postReviewToGitHub } from "@/lib/services/reviewer";
 import { decrypt } from "@/lib/encryption";
 
+// GitHub App webhook secret (global for all repos)
+const GITHUB_APP_WEBHOOK_SECRET = process.env.GITHUB_APP_WEBHOOK_SECRET;
+
 /**
  * Verify GitHub webhook signature
  */
@@ -13,12 +16,17 @@ function verifySignature(
   signature: string | null,
   secret: string
 ): boolean {
-  if (!signature) return false;
+  if (!signature || !secret) return false;
 
   const hmac = crypto.createHmac(WEBHOOK_CONFIG.signatureAlgorithm, secret);
   const digest = `sha256=${hmac.update(payload).digest("hex")}`;
 
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
+  try {
+    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
+  } catch {
+    // Buffer lengths differ
+    return false;
+  }
 }
 
 /**
@@ -69,12 +77,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Repository not found" }, { status: 404 });
   }
 
-  // Verify webhook signature
-  if (repository.webhookSecret) {
-    if (!verifySignature(payload, signature, repository.webhookSecret)) {
-      console.warn(`[Webhook] Invalid signature for ${repoFullName}`);
+  // Verify webhook signature using GitHub App secret (preferred) or per-repo secret (legacy)
+  const webhookSecret = GITHUB_APP_WEBHOOK_SECRET || repository.webhookSecret;
+
+  if (webhookSecret) {
+    if (!verifySignature(payload, signature, webhookSecret)) {
+      console.warn(`[Webhook] Invalid signature for ${repoFullName}. Using ${GITHUB_APP_WEBHOOK_SECRET ? 'App secret' : 'repo secret'}.`);
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
+    console.warn(`[Webhook] Signature verified for ${repoFullName}`);
+  } else {
+    console.warn(`[Webhook] No webhook secret configured, skipping signature verification for ${repoFullName}`);
   }
 
   // Handle pull_request events
