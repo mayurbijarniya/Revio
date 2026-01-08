@@ -14,6 +14,7 @@ import {
   ThumbsUp,
   ThumbsDown,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -54,6 +55,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
   const [repoFilter, setRepoFilter] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
   const [feedbackLoading, setFeedbackLoading] = useState<string | null>(null);
+  const [reviewLoading, setReviewLoading] = useState<string | null>(null);
   const [localFeedback, setLocalFeedback] = useState<
     Record<string, "helpful" | "not_helpful" | null>
   >({});
@@ -97,6 +99,25 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
       return localFeedback[review.id] ?? null;
     }
     return review.feedback;
+  }
+
+  async function handleReview(review: Review) {
+    setReviewLoading(review.id);
+    try {
+      const res = await fetch(`/api/repos/${review.repository.id}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prNumber: review.prNumber }),
+      });
+      if (res.ok) {
+        // Reload page to get updated status
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error("Failed to trigger review:", error);
+    } finally {
+      setReviewLoading(null);
+    }
   }
 
   const filteredReviews = reviews.filter((review) => {
@@ -436,6 +457,19 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
                           )}
                         </div>
                       )}
+                      {/* Review/Re-review button */}
+                      <button
+                        onClick={() => handleReview(review)}
+                        disabled={reviewLoading === review.id}
+                        className="flex items-center gap-1 px-3 py-1.5 text-sm bg-[#10B981] text-white rounded-lg hover:bg-[#059669] transition-colors disabled:opacity-50"
+                      >
+                        {reviewLoading === review.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="w-4 h-4" />
+                        )}
+                        {review.status === "pending" ? "Review" : "Re-review"}
+                      </button>
                       <Link
                         href={`/dashboard/reviews/${review.id}`}
                         className="flex items-center gap-1 px-3 py-1.5 text-sm bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] transition-colors"

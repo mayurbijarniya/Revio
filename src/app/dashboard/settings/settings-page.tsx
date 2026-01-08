@@ -19,6 +19,8 @@ import {
   MessageSquare,
   FileCode,
   GitPullRequest,
+  Bot,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PLAN_LIMITS } from "@/lib/constants";
@@ -180,6 +182,40 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
                 <CheckCircle className="w-4 h-4" />
                 Connected
               </span>
+            </div>
+          </div>
+
+          {/* GitHub App Installation */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Bot className="w-5 h-5" />
+              Revio Bot
+            </h2>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                The Revio Bot posts AI-powered PR reviews on your behalf. Install it on your repositories to enable automatic code reviews.
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <a
+                  href="/api/auth/github?install=true"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] transition-colors"
+                >
+                  <Bot className="w-4 h-4" />
+                  Install / Update Revio Bot
+                </a>
+                <a
+                  href="https://github.com/apps/revio-bot/installations/new"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Manage on GitHub
+                </a>
+              </div>
+              <p className="text-xs text-gray-500">
+                Use this to add the bot to new repositories or update permissions.
+              </p>
             </div>
           </div>
 
