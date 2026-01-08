@@ -162,7 +162,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
       feedbackAt: review.feedbackAt,
       processingTimeMs: review.processingTimeMs,
       tokensUsed: review.tokensUsed,
-      githubCommentId: review.githubCommentId,
+      githubCommentId: review.githubCommentId ? String(review.githubCommentId) : null,
       createdAt: review.createdAt,
       repository: review.repository,
       requestedBy: review.requestedBy ? {
