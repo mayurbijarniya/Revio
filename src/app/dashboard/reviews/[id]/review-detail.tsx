@@ -273,13 +273,13 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
         </Link>
 
         <div className="flex items-start justify-between gap-4">
-          <div>
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 mb-2">
-              <GitPullRequest className="h-6 w-6 text-[#4F46E5]" />
-              <h1 className="text-2xl font-bold text-gray-900">
+              <GitPullRequest className="h-6 w-6 text-[#4F46E5] flex-shrink-0" />
+              <h1 className="text-xl font-bold text-gray-900 truncate">
                 #{review.prNumber} {review.prTitle || "Pull Request"}
               </h1>
-              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-medium ${status.bg} ${status.color}`}>
+              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-medium ${status.bg} ${status.color} flex-shrink-0`}>
                 <StatusIcon className="h-4 w-4" />
                 {status.label}
               </span>
@@ -287,28 +287,28 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
             <div className="flex items-center gap-4 text-sm text-gray-500">
               <Link
                 href={`/dashboard/repos/${review.repository.id}`}
-                className="hover:text-[#4F46E5]"
+                className="hover:text-[#4F46E5] truncate"
               >
                 {review.repository.fullName}
               </Link>
               {review.prAuthor && (
-                <span className="flex items-center gap-1">
+                <span className="flex items-center gap-1 flex-shrink-0">
                   <User className="h-4 w-4" />
                   {review.prAuthor}
                 </span>
               )}
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1 flex-shrink-0">
                 <Calendar className="h-4 w-4" />
                 {new Date(review.createdAt).toLocaleDateString()}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button
               onClick={handleReview}
               disabled={reviewLoading}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] disabled:opacity-50 h-10 whitespace-nowrap"
             >
               {reviewLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -321,7 +321,7 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
               href={review.prUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 h-10 whitespace-nowrap"
             >
               <ExternalLink className="h-4 w-4" />
               View on GitHub
@@ -359,27 +359,25 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
       {/* Merge Readiness Verdict */}
       {review.status === "completed" && (
         <div
-          className={`rounded-lg p-4 mb-6 border-2 ${
-            review.mergeVerdict === "ready"
+          className={`rounded-lg p-4 mb-6 border-2 ${review.mergeVerdict === "ready"
               ? "bg-green-50 border-green-300"
               : review.mergeVerdict === "needs_changes"
-              ? "bg-red-50 border-red-300"
-              : review.mergeVerdict === "review"
-              ? "bg-amber-50 border-amber-300"
-              : "bg-gray-50 border-gray-300"
-          }`}
+                ? "bg-red-50 border-red-300"
+                : review.mergeVerdict === "review"
+                  ? "bg-amber-50 border-amber-300"
+                  : "bg-gray-50 border-gray-300"
+            }`}
         >
           <div className="flex items-center gap-4">
             <div
-              className={`p-3 rounded-full ${
-                review.mergeVerdict === "ready"
+              className={`p-3 rounded-full ${review.mergeVerdict === "ready"
                   ? "bg-green-100"
                   : review.mergeVerdict === "needs_changes"
-                  ? "bg-red-100"
-                  : review.mergeVerdict === "review"
-                  ? "bg-amber-100"
-                  : "bg-gray-100"
-              }`}
+                    ? "bg-red-100"
+                    : review.mergeVerdict === "review"
+                      ? "bg-amber-100"
+                      : "bg-gray-100"
+                }`}
             >
               {review.mergeVerdict === "ready" ? (
                 <GitMerge className="h-6 w-6 text-green-600" />
@@ -393,34 +391,32 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
             </div>
             <div className="flex-1">
               <h3
-                className={`text-lg font-semibold ${
-                  review.mergeVerdict === "ready"
+                className={`text-lg font-semibold ${review.mergeVerdict === "ready"
                     ? "text-green-800"
                     : review.mergeVerdict === "needs_changes"
-                    ? "text-red-800"
-                    : review.mergeVerdict === "review"
-                    ? "text-amber-800"
-                    : "text-gray-800"
-                }`}
+                      ? "text-red-800"
+                      : review.mergeVerdict === "review"
+                        ? "text-amber-800"
+                        : "text-gray-800"
+                  }`}
               >
                 {review.mergeVerdict === "ready"
                   ? "Ready to Merge"
                   : review.mergeVerdict === "needs_changes"
-                  ? "Changes Required"
-                  : review.mergeVerdict === "review"
-                  ? "Review Recommended"
-                  : "Review Pending"}
+                    ? "Changes Required"
+                    : review.mergeVerdict === "review"
+                      ? "Review Recommended"
+                      : "Review Pending"}
               </h3>
               <p
-                className={`text-sm ${
-                  review.mergeVerdict === "ready"
+                className={`text-sm ${review.mergeVerdict === "ready"
                     ? "text-green-600"
                     : review.mergeVerdict === "needs_changes"
-                    ? "text-red-600"
-                    : review.mergeVerdict === "review"
-                    ? "text-amber-600"
-                    : "text-gray-600"
-                }`}
+                      ? "text-red-600"
+                      : review.mergeVerdict === "review"
+                        ? "text-amber-600"
+                        : "text-gray-600"
+                  }`}
               >
                 {review.mergeMessage}
               </p>
@@ -429,19 +425,18 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
               <div className="text-right">
                 <div className="text-xs text-gray-500 mb-1">AI Recommendation</div>
                 <span
-                  className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ${
-                    review.recommendation === "approve"
+                  className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ${review.recommendation === "approve"
                       ? "bg-green-100 text-green-700"
                       : review.recommendation === "request_changes"
-                      ? "bg-red-100 text-red-700"
-                      : "bg-gray-100 text-gray-700"
-                  }`}
+                        ? "bg-red-100 text-red-700"
+                        : "bg-gray-100 text-gray-700"
+                    }`}
                 >
                   {review.recommendation === "approve"
                     ? "Approve"
                     : review.recommendation === "request_changes"
-                    ? "Request Changes"
-                    : "Comment"}
+                      ? "Request Changes"
+                      : "Comment"}
                 </span>
               </div>
             )}
@@ -449,15 +444,14 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
               <div className="text-right">
                 <div className="text-xs text-gray-500 mb-1">Risk Level</div>
                 <span
-                  className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ${
-                    review.riskLevel === "critical"
+                  className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ${review.riskLevel === "critical"
                       ? "bg-red-100 text-red-700"
                       : review.riskLevel === "high"
-                      ? "bg-orange-100 text-orange-700"
-                      : review.riskLevel === "medium"
-                      ? "bg-amber-100 text-amber-700"
-                      : "bg-green-100 text-green-700"
-                  }`}
+                        ? "bg-orange-100 text-orange-700"
+                        : review.riskLevel === "medium"
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-green-100 text-green-700"
+                    }`}
                 >
                   {review.riskLevel.charAt(0).toUpperCase() + review.riskLevel.slice(1)}
                 </span>
@@ -509,11 +503,10 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
               <button
                 onClick={() => handleFeedback("helpful")}
                 disabled={feedbackLoading}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors ${
-                  review.feedback === "helpful"
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors ${review.feedback === "helpful"
                     ? "bg-green-100 text-green-700"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
+                  }`}
               >
                 <ThumbsUp className="h-4 w-4" />
                 Helpful
@@ -521,11 +514,10 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
               <button
                 onClick={() => handleFeedback("not_helpful")}
                 disabled={feedbackLoading}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors ${
-                  review.feedback === "not_helpful"
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors ${review.feedback === "not_helpful"
                     ? "bg-red-100 text-red-700"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
+                  }`}
               >
                 <ThumbsDown className="h-4 w-4" />
                 Not Helpful
