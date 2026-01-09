@@ -6,6 +6,8 @@ import { createConversationSchema } from "@/types/chat";
 import { retrieveContext, retrieveMultiRepoContext, formatContextForPrompt } from "@/lib/services/retriever";
 import { generateChatResponse, type ChatMessage } from "@/lib/services/gemini";
 import { CHAT_SYSTEM_PROMPT, buildChatUserMessage } from "@/lib/prompts/chat";
+import { getFullRepoContext, formatFullRepoContextForStorage } from "@/lib/services/full-repo-context";
+import { Prisma } from "@prisma/client";
 
 /**
  * GET /api/chat/conversations - List user's conversations
@@ -80,7 +82,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { repositoryIds, message, title } = parsed.data;
+    const { repositoryIds, message, title, mode } = parsed.data;
 
     // Verify all repositories are accessible
     const repositories = await db.repository.findMany({
@@ -105,11 +107,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Retrieve relevant context from all repositories
-    const context = repositoryIds.length === 1
-      ? await retrieveContext(repositoryIds[0]!, message)
-      : await retrieveMultiRepoContext(repositoryIds, message);
-    const formattedContext = formatContextForPrompt(context.chunks);
+    // Get context based on mode
+    let formattedContext: string;
+    let fullRepoContextData = null;
+    let contextChunksForStorage: unknown = null;
+
+    if (mode === "full_repo") {
+      // Full repo mode: Get complete file list
+      const fullContext = await getFullRepoContext(repositoryIds);
+      formattedContext = fullContext;
+      fullRepoContextData = formatFullRepoContextForStorage(fullContext);
+      contextChunksForStorage = { type: "full_repo", fileCount: repositories.reduce((acc, r) => acc + r.fileCount, 0) };
+    } else {
+      // Indexed mode: Vector search (default)
+      const context = repositoryIds.length === 1
+        ? await retrieveContext(repositoryIds[0]!, message)
+        : await retrieveMultiRepoContext(repositoryIds, message);
+      formattedContext = formatContextForPrompt(context.chunks);
+      contextChunksForStorage = {
+        chunks: context.chunks.map((c) => ({
+          filePath: c.filePath,
+          startLine: c.startLine,
+          endLine: c.endLine,
+          content: c.content.slice(0, 500),
+        })),
+        totalTokens: context.totalTokens,
+      };
+    }
 
     // Build messages for Gemini
     const chatMessages: ChatMessage[] = [
@@ -132,20 +156,14 @@ export async function POST(request: NextRequest) {
         repositoryId: repositoryIds[0]!, // Primary repository
         repositoryIds, // Store all selected repository IDs
         title: conversationTitle,
+        mode, // Lock the mode for this conversation
+        fullRepoContext: (fullRepoContextData ?? Prisma.JsonNull) as Prisma.InputJsonValue, // Cache full repo context if mode is "full_repo"
         messages: {
           create: [
             {
               role: "user",
               content: message,
-              contextChunks: {
-                chunks: context.chunks.map((c) => ({
-                  filePath: c.filePath,
-                  startLine: c.startLine,
-                  endLine: c.endLine,
-                  content: c.content.slice(0, 500),
-                })),
-                totalTokens: context.totalTokens,
-              },
+              contextChunks: (contextChunksForStorage ?? Prisma.JsonNull) as Prisma.InputJsonValue,
             },
             {
               role: "assistant",
@@ -174,7 +192,7 @@ export async function POST(request: NextRequest) {
           title: conversation.title,
           createdAt: conversation.createdAt,
           updatedAt: conversation.updatedAt,
-          messages: conversation.messages.map((m) => ({
+          messages: (conversation as never as { messages: {id: string; conversationId: string; role: string; content: string; contextChunks: unknown; createdAt: Date}[] }).messages.map((m) => ({
             id: m.id,
             conversationId: m.conversationId,
             role: m.role,
@@ -182,7 +200,7 @@ export async function POST(request: NextRequest) {
             contextChunks: m.contextChunks,
             createdAt: m.createdAt,
           })),
-          repository: conversation.repository,
+          repository: (conversation as never as { repository: {id: string; fullName: string; language: string | null} }).repository,
         },
       },
       201

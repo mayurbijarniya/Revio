@@ -9,6 +9,8 @@ export interface Conversation {
   repositoryIds: string[];
   userId: string;
   title: string;
+  mode: "indexed" | "full_repo";
+  fullRepoContext?: unknown; // JSON cached context
   createdAt: Date;
   updatedAt: Date;
 }
@@ -71,6 +73,7 @@ export const createConversationSchema = z.object({
   repositoryIds: z.array(z.string()).min(1, "At least one repository is required"),
   title: z.string().min(1, "Title is required").max(200, "Title too long").optional(),
   message: z.string().min(1, "Message is required").max(10000, "Message too long"),
+  mode: z.enum(["indexed", "full_repo"]).default("indexed"),
 });
 
 export const searchFiltersSchema = z.object({

@@ -136,14 +136,16 @@ model IndexedFile {
 
 // Conversations
 model Conversation {
-  id            String    @id @default(uuid()) @db.Uuid
-  userId        String    @map("user_id") @db.Uuid
-  repositoryId  String    @map("repository_id") @db.Uuid
-  repositoryIds String[]  @map("repository_ids") @default([])
-  title         String?   @db.VarChar(255)
-  isPinned      Boolean   @default(false) @map("is_pinned")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  repositoryId    String    @map("repository_id") @db.Uuid
+  repositoryIds   String[]  @map("repository_ids") @default([])
+  title           String?   @db.VarChar(255)
+  isPinned        Boolean   @default(false) @map("is_pinned")
+  mode            String    @default("indexed") @db.VarChar(20) // "indexed" | "full_repo"
+  fullRepoContext Json?     @map("full_repo_context") // Cached repo files for full_repo mode
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
   // Relations
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
