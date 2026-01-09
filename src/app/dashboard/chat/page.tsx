@@ -50,20 +50,22 @@ export default async function ChatPage({ searchParams }: PageProps) {
     take: 20,
   });
 
-  const formattedConversations = conversations.map((conv) => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const formattedConversations = conversations.map((conv: any) => ({
     id: conv.id,
     title: conv.title ?? "New conversation",
     repositoryName: conv.repository.fullName,
     lastMessage: conv.messages[0]?.content?.slice(0, 60),
     updatedAt: conv.updatedAt,
-    isPinned: conv.isPinned,
-    mode: conv.mode as "indexed" | "full_repo",
+    isPinned: conv.isPinned ?? false,
+    mode: (conv.mode as "indexed" | "full_repo") ?? "indexed",
   }));
 
   // If conversation ID is provided, load that conversation
   let initialConversationId: string | undefined;
   let initialMessages: { id: string; role: "user" | "assistant"; content: string; createdAt: Date }[] | undefined;
   let initialSelectedRepos: { id: string; fullName: string; language: string | null }[] | undefined;
+  let initialMode: "indexed" | "full_repo" | undefined;
 
   if (conversationId) {
     const conversation = await db.conversation.findFirst({
@@ -86,6 +88,8 @@ export default async function ChatPage({ searchParams }: PageProps) {
 
     if (conversation) {
       initialConversationId = conversation.id;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      initialMode = ((conversation as any).mode as "indexed" | "full_repo") || "indexed";
       initialMessages = conversation.messages.map((msg) => ({
         id: msg.id,
         role: msg.role as "user" | "assistant",
@@ -111,6 +115,7 @@ export default async function ChatPage({ searchParams }: PageProps) {
       initialConversationId={initialConversationId}
       initialMessages={initialMessages}
       initialSelectedRepos={initialSelectedRepos}
+      initialMode={initialMode}
     />
   );
 }
