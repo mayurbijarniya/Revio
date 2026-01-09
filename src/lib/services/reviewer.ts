@@ -271,8 +271,8 @@ export async function postReviewToGitHub(
     review.recommendation === "approve"
       ? "APPROVE"
       : review.recommendation === "request_changes"
-      ? "REQUEST_CHANGES"
-      : "COMMENT";
+        ? "REQUEST_CHANGES"
+        : "COMMENT";
 
   let commentId: number | null = null;
 
@@ -281,19 +281,48 @@ export async function postReviewToGitHub(
 
   if (botService) {
     // Use the bot to post reviews - it can approve anyone's PRs
-    console.warn("[Reviewer] Using Revio Bot to post review");
+    console.log("[Reviewer] Using Revio Bot to post review");
     const botGithub = new GitHubService(botService.token);
-    commentId = await botGithub.createPrReview(
-      owner,
-      repo,
-      prNumber,
-      commentBody,
-      reviewEvent,
-      inlineComments
-    );
+
+    try {
+      commentId = await botGithub.createPrReview(
+        owner,
+        repo,
+        prNumber,
+        commentBody,
+        reviewEvent,
+        inlineComments
+      );
+    } catch (error: unknown) {
+      // Check if error is line resolution issue (422)
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes("Line could not be resolved") || errorMessage.includes("422")) {
+        console.warn("[Reviewer] Inline comments failed (line resolution error), posting review without inline comments");
+        // Retry without inline comments
+        commentId = await botGithub.createPrReview(
+          owner,
+          repo,
+          prNumber,
+          commentBody,
+          reviewEvent,
+          undefined // No inline comments
+        );
+
+        // Post inline comments as a separate comment if there are any
+        if (inlineComments.length > 0) {
+          let inlineBody = "### Additional Code-Level Feedback\n\n";
+          for (const comment of inlineComments) {
+            inlineBody += `**\`${comment.path}:${comment.line}\`**\n${comment.body}\n\n---\n\n`;
+          }
+          await botGithub.createPrComment(owner, repo, prNumber, inlineBody);
+        }
+      } else {
+        throw error;
+      }
+    }
   } else {
     // Fall back to user's token if GitHub App not installed
-    console.warn("[Reviewer] GitHub App not installed, using user token");
+    console.log("[Reviewer] GitHub App not installed, using user token");
     const github = new GitHubService(accessToken);
 
     // Post PR review with inline comments
@@ -308,9 +337,42 @@ export async function postReviewToGitHub(
         inlineComments
       );
     } catch (error: unknown) {
-      // Check if error is "cannot approve own PR" - fall back to COMMENT
       const errorMessage = error instanceof Error ? error.message : String(error);
-      if (
+
+      // Check if error is line resolution issue (422)
+      if (errorMessage.includes("Line could not be resolved") || errorMessage.includes("422")) {
+        console.warn("[Reviewer] Inline comments failed (line resolution error), posting review without inline comments");
+        // Retry without inline comments
+        try {
+          commentId = await github.createPrReview(
+            owner,
+            repo,
+            prNumber,
+            commentBody,
+            reviewEvent,
+            undefined
+          );
+        } catch (retryError: unknown) {
+          const retryMessage = retryError instanceof Error ? retryError.message : String(retryError);
+          if (
+            retryMessage.includes("Can not approve your own pull request") ||
+            retryMessage.includes("Can not request changes on your own pull request")
+          ) {
+            commentId = await github.createPrReview(owner, repo, prNumber, commentBody, "COMMENT", undefined);
+          } else {
+            throw retryError;
+          }
+        }
+
+        // Post inline comments as a separate comment if there are any
+        if (inlineComments.length > 0) {
+          let inlineBody = "### Additional Code-Level Feedback\n\n";
+          for (const comment of inlineComments) {
+            inlineBody += `**\`${comment.path}:${comment.line}\`**\n${comment.body}\n\n---\n\n`;
+          }
+          await github.createPrComment(owner, repo, prNumber, inlineBody);
+        }
+      } else if (
         errorMessage.includes("Can not approve your own pull request") ||
         errorMessage.includes("Can not request changes on your own pull request")
       ) {
