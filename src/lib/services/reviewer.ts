@@ -281,7 +281,7 @@ export async function postReviewToGitHub(
 
   if (botService) {
     // Use the bot to post reviews - it can approve anyone's PRs
-    console.log("Using Revio Bot to post review");
+    console.warn("[Reviewer] Using Revio Bot to post review");
     const botGithub = new GitHubService(botService.token);
     commentId = await botGithub.createPrReview(
       owner,
@@ -293,7 +293,7 @@ export async function postReviewToGitHub(
     );
   } else {
     // Fall back to user's token if GitHub App not installed
-    console.log("GitHub App not installed, using user token");
+    console.warn("[Reviewer] GitHub App not installed, using user token");
     const github = new GitHubService(accessToken);
 
     // Post PR review with inline comments

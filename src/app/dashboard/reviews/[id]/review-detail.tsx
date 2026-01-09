@@ -31,6 +31,7 @@ import {
   GitMerge,
   User,
   Calendar,
+  RefreshCw,
 } from "lucide-react";
 
 interface ReviewIssue {
@@ -133,6 +134,7 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
   const [error, setError] = useState<string | null>(null);
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
   const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [reviewLoading, setReviewLoading] = useState(false);
 
   const fetchReview = useCallback(async () => {
     try {
@@ -197,6 +199,31 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
       newExpanded.add(file);
     }
     setExpandedFiles(newExpanded);
+  };
+
+  const handleReview = async () => {
+    if (!review) return;
+
+    try {
+      setReviewLoading(true);
+      const res = await fetch(`/api/repos/${review.repository.id}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prNumber: review.prNumber }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        // Refresh to get the updated review
+        setTimeout(() => {
+          fetchReview();
+        }, 2000);
+      }
+    } catch (err) {
+      console.error("Failed to trigger review:", err);
+    } finally {
+      setReviewLoading(false);
+    }
   };
 
   if (loading) {
@@ -278,6 +305,18 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleReview}
+              disabled={reviewLoading}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] disabled:opacity-50"
+            >
+              {reviewLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              {review.status === "pending" ? "Review" : "Re-review"}
+            </button>
             <a
               href={review.prUrl}
               target="_blank"

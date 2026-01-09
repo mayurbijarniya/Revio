@@ -590,13 +590,13 @@ export function RepoDetail({
 
       <div className="grid grid-cols-3 gap-6">
         {/* Settings */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 h-[500px] flex flex-col">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 flex-shrink-0">
             <Settings className="w-5 h-5" />
             Review Settings
           </h2>
 
-          <div className="space-y-4">
+          <div className="space-y-4 flex-1 overflow-y-auto pr-1">
             <div className="flex items-center justify-between">
               <div>
                 <div className="font-medium">Auto Review PRs</div>
@@ -722,7 +722,7 @@ export function RepoDetail({
             </div>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
             <Link
               href={`/dashboard/chat?repo=${repository.id}`}
               className="cta-link"
@@ -734,25 +734,23 @@ export function RepoDetail({
         </div>
 
         {/* Recent PR Reviews */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 h-[500px] flex flex-col">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 flex-shrink-0">
             <GitPullRequest className="w-5 h-5" />
             Recent PR Reviews
           </h2>
 
           {prReviews.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <GitPullRequest className="w-8 h-8 mx-auto mb-2 opacity-50" />
+            <div className="text-center py-8 text-gray-500 flex-1 flex flex-col items-center justify-center">
+              <GitPullRequest className="w-8 h-8 mb-2 opacity-50" />
               <p className="text-sm">No PR reviews yet</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 flex-1 overflow-y-auto pr-1">
               {prReviews.map((pr) => (
-                <a
+                <Link
                   key={pr.id}
-                  href={pr.prUrl ?? "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={`/dashboard/reviews/${pr.id}`}
                   className="block p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   <div className="flex items-center justify-between">
@@ -778,15 +776,15 @@ export function RepoDetail({
                       by {pr.prAuthor}
                     </div>
                   )}
-                </a>
+                </Link>
               ))}
             </div>
           )}
         </div>
 
         {/* Indexed Files */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 h-[500px] flex flex-col">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 flex-shrink-0">
             <FileCode className="w-5 h-5" />
             Indexed Files
             <span className="text-sm font-normal text-gray-500">
@@ -795,12 +793,12 @@ export function RepoDetail({
           </h2>
 
           {indexedFiles.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <FileCode className="w-8 h-8 mx-auto mb-2 opacity-50" />
+            <div className="text-center py-8 text-gray-500 flex-1 flex flex-col items-center justify-center">
+              <FileCode className="w-8 h-8 mb-2 opacity-50" />
               <p className="text-sm">No files indexed yet</p>
             </div>
           ) : (
-            <div className="space-y-1 max-h-80 overflow-y-auto scrollbar-hide">
+            <div className="space-y-1 flex-1 overflow-y-auto pr-1">
               {indexedFiles.map((file) => (
                 <div
                   key={file.id}
@@ -818,7 +816,7 @@ export function RepoDetail({
                 </div>
               ))}
               {counts.indexedFiles > 50 && (
-                <div className="text-center text-sm text-gray-500 py-2">
+                <div className="text-center text-sm text-gray-500 py-2 flex-shrink-0">
                   +{counts.indexedFiles - 50} more files
                 </div>
               )}
