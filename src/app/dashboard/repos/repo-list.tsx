@@ -188,8 +188,8 @@ export function RepoList() {
   return (
     <div>
       {/* Tabs - Pill Style */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex gap-2">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setActiveTab("connected")}
             className={cn(
@@ -216,7 +216,7 @@ export function RepoList() {
         <button
           onClick={handleRefresh}
           disabled={loading || refreshing}
-          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl transition-all disabled:opacity-50"
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl transition-all disabled:opacity-50 w-full md:w-auto justify-center"
           title="Refresh repository list"
         >
           <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
@@ -337,28 +337,28 @@ function ConnectedRepoCard({
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-3">
-          <FolderGit2 className="w-5 h-5 text-gray-400 mt-0.5" />
-          <div>
-            <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+        <div className="flex items-start gap-3 w-full sm:w-auto">
+          <FolderGit2 className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
               <a
                 href={`/dashboard/repos/${repo.id}`}
-                className="font-medium hover:text-[#4F46E5]"
+                className="font-medium hover:text-[#4F46E5] break-all"
               >
                 {repo.fullName}
               </a>
               {repo.private ? (
-                <Lock className="w-3.5 h-3.5 text-gray-400" />
+                <Lock className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
               ) : (
-                <Globe className="w-3.5 h-3.5 text-gray-400" />
+                <Globe className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
               )}
             </div>
-            <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
+            <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 flex-wrap">
               {repo.language && <span>{repo.language}</span>}
               <span
                 className={cn(
-                  "px-2 py-0.5 rounded-full text-xs font-medium",
+                  "px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap",
                   statusColors[repo.indexStatus]
                 )}
               >
@@ -367,7 +367,7 @@ function ConnectedRepoCard({
                   : repo.indexStatus}
               </span>
               {repo.indexedAt && repo.indexStatus === "indexed" && (
-                <span>
+                <span className="whitespace-nowrap">
                   {repo.fileCount} files, {repo.chunkCount} chunks
                 </span>
               )}
@@ -377,13 +377,13 @@ function ConnectedRepoCard({
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
           {showIndexButton && (
             <button
               onClick={onIndex}
               disabled={isIndexing || repo.indexStatus === "indexing"}
               className={cn(
-                "inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg transition-colors",
+                "inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg transition-colors flex-1 sm:flex-none justify-center",
                 canIndex
                   ? "bg-[#4F46E5] text-white hover:bg-[#4338CA]"
                   : "text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700",
@@ -402,7 +402,7 @@ function ConnectedRepoCard({
           <button
             onClick={onDisconnect}
             disabled={isIndexing || repo.indexStatus === "indexing"}
-            className="px-3 py-1.5 text-sm text-[#EF4444] hover:bg-[#FEF2F2] dark:hover:bg-[#7F1D1D] rounded-lg disabled:opacity-50"
+            className="px-3 py-1.5 text-sm text-[#EF4444] hover:bg-[#FEF2F2] dark:hover:bg-[#7F1D1D] rounded-lg disabled:opacity-50 flex-1 sm:flex-none"
           >
             Disconnect
           </button>
@@ -423,16 +423,16 @@ function AvailableRepoCard({
 }) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-3">
-          <FolderGit2 className="w-5 h-5 text-gray-400 mt-0.5" />
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-medium">{repo.fullName}</span>
+      <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+        <div className="flex items-start gap-3 w-full sm:w-auto">
+          <FolderGit2 className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-medium break-all">{repo.fullName}</span>
               {repo.private ? (
-                <Lock className="w-3.5 h-3.5 text-gray-400" />
+                <Lock className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
               ) : (
-                <Globe className="w-3.5 h-3.5 text-gray-400" />
+                <Globe className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
               )}
             </div>
             {repo.description && (
@@ -440,7 +440,7 @@ function AvailableRepoCard({
                 {repo.description}
               </p>
             )}
-            <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
+            <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 flex-wrap">
               {repo.language && <span>{repo.language}</span>}
               {repo.stargazersCount > 0 && (
                 <span className="flex items-center gap-1">
@@ -451,9 +451,9 @@ function AvailableRepoCard({
             </div>
           </div>
         </div>
-        <div>
+        <div className="w-full sm:w-auto flex justify-end">
           {repo.isConnected ? (
-            <span className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-[#10B981] bg-[#ECFDF5] dark:bg-[#064E3B] rounded-lg">
+            <span className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-[#10B981] bg-[#ECFDF5] dark:bg-[#064E3B] rounded-lg w-full sm:w-auto justify-center">
               <Check className="w-4 h-4" />
               Connected
             </span>
@@ -461,7 +461,7 @@ function AvailableRepoCard({
             <button
               onClick={onConnect}
               disabled={isConnecting}
-              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] disabled:opacity-50 w-full sm:w-auto justify-center"
             >
               {isConnecting ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

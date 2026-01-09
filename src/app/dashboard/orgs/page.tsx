@@ -97,7 +97,7 @@ export default function OrganizationsPage() {
   return (
     <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Organizations</h1>
           <p className="text-gray-500 mt-2">
@@ -106,7 +106,7 @@ export default function OrganizationsPage() {
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA]"
+          className="flex items-center gap-2 px-4 py-2 bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] w-full sm:w-auto justify-center"
         >
           <Plus className="w-4 h-4" />
           New Organization
@@ -166,7 +166,7 @@ export default function OrganizationsPage() {
 
       {/* Create Organization Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">Create Organization</h2>
             <form onSubmit={handleCreateOrg} className="space-y-4">
@@ -187,8 +187,8 @@ export default function OrganizationsPage() {
                 <label className="block text-sm font-medium mb-1">
                   URL Slug
                 </label>
-                <div className="flex items-center">
-                  <span className="px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-r-0 rounded-l-lg text-gray-500">
+                <div className="flex flex-col sm:flex-row sm:items-center">
+                  <span className="px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-b-0 sm:border-b sm:border-r-0 rounded-t-lg sm:rounded-l-lg sm:rounded-tr-none text-gray-500 text-sm">
                     revio.com/org/
                   </span>
                   <input
@@ -196,7 +196,7 @@ export default function OrganizationsPage() {
                     value={orgSlug}
                     onChange={(e) => setOrgSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
                     placeholder="acme-corp"
-                    className="flex-1 px-4 py-2 border rounded-r-lg focus:ring-2 focus:ring-[#4F46E5]"
+                    className="flex-1 px-4 py-2 border rounded-b-lg sm:rounded-r-lg sm:rounded-bl-none focus:ring-2 focus:ring-[#4F46E5]"
                     required
                   />
                 </div>

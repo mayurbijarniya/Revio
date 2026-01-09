@@ -272,9 +272,9 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
           Back to Reviews
         </Link>
 
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 mb-2">
+        <div className="flex flex-col md:flex-row items-start justify-between gap-4">
+          <div className="flex-1 min-w-0 w-full">
+            <div className="flex flex-wrap items-center gap-3 mb-2">
               <GitPullRequest className="h-6 w-6 text-[#4F46E5] flex-shrink-0" />
               <h1 className="text-xl font-bold text-gray-900 truncate">
                 #{review.prNumber} {review.prTitle || "Pull Request"}
@@ -284,10 +284,10 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
                 {status.label}
               </span>
             </div>
-            <div className="flex items-center gap-4 text-sm text-gray-500">
+            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
               <Link
                 href={`/dashboard/repos/${review.repository.id}`}
-                className="hover:text-[#4F46E5] truncate"
+                className="hover:text-[#4F46E5] truncate max-w-[200px]"
               >
                 {review.repository.fullName}
               </Link>
@@ -304,11 +304,11 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-shrink-0 w-full md:w-auto">
             <button
               onClick={handleReview}
               disabled={reviewLoading}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] disabled:opacity-50 h-10 whitespace-nowrap"
+              className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] disabled:opacity-50 h-10 whitespace-nowrap"
             >
               {reviewLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -321,7 +321,7 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
               href={review.prUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 h-10 whitespace-nowrap"
+              className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 h-10 whitespace-nowrap"
             >
               <ExternalLink className="h-4 w-4" />
               View on GitHub
@@ -360,23 +360,23 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
       {review.status === "completed" && (
         <div
           className={`rounded-lg p-4 mb-6 border-2 ${review.mergeVerdict === "ready"
-              ? "bg-green-50 border-green-300"
-              : review.mergeVerdict === "needs_changes"
-                ? "bg-red-50 border-red-300"
-                : review.mergeVerdict === "review"
-                  ? "bg-amber-50 border-amber-300"
-                  : "bg-gray-50 border-gray-300"
+            ? "bg-green-50 border-green-300"
+            : review.mergeVerdict === "needs_changes"
+              ? "bg-red-50 border-red-300"
+              : review.mergeVerdict === "review"
+                ? "bg-amber-50 border-amber-300"
+                : "bg-gray-50 border-gray-300"
             }`}
         >
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
             <div
               className={`p-3 rounded-full ${review.mergeVerdict === "ready"
-                  ? "bg-green-100"
-                  : review.mergeVerdict === "needs_changes"
-                    ? "bg-red-100"
-                    : review.mergeVerdict === "review"
-                      ? "bg-amber-100"
-                      : "bg-gray-100"
+                ? "bg-green-100"
+                : review.mergeVerdict === "needs_changes"
+                  ? "bg-red-100"
+                  : review.mergeVerdict === "review"
+                    ? "bg-amber-100"
+                    : "bg-gray-100"
                 }`}
             >
               {review.mergeVerdict === "ready" ? (
@@ -392,12 +392,12 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
             <div className="flex-1">
               <h3
                 className={`text-lg font-semibold ${review.mergeVerdict === "ready"
-                    ? "text-green-800"
-                    : review.mergeVerdict === "needs_changes"
-                      ? "text-red-800"
-                      : review.mergeVerdict === "review"
-                        ? "text-amber-800"
-                        : "text-gray-800"
+                  ? "text-green-800"
+                  : review.mergeVerdict === "needs_changes"
+                    ? "text-red-800"
+                    : review.mergeVerdict === "review"
+                      ? "text-amber-800"
+                      : "text-gray-800"
                   }`}
               >
                 {review.mergeVerdict === "ready"
@@ -410,12 +410,12 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
               </h3>
               <p
                 className={`text-sm ${review.mergeVerdict === "ready"
-                    ? "text-green-600"
-                    : review.mergeVerdict === "needs_changes"
-                      ? "text-red-600"
-                      : review.mergeVerdict === "review"
-                        ? "text-amber-600"
-                        : "text-gray-600"
+                  ? "text-green-600"
+                  : review.mergeVerdict === "needs_changes"
+                    ? "text-red-600"
+                    : review.mergeVerdict === "review"
+                      ? "text-amber-600"
+                      : "text-gray-600"
                   }`}
               >
                 {review.mergeMessage}
@@ -426,10 +426,10 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
                 <div className="text-xs text-gray-500 mb-1">AI Recommendation</div>
                 <span
                   className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ${review.recommendation === "approve"
-                      ? "bg-green-100 text-green-700"
-                      : review.recommendation === "request_changes"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-gray-100 text-gray-700"
+                    ? "bg-green-100 text-green-700"
+                    : review.recommendation === "request_changes"
+                      ? "bg-red-100 text-red-700"
+                      : "bg-gray-100 text-gray-700"
                     }`}
                 >
                   {review.recommendation === "approve"
@@ -445,12 +445,12 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
                 <div className="text-xs text-gray-500 mb-1">Risk Level</div>
                 <span
                   className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ${review.riskLevel === "critical"
-                      ? "bg-red-100 text-red-700"
-                      : review.riskLevel === "high"
-                        ? "bg-orange-100 text-orange-700"
-                        : review.riskLevel === "medium"
-                          ? "bg-amber-100 text-amber-700"
-                          : "bg-green-100 text-green-700"
+                    ? "bg-red-100 text-red-700"
+                    : review.riskLevel === "high"
+                      ? "bg-orange-100 text-orange-700"
+                      : review.riskLevel === "medium"
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-green-100 text-green-700"
                     }`}
                 >
                   {review.riskLevel.charAt(0).toUpperCase() + review.riskLevel.slice(1)}
@@ -504,8 +504,8 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
                 onClick={() => handleFeedback("helpful")}
                 disabled={feedbackLoading}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors ${review.feedback === "helpful"
-                    ? "bg-green-100 text-green-700"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "bg-green-100 text-green-700"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
               >
                 <ThumbsUp className="h-4 w-4" />
@@ -515,8 +515,8 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
                 onClick={() => handleFeedback("not_helpful")}
                 disabled={feedbackLoading}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors ${review.feedback === "not_helpful"
-                    ? "bg-red-100 text-red-700"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "bg-red-100 text-red-700"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
               >
                 <ThumbsDown className="h-4 w-4" />
@@ -680,8 +680,8 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
           <div className="divide-y divide-gray-200 max-h-[400px] overflow-y-auto">
             {review.filesAnalyzed.map((file, idx) => (
               <div key={idx} className="flex items-center gap-3 p-3 hover:bg-gray-50">
-                <FileCode className="h-4 w-4 text-gray-400" />
-                <span className="flex-1 text-sm font-mono text-gray-700">
+                <FileCode className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                <span className="flex-1 text-sm font-mono text-gray-700 break-all">
                   {file.path || "Unknown file"}
                 </span>
                 {(file.additions !== undefined || file.deletions !== undefined) && (

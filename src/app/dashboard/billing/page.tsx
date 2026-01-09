@@ -211,9 +211,9 @@ export default function BillingPage() {
     <div className="max-w-6xl mx-auto p-6 space-y-8">
       {/* Header Card */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col md:flex-row items-start justify-between gap-6">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-[#EEF2FF] dark:bg-[#1E1B4B] rounded-lg flex items-center justify-center border border-[#E0E7FF] dark:border-[#312E81]">
+            <div className="w-12 h-12 bg-[#EEF2FF] dark:bg-[#1E1B4B] rounded-lg flex items-center justify-center border border-[#E0E7FF] dark:border-[#312E81] flex-shrink-0">
               <CreditCard className="w-6 h-6 text-[#4F46E5] dark:text-[#818CF8]" />
             </div>
             <div>
@@ -227,11 +227,11 @@ export default function BillingPage() {
             </div>
           </div>
 
-          <div className="flex items-center bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+          <div className="flex items-center bg-gray-100 dark:bg-gray-700 p-1 rounded-lg w-full md:w-auto self-start">
             <button
               onClick={() => setBillingCycle("monthly")}
               className={cn(
-                "px-3 py-1.5 text-sm font-medium rounded-md transition-all",
+                "px-3 py-1.5 text-sm font-medium rounded-md transition-all flex-1 md:flex-none text-center",
                 billingCycle === "monthly"
                   ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
                   : "text-gray-500 hover:text-gray-900 dark:hover:text-gray-300"
@@ -242,7 +242,7 @@ export default function BillingPage() {
             <button
               onClick={() => setBillingCycle("yearly")}
               className={cn(
-                "px-3 py-1.5 text-sm font-medium rounded-md transition-all",
+                "px-3 py-1.5 text-sm font-medium rounded-md transition-all flex-1 md:flex-none text-center",
                 billingCycle === "yearly"
                   ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
                   : "text-gray-500 hover:text-gray-900 dark:hover:text-gray-300"
@@ -396,7 +396,7 @@ export default function BillingPage() {
 
       {/* Payment Methods */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-3">
             <CreditCard className="w-5 h-5 text-gray-400" />
             <div>
@@ -404,7 +404,7 @@ export default function BillingPage() {
               <p className="text-sm text-gray-500">Securely manage your payment options</p>
             </div>
           </div>
-          <button className="text-sm text-[#4F46E5] hover:text-[#4338CA] font-medium">
+          <button className="text-sm text-[#4F46E5] hover:text-[#4338CA] font-medium w-full sm:w-auto text-left sm:text-right">
             Add New Method
           </button>
         </div>

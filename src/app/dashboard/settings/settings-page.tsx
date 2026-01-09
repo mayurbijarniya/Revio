@@ -91,7 +91,7 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
       </div>
 
       {/* Tabs - Pill Style */}
-      <div className="flex gap-2 mb-8">
+      <div className="flex flex-wrap gap-2 mb-8">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
@@ -121,7 +121,7 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
               <User className="w-5 h-5" />
               Profile
             </h2>
-            <div className="flex items-start gap-6">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left">
               {user.avatarUrl ? (
                 <Image
                   src={user.avatarUrl}
@@ -131,18 +131,18 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
                   className="w-20 h-20 rounded-full object-cover"
                 />
               ) : (
-                <div className="w-20 h-20 rounded-full bg-gray-300 flex items-center justify-center">
+                <div className="w-20 h-20 rounded-full bg-gray-300 flex items-center justify-center mx-auto sm:mx-0">
                   <User className="w-8 h-8 text-gray-600" />
                 </div>
               )}
-              <div className="flex-1 space-y-3">
+              <div className="flex-1 space-y-3 w-full">
                 <div>
                   <label className="text-sm text-gray-500">Username</label>
                   <div className="font-medium">{user.githubUsername}</div>
                 </div>
                 {user.email && (
                   <div>
-                    <label className="text-sm text-gray-500 flex items-center gap-1">
+                    <label className="text-sm text-gray-500 flex items-center justify-center sm:justify-start gap-1">
                       <Mail className="w-3 h-3" />
                       Email
                     </label>
@@ -150,7 +150,7 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
                   </div>
                 )}
                 <div>
-                  <label className="text-sm text-gray-500 flex items-center gap-1">
+                  <label className="text-sm text-gray-500 flex items-center justify-center sm:justify-start gap-1">
                     <Calendar className="w-3 h-3" />
                     Member since
                   </label>
@@ -166,7 +166,7 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
               <Github className="w-5 h-5" />
               Connected Account
             </h2>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
                   <Github className="w-6 h-6" />
@@ -178,7 +178,7 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
                   </div>
                 </div>
               </div>
-              <span className="flex items-center gap-1 px-2 py-1 bg-[#ECFDF5] text-[#10B981] rounded text-sm">
+              <span className="flex items-center gap-1 px-2 py-1 bg-[#ECFDF5] text-[#10B981] rounded text-sm w-full sm:w-auto justify-center sm:justify-start">
                 <CheckCircle className="w-4 h-4" />
                 Connected
               </span>
@@ -294,8 +294,8 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
                       planLimits.reviewsPerMonth === -1 || monthlyUsage.reviews < planLimits.reviewsPerMonth * 0.8
                         ? "bg-[#10B981]"
                         : monthlyUsage.reviews < planLimits.reviewsPerMonth
-                        ? "bg-[#F59E0B]"
-                        : "bg-[#EF4444]"
+                          ? "bg-[#F59E0B]"
+                          : "bg-[#EF4444]"
                     )}
                     style={{
                       width: planLimits.reviewsPerMonth === -1
@@ -319,8 +319,8 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
                       planLimits.messagesPerMonth === -1 || monthlyUsage.messages < planLimits.messagesPerMonth * 0.8
                         ? "bg-[#4F46E5]"
                         : monthlyUsage.messages < planLimits.messagesPerMonth
-                        ? "bg-[#F59E0B]"
-                        : "bg-[#EF4444]"
+                          ? "bg-[#F59E0B]"
+                          : "bg-[#EF4444]"
                     )}
                     style={{
                       width: planLimits.messagesPerMonth === -1
@@ -353,8 +353,8 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
                       user.plan === "free"
                         ? "bg-gray-100 text-gray-700"
                         : user.plan === "pro"
-                        ? "bg-[#EEF2FF] text-[#4F46E5]"
-                        : "bg-[#EEF2FF] text-[#4F46E5]"
+                          ? "bg-[#EEF2FF] text-[#4F46E5]"
+                          : "bg-[#EEF2FF] text-[#4F46E5]"
                     )}
                   >
                     {user.plan.toUpperCase()}
@@ -422,7 +422,7 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
           {/* Upgrade CTA */}
           {user.plan === "free" && (
             <div className="bg-[#4F46E5] rounded-lg p-6 text-white">
-              <div className="flex items-start gap-4">
+              <div className="flex flex-col sm:flex-row items-start gap-4">
                 <div className="p-3 bg-white/20 rounded-lg">
                   <Zap className="w-6 h-6" />
                 </div>
@@ -431,7 +431,7 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
                   <p className="text-white/80 mt-1">
                     Get unlimited PR reviews, more messages, and priority support.
                   </p>
-                  <button className="mt-4 px-4 py-2 bg-white text-[#4F46E5] rounded-lg font-medium hover:bg-gray-100">
+                  <button className="mt-4 px-4 py-2 bg-white text-[#4F46E5] rounded-lg font-medium hover:bg-gray-100 w-full sm:w-auto">
                     Upgrade Now
                   </button>
                 </div>

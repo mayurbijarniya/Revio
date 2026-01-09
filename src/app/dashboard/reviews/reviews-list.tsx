@@ -175,7 +175,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <button
           onClick={() => setStatusFilter("all")}
           className={cn(
@@ -291,7 +291,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
 
         {showFilters && (
           <div className="px-4 pb-4 border-t border-gray-200 dark:border-gray-700 pt-4">
-            <div className="flex gap-4">
+            <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-2">Repository</label>
                 <select
@@ -383,16 +383,16 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
                   key={review.id}
                   className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-1">
+                  <div className="flex flex-col md:flex-row items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0 w-full">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
                         <Link
                           href={`/dashboard/repos/${review.repository.id}`}
                           className="text-sm text-gray-500 hover:text-[#4F46E5]"
                         >
                           {review.repository.fullName}
                         </Link>
-                        <span className="text-gray-300">|</span>
+                        <span className="text-gray-300 hidden sm:inline">|</span>
                         <span className="font-medium">#{review.prNumber}</span>
                         <span
                           className={cn(
@@ -407,7 +407,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
                       </div>
                       <Link
                         href={`/dashboard/reviews/${review.id}`}
-                        className="font-medium truncate pr-4 hover:text-[#4F46E5] transition-colors block"
+                        className="font-medium truncate hover:text-[#4F46E5] transition-colors block text-base md:text-lg"
                       >
                         {review.prTitle || `Pull Request #${review.prNumber}`}
                       </Link>
@@ -421,7 +421,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
                         <span>{formatDate(review.createdAt)}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
                       {/* Feedback buttons - only show for completed reviews */}
                       {review.status === "completed" && (
                         <div className="flex items-center gap-1 mr-2">
@@ -461,7 +461,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
                       <button
                         onClick={() => handleReview(review)}
                         disabled={reviewLoading === review.id}
-                        className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-[#10B981] text-white rounded-lg hover:bg-[#059669] transition-colors disabled:opacity-50"
+                        className="flex-1 md:flex-none justify-center flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-[#10B981] text-white rounded-lg hover:bg-[#059669] transition-colors disabled:opacity-50"
                       >
                         {reviewLoading === review.id ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -472,7 +472,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
                       </button>
                       <Link
                         href={`/dashboard/reviews/${review.id}`}
-                        className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] transition-colors"
+                        className="flex-1 md:flex-none justify-center flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] transition-colors"
                       >
                         View Details
                       </Link>
@@ -481,7 +481,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
                           href={review.prUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-[#4F46E5] border border-gray-200 dark:border-gray-600 rounded-lg hover:border-[#4F46E5]/30 transition-colors"
+                          className="flex-1 md:flex-none justify-center flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-[#4F46E5] border border-gray-200 dark:border-gray-600 rounded-lg hover:border-[#4F46E5]/30 transition-colors"
                         >
                           <ExternalLink className="w-4 h-4" />
                           GitHub

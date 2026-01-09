@@ -343,27 +343,27 @@ export function RepoDetail({
 
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col md:flex-row items-start justify-between gap-4">
           <div className="flex items-start gap-4">
-            <FolderGit2 className="w-10 h-10 text-gray-400" />
+            <FolderGit2 className="w-10 h-10 text-gray-400 flex-shrink-0" />
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold">{repository.fullName}</h1>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-2xl font-bold break-all">{repository.fullName}</h1>
                 {repository.private ? (
-                  <Lock className="w-4 h-4 text-gray-400" />
+                  <Lock className="w-4 h-4 text-gray-400 flex-shrink-0" />
                 ) : (
-                  <Globe className="w-4 h-4 text-gray-400" />
+                  <Globe className="w-4 h-4 text-gray-400 flex-shrink-0" />
                 )}
                 <a
                   href={`https://github.com/${repository.fullName}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 flex-shrink-0"
                 >
                   <ExternalLink className="w-4 h-4" />
                 </a>
               </div>
-              <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+              <div className="flex items-center gap-4 mt-2 text-sm text-gray-500 flex-wrap">
                 {repository.language && <span>{repository.language}</span>}
                 <span>Branch: {repository.defaultBranch}</span>
                 <span
@@ -386,12 +386,12 @@ export function RepoDetail({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
             <button
               onClick={handleIndex}
               disabled={isIndexing || repository.indexStatus === "indexing"}
               className={cn(
-                "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border",
+                "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border flex-1 md:flex-none justify-center",
                 repository.indexStatus === "indexed"
                   ? "bg-white dark:bg-transparent border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                   : "bg-[#4F46E5] border-[#4F46E5] text-white hover:bg-[#4338CA] hover:border-[#4338CA]",
@@ -409,7 +409,7 @@ export function RepoDetail({
             <button
               onClick={() => setDeleteDialogOpen(true)}
               disabled={isDeleting}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-[#EF4444] border border-[#FEF2F2] hover:bg-[#FEF2F2] disabled:opacity-50 transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-[#EF4444] border border-[#FEF2F2] hover:bg-[#FEF2F2] disabled:opacity-50 transition-colors flex-1 md:flex-none justify-center"
             >
               {isDeleting ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -422,20 +422,20 @@ export function RepoDetail({
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-          <div className="text-center stat-item">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <div className="text-center stat-item p-2">
             <div className="stat-value">{repository.fileCount}</div>
             <div className="stat-label">Files Indexed</div>
           </div>
-          <div className="text-center stat-item border-l border-gray-200 dark:border-gray-700">
+          <div className="text-center stat-item border-l-0 md:border-l border-gray-200 dark:border-gray-700 p-2">
             <div className="stat-value">{repository.chunkCount}</div>
             <div className="stat-label">Code Chunks</div>
           </div>
-          <div className="text-center stat-item border-l border-gray-200 dark:border-gray-700">
+          <div className="text-center stat-item border-l-0 md:border-l border-gray-200 dark:border-gray-700 p-2">
             <div className="stat-value">{counts.prReviews}</div>
             <div className="stat-label">PR Reviews</div>
           </div>
-          <div className="text-center stat-item border-l border-gray-200 dark:border-gray-700">
+          <div className="text-center stat-item border-l-0 md:border-l border-gray-200 dark:border-gray-700 p-2">
             <div className="stat-value">{counts.conversations}</div>
             <div className="stat-label">Conversations</div>
           </div>
@@ -482,9 +482,9 @@ export function RepoDetail({
             {openPRs.map((pr) => (
               <div
                 key={pr.number}
-                className="flex items-center justify-between p-4 rounded-lg border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                className="flex flex-col md:flex-row items-start justify-between p-4 rounded-lg border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors gap-4"
               >
-                <div className="flex items-start gap-3 flex-1 min-w-0">
+                <div className="flex items-start gap-3 flex-1 min-w-0 w-full">
                   <div className="flex-shrink-0 mt-1">
                     {pr.draft ? (
                       <GitPullRequestDraft className="w-5 h-5 text-gray-400" />
@@ -493,22 +493,22 @@ export function RepoDetail({
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <a
                         href={pr.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-medium text-gray-900 dark:text-gray-100 hover:text-[#4F46E5] truncate"
+                        className="font-medium text-gray-900 dark:text-gray-100 hover:text-[#4F46E5] truncate max-w-full"
                       >
                         #{pr.number} {pr.title}
                       </a>
                       {pr.draft && (
-                        <span className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 rounded">
+                        <span className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 rounded flex-shrink-0">
                           Draft
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
+                    <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 flex-wrap">
                       <span className="flex items-center gap-1">
                         <User className="w-3.5 h-3.5" />
                         {pr.author}
@@ -535,12 +535,12 @@ export function RepoDetail({
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                <div className="flex items-center gap-2 w-full md:w-auto mt-2 md:mt-0 md:ml-4">
                   <button
                     onClick={() => handleReviewPR(pr.number)}
                     disabled={reviewingPR === pr.number || pr.reviewStatus === "pending"}
                     className={cn(
-                      "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border",
+                      "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border flex-1 md:flex-none justify-center",
                       pr.reviewStatus === "pending"
                         ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
                         : "bg-[#10B981] border-[#10B981] text-white hover:bg-[#059669] hover:border-[#059669]",
@@ -568,7 +568,7 @@ export function RepoDetail({
                     href={pr.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-[#4F46E5] border border-gray-200 dark:border-gray-600 rounded-lg hover:border-[#4F46E5]/30 transition-colors bg-white dark:bg-transparent"
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-[#4F46E5] border border-gray-200 dark:border-gray-600 rounded-lg hover:border-[#4F46E5]/30 transition-colors bg-white dark:bg-transparent flex-1 md:flex-none justify-center"
                     title="View on GitHub"
                   >
                     <ExternalLink className="w-4 h-4" />
@@ -581,7 +581,7 @@ export function RepoDetail({
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Settings */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 h-[500px] flex flex-col">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 flex-shrink-0">
