@@ -8,6 +8,29 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+// Extended conversation type that includes fields from Prisma schema
+interface ConversationWithExtras {
+  id: string;
+  title: string | null;
+  updatedAt: Date;
+  repositoryId: string;
+  repositoryIds: string[];
+  isPinned: boolean;
+  mode: string;
+  repository: { fullName: string };
+  messages: { content: string }[];
+}
+
+// Type for loaded conversation with full message details
+interface LoadedConversation {
+  id: string;
+  repositoryId: string;
+  repositoryIds: string[];
+  mode: string;
+  repository: { fullName: string };
+  messages: { id: string; role: string; content: string; createdAt: Date }[];
+}
+
 export default async function ConversationPage({ params }: PageProps) {
   const session = await getSession();
 
@@ -51,7 +74,7 @@ export default async function ConversationPage({ params }: PageProps) {
         },
       },
     },
-  });
+  }) as unknown as LoadedConversation | null;
 
   if (!conversation) {
     notFound();
@@ -83,7 +106,7 @@ export default async function ConversationPage({ params }: PageProps) {
     },
     orderBy: { updatedAt: "desc" },
     take: 20,
-  });
+  }) as unknown as ConversationWithExtras[];
 
   const formattedConversations = recentConversations.map((conv) => ({
     id: conv.id,
@@ -91,6 +114,8 @@ export default async function ConversationPage({ params }: PageProps) {
     repositoryName: conv.repository.fullName,
     lastMessage: conv.messages[0]?.content?.slice(0, 60),
     updatedAt: conv.updatedAt,
+    isPinned: conv.isPinned ?? false,
+    mode: (conv.mode as "indexed" | "full_repo") ?? "indexed",
   }));
 
   const formattedMessages = conversation.messages.map((msg) => ({
@@ -100,6 +125,8 @@ export default async function ConversationPage({ params }: PageProps) {
     createdAt: msg.createdAt,
   }));
 
+  const initialMode = (conversation.mode as "indexed" | "full_repo") || "indexed";
+
   return (
     <ChatLayout
       repositories={repositories}
@@ -107,6 +134,7 @@ export default async function ConversationPage({ params }: PageProps) {
       initialConversationId={conversation.id}
       initialMessages={formattedMessages}
       initialSelectedRepos={conversationRepos}
+      initialMode={initialMode}
     />
   );
 }
