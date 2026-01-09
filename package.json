@@ -34,6 +34,7 @@
     "react-syntax-highlighter": "^16.1.0",
     "recharts": "^2.15.4",
     "remark-gfm": "^4.0.1",
+    "shiki": "^3.21.0",
     "tailwind-merge": "latest",
     "tailwindcss-animate": "^1.0.7",
     "zod": "latest",

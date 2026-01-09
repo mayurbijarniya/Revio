@@ -1,100 +1,19 @@
-"use client";
-
-import { ComponentPropsWithoutRef, ReactNode, useState } from "react";
+import { ComponentPropsWithoutRef, ReactNode, useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { createHighlighter } from "shiki";
 import remarkGfm from "remark-gfm";
-import { Copy, Check, FileCode } from "lucide-react";
+import { Check, FileCode } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface MarkdownRendererProps {
-  content: string;
-  className?: string;
-}
-
-export function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
-  return (
-    <div className={cn("markdown-renderer", className)}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          code({ inline, className, children, ...props }: ComponentPropsWithoutRef<"code"> & { inline?: boolean; children?: ReactNode }) {
-            const match = /language-(\w+)/.exec(className || "");
-            const language = match ? match[1] : "";
-            const codeString = String(children).replace(/\n$/, "");
-
-            // Check if this is a block code (has language) vs inline code
-            const isBlockCode = language && (inline === false || codeString.includes("\n"));
-
-            if (isBlockCode) {
-              return <CodeBlock code={codeString} language={language} />;
-            }
-
-            // Inline code - monospace with subtle gray background like file paths
-            return (
-              <code
-                className="font-mono text-gray-900 bg-gray-200 px-1.5 py-0.5 rounded text-[0.875em]"
-                {...props}
-              >
-                {children}
-              </code>
-            );
-          },
-          pre({ children }) {
-            return <>{children}</>;
-          },
-          p({ children }) {
-            return <p className="mb-3 text-gray-800 leading-7">{children}</p>;
-          },
-          h1({ children }) {
-            return <h1 className="text-gray-900 font-bold text-lg mb-4 mt-6">{children}</h1>;
-          },
-          h2({ children }) {
-            return <h2 className="text-gray-900 font-semibold text-base mb-3 mt-5">{children}</h2>;
-          },
-          h3({ children }) {
-            return <h3 className="text-gray-900 font-medium text-sm mb-2 mt-4">{children}</h3>;
-          },
-          ul({ children }) {
-            return <ul className="mb-3 ml-5 space-y-1.5 text-gray-800 list-disc marker:text-gray-400">{children}</ul>;
-          },
-          ol({ children }) {
-            return <ol className="mb-3 ml-5 space-y-1.5 text-gray-800 list-decimal marker:text-gray-500">{children}</ol>;
-          },
-          li({ children }) {
-            return <li className="pl-1 leading-relaxed">{children}</li>;
-          },
-          blockquote({ children }) {
-            return <blockquote className="border-l-4 border-gray-300 pl-4 py-1 my-4 text-gray-700 bg-gray-50">{children}</blockquote>;
-          },
-          hr({ }) {
-            return <hr className="my-6 border-t border-gray-200" />;
-          },
-          a({ href, children }) {
-            return (
-              <a
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-indigo-600 hover:underline"
-              >
-                {children}
-              </a>
-            );
-          },
-        }}
-      >
-        {content}
-      </ReactMarkdown>
-    </div>
-  );
-}
 
 interface CodeBlockProps {
   code: string;
   language: string;
 }
+
+
+// singleton highlighter promise to avoid recreation
+let highlighterPromise: ReturnType<typeof createHighlighter> | null = null;
 
 function extractFilePath(code: string): string | null {
   // Try to extract file path from the first line comment
@@ -200,8 +119,91 @@ function getLanguageIcon(language: string): ReactNode {
   return <FileCode className="w-3.5 h-3.5 text-[#666666]" />;
 }
 
+const CopyIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 18 18"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <g fill="#737373">
+      <path
+        d="M14.25 5.25H7.25C6.14543 5.25 5.25 6.14543 5.25 7.25V14.25C5.25 15.3546 6.14543 16.25 7.25 16.25H14.25C15.3546 16.25 16.25 15.3546 16.25 14.25V7.25C16.25 6.14543 15.3546 5.25 14.25 5.25Z"
+        fill="#737373"
+        fillOpacity="0.3"
+        stroke="none"
+      />
+
+      <path
+        d="M14.25 5.25H7.25C6.14543 5.25 5.25 6.14543 5.25 7.25V14.25C5.25 15.3546 6.14543 16.25 7.25 16.25H14.25C15.3546 16.25 16.25 15.3546 16.25 14.25V7.25C16.25 6.14543 15.3546 5.25 14.25 5.25Z"
+        fill="none"
+        stroke="#737373"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1"
+      />
+      <path
+        d="M2.801 11.998L1.772 5.07397C1.61 3.98097 2.364 2.96397 3.456 2.80197L10.38 1.77297C11.313 1.63397 12.19 2.16297 12.528 3.00097"
+        fill="none"
+        stroke="#737373"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1"
+      />
+    </g>
+  </svg>
+);
+
+function getHighlighterInstance() {
+  if (!highlighterPromise) {
+    highlighterPromise = createHighlighter({
+      themes: ['vesper'],
+      langs: [
+        'typescript', 'javascript', 'python', 'go', 'rust', 'java', 'css',
+        'html', 'json', 'sql', 'bash', 'c', 'cpp', 'ruby', 'php',
+        'swift', 'kotlin', 'yaml', 'markdown', 'tsx', 'jsx'
+      ]
+    });
+  }
+  return highlighterPromise;
+}
+
 function CodeBlock({ code, language }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
+  const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function highlight() {
+      try {
+        const highlighter = await getHighlighterInstance();
+        // Load language if not loaded? 
+        // Shiki createHighlighter loads specified langs. 
+        // If language isn't in our list, fallback to text or load it?
+        // simple fallback for now.
+        const loadedLangs = highlighter.getLoadedLanguages();
+        const lang = loadedLangs.includes(language as any) ? language : 'markdown'; // fallback
+
+        const html = highlighter.codeToHtml(code, {
+          lang,
+          theme: 'vesper'
+        });
+
+        if (mounted) {
+          setHighlightedHtml(html);
+        }
+      } catch (e) {
+        console.error("Shiki highlight error:", e);
+      }
+    }
+
+    highlight();
+
+    return () => {
+      mounted = false;
+    };
+  }, [code, language]);
+
 
   const copyToClipboard = async () => {
     try {
@@ -219,65 +221,139 @@ function CodeBlock({ code, language }: CodeBlockProps) {
     ? code.replace(/^\/\/.*\n?/, '')
     : code;
   const displayName = filePath || language;
-  const lineCount = displayCode.split("\n").length;
 
   return (
-    <div className="relative group my-4 rounded-lg overflow-hidden border border-[#2d2d2d]">
+    <div className="my-4 rounded-xl overflow-hidden border border-[#282c34] bg-[#101010]">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 bg-[#1e1e1e] border-b border-[#2d2d2d]">
+      <div className="flex items-center justify-between px-4 py-2 bg-[#101010] border-b border-[#282c34]">
         <div className="flex items-center gap-2">
           {getLanguageIcon(language)}
-          <span className="font-mono text-xs text-[#808080]">
+          <span className="font-mono text-xs text-gray-400 font-medium">
             {displayName}
           </span>
         </div>
 
         <button
           onClick={copyToClipboard}
-          className="p-1.5 rounded hover:bg-[#2d2d2d] transition-colors"
+          className="relative p-1.5 rounded hover:bg-[#282c34] transition-colors"
           title={copied ? "Copied!" : "Copy code"}
           aria-label={copied ? "Copied to clipboard" : "Copy code to clipboard"}
         >
+          {copied && (
+            <span className="absolute -left-12 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+              Copied
+            </span>
+          )}
           {copied ? (
-            <Check className="w-4 h-4 text-green-400" />
+            <Check className="w-4 h-4 text-green-500" />
           ) : (
-            <Copy className="w-4 h-4 text-[#808080] hover:text-[#cccccc]" />
+            <CopyIcon className="w-4 h-4 text-gray-400" />
           )}
         </button>
       </div>
 
       {/* Code Content */}
-      <div className="relative overflow-auto max-h-[500px] code-block-content">
-        <SyntaxHighlighter
-          language={language}
-          style={vscDarkPlus}
-          customStyle={{
-            margin: 0,
-            padding: "1rem",
-            fontSize: "0.875rem",
-            lineHeight: "1.6",
-            background: "#1e1e1e",
-            borderRadius: 0,
-          }}
-          showLineNumbers={lineCount > 1}
-          lineNumberStyle={{
-            minWidth: "2.5em",
-            paddingRight: "1em",
-            color: "#4a4a4a",
-            textAlign: "right",
-            userSelect: "none",
-            background: "transparent",
-          }}
-          codeTagProps={{
-            style: {
-              fontFamily: "'JetBrains Mono', 'Fira Code', 'Monaco', 'Consolas', monospace",
-              background: "transparent",
-            }
-          }}
-        >
-          {displayCode}
-        </SyntaxHighlighter>
+      <div className="overflow-auto max-h-[500px] text-sm font-mono">
+        {highlightedHtml ? (
+          <div
+            dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+            className="[&>pre]:!bg-[#101010] [&>pre]:!p-4 [&>pre]:!m-0 [&>pre]:!font-mono [&>pre]:!text-sm [&>pre]:!leading-relaxed"
+          />
+        ) : (
+          <pre className="p-4 m-0 font-mono text-sm leading-relaxed text-gray-300 bg-[#101010]">
+            {displayCode}
+          </pre>
+        )}
       </div>
     </div>
   );
 }
+
+interface MarkdownRendererProps {
+  content: string;
+  className?: string;
+}
+
+export function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
+  return (
+    <div className={cn("markdown-renderer", className)}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          code({ inline, className, children, ...props }: ComponentPropsWithoutRef<"code"> & { inline?: boolean; children?: ReactNode }) {
+            const match = /language-(\w+)/.exec(className || "");
+            const language = match ? match[1] : "";
+            const codeString = String(children).replace(/\n$/, "");
+
+            // Check if this is a block code (has language) vs inline code
+            const isBlockCode = language && (inline === false || codeString.includes("\n"));
+
+            if (isBlockCode) {
+              return <CodeBlock code={codeString} language={language} />;
+            }
+
+            // Inline code - monospace with subtle gray background like file paths
+            return (
+              <code
+                className="font-mono text-gray-900 bg-gray-200 px-1.5 py-0.5 rounded text-[0.875em]"
+                {...props}
+              >
+                {children}
+              </code>
+            );
+          },
+          pre({ children }) {
+            return <>{children}</>;
+          },
+          p({ children }) {
+            return <p className="mb-3 text-gray-800 leading-7">{children}</p>;
+          },
+          h1({ children }) {
+            return <h1 className="text-gray-900 font-bold text-lg mb-4 mt-6">{children}</h1>;
+          },
+          h2({ children }) {
+            return <h2 className="text-gray-900 font-semibold text-base mb-3 mt-5">{children}</h2>;
+          },
+          h3({ children }) {
+            return <h3 className="text-gray-900 font-medium text-sm mb-2 mt-4">{children}</h3>;
+          },
+          ul({ children }) {
+            return <ul className="mb-3 ml-5 space-y-1.5 text-gray-800 list-disc marker:text-gray-400">{children}</ul>;
+          },
+          ol({ children }) {
+            return <ol className="mb-3 ml-5 space-y-1.5 text-gray-800 list-decimal marker:text-gray-500">{children}</ol>;
+          },
+          li({ children }) {
+            return <li className="pl-1 leading-relaxed">{children}</li>;
+          },
+          blockquote({ children }) {
+            return <blockquote className="border-l-4 border-gray-300 pl-4 py-1 my-4 text-gray-700 bg-gray-50">{children}</blockquote>;
+          },
+          hr({ }) {
+            return <hr className="my-6 border-t border-gray-200" />;
+          },
+          a({ href, children }) {
+            return (
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-indigo-600 hover:underline"
+              >
+                {children}
+              </a>
+            );
+          },
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+
+
+
+
+
