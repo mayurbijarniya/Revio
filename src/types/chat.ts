@@ -90,7 +90,8 @@ export const sendMessageSchema = z.object({
 export type SearchFilters = z.infer<typeof searchFiltersSchema>;
 
 export const updateConversationSchema = z.object({
-  title: z.string().min(1, "Title is required").max(200, "Title too long"),
+  title: z.string().min(1, "Title is required").max(200, "Title too long").optional(),
+  isPinned: z.boolean().optional(),
 });
 
 export type CreateConversationInput = z.infer<typeof createConversationSchema>;

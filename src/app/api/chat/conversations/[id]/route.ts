@@ -94,9 +94,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return jsonError("CHAT_002", "Conversation not found", 404);
     }
 
+    const updateData: { title?: string; isPinned?: boolean } = {};
+    if (parsed.data.title !== undefined) {
+      updateData.title = parsed.data.title;
+    }
+    if (parsed.data.isPinned !== undefined) {
+      updateData.isPinned = parsed.data.isPinned;
+    }
+
     const conversation = await db.conversation.update({
       where: { id },
-      data: { title: parsed.data.title },
+      data: updateData,
     });
 
     return jsonSuccess({ conversation });

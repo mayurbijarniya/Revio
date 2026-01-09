@@ -56,6 +56,7 @@ export default async function ChatPage({ searchParams }: PageProps) {
     repositoryName: conv.repository.fullName,
     lastMessage: conv.messages[0]?.content?.slice(0, 60),
     updatedAt: conv.updatedAt,
+    isPinned: conv.isPinned,
   }));
 
   // If conversation ID is provided, load that conversation
