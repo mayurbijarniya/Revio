@@ -861,7 +861,7 @@ export function ChatLayout({
 
       {/* Rename Dialog */}
       {renameDialogOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
             <div className="p-5 border-b border-gray-200">
               <div className="flex items-center justify-between">
