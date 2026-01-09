@@ -55,6 +55,7 @@ interface ChatLayoutProps {
   initialConversationId?: string;
   initialMessages?: Message[];
   initialSelectedRepos?: Repository[];
+  initialMode?: "indexed" | "full_repo";
 }
 
 export function ChatLayout({
@@ -63,6 +64,7 @@ export function ChatLayout({
   initialConversationId,
   initialMessages,
   initialSelectedRepos,
+  initialMode,
 }: ChatLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -83,7 +85,7 @@ export function ChatLayout({
   const [conversationToRename, setConversationToRename] = useState<string | null>(null);
   const [renameInput, setRenameInput] = useState("");
   const [isRenaming, setIsRenaming] = useState(false);
-  const [selectedMode, setSelectedMode] = useState<"indexed" | "full_repo">("indexed");
+  const [selectedMode, setSelectedMode] = useState<"indexed" | "full_repo">(initialMode || "indexed");
 
   // Handle initial conversation from URL
   useEffect(() => {
