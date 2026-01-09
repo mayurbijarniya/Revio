@@ -13,9 +13,12 @@ import {
   Trash2,
   Copy,
   ArrowUp,
-  Filter,
-  X,
   ArrowLeft,
+  MoreVertical,
+  Edit2,
+  Pin,
+  PinOff,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
@@ -33,6 +36,7 @@ interface Conversation {
   repositoryName: string;
   lastMessage?: string;
   updatedAt: Date;
+  isPinned?: boolean;
 }
 
 interface Message {
@@ -41,32 +45,6 @@ interface Message {
   content: string;
   createdAt: Date;
 }
-
-interface SearchFilters {
-  extensions: string[];
-  paths: string[];
-  types: string[];
-}
-
-const COMMON_EXTENSIONS = [
-  { value: "ts", label: "TypeScript" },
-  { value: "tsx", label: "TSX" },
-  { value: "js", label: "JavaScript" },
-  { value: "jsx", label: "JSX" },
-  { value: "py", label: "Python" },
-  { value: "go", label: "Go" },
-  { value: "rs", label: "Rust" },
-  { value: "java", label: "Java" },
-];
-
-const CODE_TYPES = [
-  { value: "function", label: "Functions" },
-  { value: "class", label: "Classes" },
-  { value: "interface", label: "Interfaces" },
-  { value: "type", label: "Types" },
-  { value: "method", label: "Methods" },
-  { value: "constant", label: "Constants" },
-];
 
 interface ChatLayoutProps {
   repositories: Repository[];
@@ -97,13 +75,11 @@ export function ChatLayout({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState<SearchFilters>({
-    extensions: [],
-    paths: [],
-    types: [],
-  });
-  const [pathInput, setPathInput] = useState("");
+  const [showMenuId, setShowMenuId] = useState<string | null>(null);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [conversationToRename, setConversationToRename] = useState<string | null>(null);
+  const [renameInput, setRenameInput] = useState("");
+  const [isRenaming, setIsRenaming] = useState(false);
 
   // Handle initial conversation from URL
   useEffect(() => {
@@ -122,6 +98,18 @@ export function ChatLayout({
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowRepoDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Close menu when clicking outside
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenuId(null);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -179,6 +167,7 @@ export function ChatLayout({
             repositoryName: selectedRepos.map((r) => r.fullName).join(", "),
             lastMessage: input.trim().slice(0, 60),
             updatedAt: new Date(),
+            isPinned: false,
           },
           ...prev,
         ]);
@@ -211,7 +200,7 @@ export function ChatLayout({
       const res = await fetch(`/api/chat/conversations/${selectedConversation}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: userMessage.content, filters: getApiFilters() }),
+        body: JSON.stringify({ content: userMessage.content }),
       });
       const data = await res.json();
       if (data.success) {
@@ -261,64 +250,10 @@ export function ChatLayout({
     setError(null);
     setShowRepoDropdown(false);
     setSelectedRepos([]);
-    setShowFilters(false);
-    setFilters({ extensions: [], paths: [], types: [] });
-    setPathInput("");
     // Navigate to main chat page if we're on a conversation page
     if (pathname.startsWith("/dashboard/chat/")) {
       router.push("/dashboard/chat");
     }
-  }
-
-  function toggleExtension(ext: string) {
-    setFilters((prev) => ({
-      ...prev,
-      extensions: prev.extensions.includes(ext)
-        ? prev.extensions.filter((e) => e !== ext)
-        : [...prev.extensions, ext],
-    }));
-  }
-
-  function toggleType(type: string) {
-    setFilters((prev) => ({
-      ...prev,
-      types: prev.types.includes(type)
-        ? prev.types.filter((t) => t !== type)
-        : [...prev.types, type],
-    }));
-  }
-
-  function addPath() {
-    if (pathInput.trim() && !filters.paths.includes(pathInput.trim())) {
-      setFilters((prev) => ({
-        ...prev,
-        paths: [...prev.paths, pathInput.trim()],
-      }));
-      setPathInput("");
-    }
-  }
-
-  function removePath(path: string) {
-    setFilters((prev) => ({
-      ...prev,
-      paths: prev.paths.filter((p) => p !== path),
-    }));
-  }
-
-  function clearFilters() {
-    setFilters({ extensions: [], paths: [], types: [] });
-  }
-
-  const hasActiveFilters = filters.extensions.length > 0 || filters.paths.length > 0 || filters.types.length > 0;
-
-  // Prepare filters for API call (only if active)
-  function getApiFilters() {
-    if (!hasActiveFilters) return undefined;
-    return {
-      extensions: filters.extensions.length > 0 ? filters.extensions : undefined,
-      paths: filters.paths.length > 0 ? filters.paths : undefined,
-      types: filters.types.length > 0 ? filters.types : undefined,
-    };
   }
 
   function copyMarkdown() {
@@ -347,6 +282,7 @@ export function ChatLayout({
   function openDeleteDialog(conversationId: string) {
     setConversationToDelete(conversationId);
     setDeleteDialogOpen(true);
+    setShowMenuId(null);
   }
 
   function closeDeleteDialog() {
@@ -380,6 +316,92 @@ export function ChatLayout({
     }
   }
 
+  function openRenameDialog(conversationId: string) {
+    const conv = conversations.find((c) => c.id === conversationId);
+    if (conv) {
+      setConversationToRename(conversationId);
+      setRenameInput(conv.title);
+      setRenameDialogOpen(true);
+      setShowMenuId(null);
+    }
+  }
+
+  function closeRenameDialog() {
+    setRenameDialogOpen(false);
+    setConversationToRename(null);
+    setRenameInput("");
+  }
+
+  async function handleRename() {
+    if (!conversationToRename || !renameInput.trim()) return;
+
+    setIsRenaming(true);
+    try {
+      const res = await fetch(`/api/chat/conversations/${conversationToRename}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: renameInput.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === conversationToRename ? { ...c, title: renameInput.trim() } : c
+          )
+        );
+        closeRenameDialog();
+      } else {
+        setError(data.error?.message || "Failed to rename conversation");
+      }
+    } catch {
+      setError("Failed to rename conversation");
+    } finally {
+      setIsRenaming(false);
+    }
+  }
+
+  async function togglePin(conversationId: string) {
+    const conv = conversations.find((c) => c.id === conversationId);
+    if (!conv) return;
+
+    setShowMenuId(null);
+    const newPinnedState = !conv.isPinned;
+
+    // Optimistic update
+    setConversations((prev) =>
+      prev.map((c) => (c.id === conversationId ? { ...c, isPinned: newPinnedState } : c))
+    );
+
+    try {
+      const res = await fetch(`/api/chat/conversations/${conversationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPinned: newPinnedState }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        // Revert on error
+        setConversations((prev) =>
+          prev.map((c) => (c.id === conversationId ? { ...c, isPinned: !newPinnedState } : c))
+        );
+        setError(data.error?.message || "Failed to pin conversation");
+      }
+    } catch {
+      // Revert on error
+      setConversations((prev) =>
+        prev.map((c) => (c.id === conversationId ? { ...c, isPinned: !newPinnedState } : c))
+      );
+      setError("Failed to pin conversation");
+    }
+  }
+
+  // Sort conversations: pinned first, then by updatedAt
+  const sortedConversations = [...conversations].sort((a, b) => {
+    if (a.isPinned && !b.isPinned) return -1;
+    if (!a.isPinned && b.isPinned) return 1;
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });
+
   return (
     <div className="flex h-[calc(100vh-4rem)] scrollbar-hide bg-gray-50">
       {/* Sidebar - Fixed 280px width on desktop, full width on mobile when active */}
@@ -411,7 +433,7 @@ export function ChatLayout({
             </div>
           ) : (
             <div className="space-y-1">
-              {conversations.map((conv) => (
+              {sortedConversations.map((conv) => (
                 <div
                   key={conv.id}
                   className={cn(
@@ -425,7 +447,8 @@ export function ChatLayout({
                     onClick={() => loadConversation(conv.id)}
                     className="w-full text-left"
                   >
-                    <div className="font-medium text-sm truncate flex items-center gap-2 pr-6 mb-0.5">
+                    <div className="font-medium text-sm truncate flex items-center gap-2 pr-12 mb-0.5">
+                      {conv.isPinned && <Pin className="w-3.5 h-3.5 text-indigo-600 shrink-0" />}
                       <FolderGit2 className="w-3.5 h-3.5 text-gray-500 shrink-0" />
                       <span className="text-gray-900 truncate">{conv.title}</span>
                     </div>
@@ -433,16 +456,65 @@ export function ChatLayout({
                       {conv.lastMessage || "No messages yet"}
                     </div>
                   </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openDeleteDialog(conv.id);
-                    }}
-                    className="absolute right-2 top-3 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-50 text-gray-400 hover:text-red-500 transition-all"
-                    title="Delete conversation"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+
+                  {/* Three-dot menu */}
+                  <div className="absolute right-2 top-3" ref={showMenuId === conv.id ? menuRef : null}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowMenuId(showMenuId === conv.id ? null : conv.id);
+                      }}
+                      className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-all"
+                      title="More actions"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+
+                    {/* Dropdown menu */}
+                    {showMenuId === conv.id && (
+                      <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openRenameDialog(conv.id);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                          Rename
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            togglePin(conv.id);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                        >
+                          {conv.isPinned ? (
+                            <>
+                              <PinOff className="w-3.5 h-3.5" />
+                              Unpin
+                            </>
+                          ) : (
+                            <>
+                              <Pin className="w-3.5 h-3.5" />
+                              Pin
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDeleteDialog(conv.id);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -474,206 +546,87 @@ export function ChatLayout({
 
         {/* Header with Repo Selector - when creating new chat */}
         {!selectedConversation && repositories.length > 0 && (
-          <>
-            <div className="sticky top-0 z-100 flex items-center gap-3 px-6 py-4 border-b border-gray-200 bg-white">
-              {/* Selected Repo Display / Trigger */}
-              <div className="relative" ref={dropdownRef}>
-                <button
-                  onClick={() => setShowRepoDropdown(!showRepoDropdown)}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all",
-                    selectedRepos.length > 0
-                      ? "bg-indigo-50 border-indigo-200 text-gray-700"
-                      : "bg-gray-100 border-gray-200 text-gray-500 hover:border-indigo-400"
-                  )}
-                >
-                  <FolderGit2 className="w-4 h-4" />
-                  <span className="text-sm truncate max-w-[180px]">
-                    {selectedRepos.length === 0
-                      ? "Select Repos"
-                      : selectedRepos.length === 1
-                        ? selectedRepos[0]!.fullName.split("/")[1] || selectedRepos[0]!.fullName
-                        : `${selectedRepos.length} repos`}
-                  </span>
-                  <ChevronDown className={cn("w-4 h-4 transition-transform", showRepoDropdown && "rotate-180")} />
-                </button>
-
-                {/* Dropdown */}
-                {showRepoDropdown && (
-                  <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-50 animate-dropdown">
-                    {repositories.map((repo) => {
-                      const isSelected = selectedRepos.some((r) => r.id === repo.id);
-                      return (
-                        <button
-                          key={repo.id}
-                          onClick={() => {
-                            if (isSelected) {
-                              setSelectedRepos((prev) => prev.filter((r) => r.id !== repo.id));
-                            } else {
-                              setSelectedRepos((prev) => [...prev, repo]);
-                            }
-                          }}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-100 transition-colors"
-                        >
-                          <div
-                            className={cn(
-                              "w-4 h-4 rounded border flex items-center justify-center transition-colors",
-                              isSelected
-                                ? "bg-indigo-600 border-indigo-600"
-                                : "border-gray-300"
-                            )}
-                          >
-                            {isSelected && <Check className="w-3 h-3 text-white" />}
-                          </div>
-                          <FolderGit2 className="w-4 h-4 text-gray-500" />
-                          <div className="flex-1 min-w-0 text-left">
-                            <div className="text-sm text-gray-700 truncate">
-                              {repo.fullName.split("/")[1] || repo.fullName}
-                            </div>
-                            {repo.language && (
-                              <div className="text-xs text-gray-500">{repo.language}</div>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Selected Repos Tags */}
-              {selectedRepos.length > 0 && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {selectedRepos.map((repo) => (
-                    <span
-                      key={repo.id}
-                      className="inline-flex items-center gap-1.5 px-2 py-1 bg-indigo-50 border border-indigo-200 rounded text-xs text-indigo-700"
-                    >
-                      <FolderGit2 className="w-3 h-3" />
-                      <span className="truncate max-w-[120px]">{repo.fullName.split("/")[1]}</span>
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Filter Button */}
+          <div className="sticky top-0 z-100 flex items-center gap-3 px-6 py-4 border-b border-gray-200 bg-white">
+            {/* Selected Repo Display / Trigger */}
+            <div className="relative" ref={dropdownRef}>
               <button
-                onClick={() => setShowFilters(!showFilters)}
+                onClick={() => setShowRepoDropdown(!showRepoDropdown)}
                 className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ml-auto",
-                  hasActiveFilters
-                    ? "bg-indigo-50 border-indigo-200 text-indigo-700"
-                    : "bg-gray-100 border-gray-200 text-gray-600 hover:border-indigo-400"
+                  "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all",
+                  selectedRepos.length > 0
+                    ? "bg-indigo-50 border-indigo-200 text-gray-700"
+                    : "bg-gray-100 border-gray-200 text-gray-500 hover:border-indigo-400"
                 )}
               >
-                <Filter className="w-4 h-4" />
-                <span className="text-sm">Filters</span>
-                {hasActiveFilters && (
-                  <span className="w-5 h-5 bg-indigo-600 text-white text-xs rounded-full flex items-center justify-center">
-                    {filters.extensions.length + filters.paths.length + filters.types.length}
-                  </span>
-                )}
+                <FolderGit2 className="w-4 h-4" />
+                <span className="text-sm truncate max-w-[180px]">
+                  {selectedRepos.length === 0
+                    ? "Select Repos"
+                    : selectedRepos.length === 1
+                      ? selectedRepos[0]!.fullName.split("/")[1] || selectedRepos[0]!.fullName
+                      : `${selectedRepos.length} repos`}
+                </span>
+                <ChevronDown className={cn("w-4 h-4 transition-transform", showRepoDropdown && "rotate-180")} />
               </button>
+
+              {/* Dropdown */}
+              {showRepoDropdown && (
+                <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-50 animate-dropdown">
+                  {repositories.map((repo) => {
+                    const isSelected = selectedRepos.some((r) => r.id === repo.id);
+                    return (
+                      <button
+                        key={repo.id}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedRepos((prev) => prev.filter((r) => r.id !== repo.id));
+                          } else {
+                            setSelectedRepos((prev) => [...prev, repo]);
+                          }
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-100 transition-colors"
+                      >
+                        <div
+                          className={cn(
+                            "w-4 h-4 rounded border flex items-center justify-center transition-colors",
+                            isSelected
+                              ? "bg-indigo-600 border-indigo-600"
+                              : "border-gray-300"
+                          )}
+                        >
+                          {isSelected && <Check className="w-3 h-3 text-white" />}
+                        </div>
+                        <FolderGit2 className="w-4 h-4 text-gray-500" />
+                        <div className="flex-1 min-w-0 text-left">
+                          <div className="text-sm text-gray-700 truncate">
+                            {repo.fullName.split("/")[1] || repo.fullName}
+                          </div>
+                          {repo.language && (
+                            <div className="text-xs text-gray-500">{repo.language}</div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
-            {/* Filter Panel */}
-            {showFilters && (
-              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 animate-dropdown">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-gray-900">Search Filters</h3>
-                  {hasActiveFilters && (
-                    <button
-                      onClick={clearFilters}
-                      className="text-xs text-gray-500 hover:text-gray-700"
-                    >
-                      Clear all
-                    </button>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* File Extensions */}
-                  <div>
-                    <label className="text-xs font-medium text-gray-700 mb-2 block">File Types</label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {COMMON_EXTENSIONS.map((ext) => (
-                        <button
-                          key={ext.value}
-                          onClick={() => toggleExtension(ext.value)}
-                          className={cn(
-                            "px-2 py-1 text-xs rounded border transition-colors",
-                            filters.extensions.includes(ext.value)
-                              ? "bg-indigo-100 border-indigo-300 text-indigo-700"
-                              : "bg-white border-gray-200 text-gray-600 hover:border-indigo-300"
-                          )}
-                        >
-                          .{ext.value}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Code Types */}
-                  <div>
-                    <label className="text-xs font-medium text-gray-700 mb-2 block">Code Types</label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {CODE_TYPES.map((type) => (
-                        <button
-                          key={type.value}
-                          onClick={() => toggleType(type.value)}
-                          className={cn(
-                            "px-2 py-1 text-xs rounded border transition-colors",
-                            filters.types.includes(type.value)
-                              ? "bg-indigo-100 border-indigo-300 text-indigo-700"
-                              : "bg-white border-gray-200 text-gray-600 hover:border-indigo-300"
-                          )}
-                        >
-                          {type.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Directory Paths */}
-                  <div>
-                    <label className="text-xs font-medium text-gray-700 mb-2 block">Directory Paths</label>
-                    <div className="flex gap-1.5 mb-2">
-                      <input
-                        type="text"
-                        value={pathInput}
-                        onChange={(e) => setPathInput(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && addPath()}
-                        placeholder="e.g., src/components"
-                        className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:border-indigo-400"
-                      />
-                      <button
-                        onClick={addPath}
-                        disabled={!pathInput.trim()}
-                        className="px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
-                      >
-                        Add
-                      </button>
-                    </div>
-                    {filters.paths.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {filters.paths.map((path) => (
-                          <span
-                            key={path}
-                            className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 border border-indigo-200 rounded text-xs text-indigo-700"
-                          >
-                            {path}
-                            <button onClick={() => removePath(path)} className="hover:text-indigo-900">
-                              <X className="w-3 h-3" />
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
+            {/* Selected Repos Tags */}
+            {selectedRepos.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {selectedRepos.map((repo) => (
+                  <span
+                    key={repo.id}
+                    className="inline-flex items-center gap-1.5 px-2 py-1 bg-indigo-50 border border-indigo-200 rounded text-xs text-indigo-700"
+                  >
+                    <FolderGit2 className="w-3 h-3" />
+                    <span className="truncate max-w-[120px]">{repo.fullName.split("/")[1]}</span>
+                  </span>
+                ))}
               </div>
             )}
-          </>
+          </div>
         )}
 
         {/* Messages Area */}
@@ -839,6 +792,53 @@ export function ChatLayout({
         variant="danger"
         isLoading={isDeleting}
       />
+
+      {/* Rename Dialog */}
+      {renameDialogOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="p-5 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Rename Conversation</h3>
+                <button
+                  onClick={closeRenameDialog}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-5">
+              <input
+                type="text"
+                value={renameInput}
+                onChange={(e) => setRenameInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleRename()}
+                placeholder="Enter new title..."
+                autoFocus
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="p-5 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={closeRenameDialog}
+                disabled={isRenaming}
+                className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRename}
+                disabled={isRenaming || !renameInput.trim()}
+                className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {isRenaming && <Loader2 className="w-4 h-4 animate-spin" />}
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

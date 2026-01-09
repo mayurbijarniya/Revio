@@ -141,6 +141,7 @@ model Conversation {
   repositoryId  String    @map("repository_id") @db.Uuid
   repositoryIds String[]  @map("repository_ids") @default([])
   title         String?   @db.VarChar(255)
+  isPinned      Boolean   @default(false) @map("is_pinned")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 

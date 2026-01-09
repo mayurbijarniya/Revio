@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { jsonSuccess, jsonError } from "@/lib/api-utils";
 import { getUserAccessToken } from "@/lib/auth";
 import { GitHubService } from "@/lib/services/github";
+import { createBotGitHubService } from "@/lib/services/github-app";
 import { reviewPullRequest, postReviewToGitHub } from "@/lib/services/reviewer";
 import { z } from "zod";
 
@@ -51,25 +52,55 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return jsonError("REPO_001", "Repository not found", 404);
     }
 
-    // Get access token
-    const accessToken = await getUserAccessToken(session.userId);
-    if (!accessToken) {
-      return jsonError("AUTH_004", "Access token not found", 401);
-    }
-
-    // Get PR details from GitHub
-    const github = new GitHubService(accessToken);
+    // Get GitHub App installation token (preferred for bot actions)
     const [owner, repo] = repository.fullName.split("/");
-
     if (!owner || !repo) {
       return jsonError("REPO_002", "Invalid repository name", 400);
     }
 
+    // Try to get bot service first
+    const botService = await createBotGitHubService(owner, repo);
+
+    // Fallback to user token if bot service fails (though bot is preferred for reviews)
+    let accessToken = botService?.token;
+
+    if (!accessToken) {
+      console.log(`[Review] Bot service unavailable for ${owner}/${repo}, falling back to user token`);
+      // Fallback to user token
+      accessToken = (await getUserAccessToken(session.userId)) ?? undefined;
+      if (!accessToken) {
+        console.error(`[Review] No access token found for user ${session.userId}`);
+        return jsonError("AUTH_004", "Access token not found. Please reconnect your GitHub account or ensure the Revio App is installed.", 401);
+      }
+      console.log(`[Review] Using user token for ${owner}/${repo}`);
+    } else {
+      console.log(`[Review] Using bot token for ${owner}/${repo}`);
+    }
+
+    // Get PR details from GitHub
+    // If we have a bot service, use its authenticated Octokit, otherwise use user token
+    const github = botService ? new GitHubService(botService.token) : new GitHubService(accessToken);
+
     let prDetails;
     try {
+      console.log(`[Review] Fetching PR #${prNumber} from ${owner}/${repo}`);
       prDetails = await github.getPullRequest(owner, repo, prNumber);
-    } catch {
-      return jsonError("PR_001", `PR #${prNumber} not found`, 404);
+      console.log(`[Review] Successfully fetched PR #${prNumber}: ${prDetails.title}`);
+    } catch (error: unknown) {
+      const err = error as { status?: number; message?: string };
+      console.error(`[Review] Failed to fetch PR #${prNumber}:`, {
+        status: err.status,
+        message: err.message,
+        owner,
+        repo,
+        prNumber,
+      });
+
+      if (err.status === 401) {
+        return jsonError("AUTH_004", "GitHub authentication failed. Token may be expired. Please reconnect your GitHub account.", 401);
+      }
+
+      return jsonError("PR_001", `PR #${prNumber} not found or access denied`, 404);
     }
 
     // Create or update pending PR review record
@@ -107,13 +138,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         {
           number: prNumber,
           title: prDetails.title,
-          body: prDetails.body,
+          body: prDetails.body || "",
           author: prDetails.user.login,
           url: prDetails.html_url,
           baseBranch: prDetails.base.ref,
           headBranch: prDetails.head.ref,
         },
-        accessToken
+        accessToken // Pass the working token (App or User)
       );
 
       if (!review) {

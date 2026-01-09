@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { verifySession } from "@/lib/session";
 
 /**
  * GET /api/auth/github
  * Initiates GitHub OAuth flow
  *
  * Query params:
- * - install=true: Force GitHub App installation flow (for new users or reinstalling)
+ * - install=true: Force GitHub App installation flow (for reinstalling or first-time setup)
  *
  * Flow:
- * - New users or ?install=true: Redirect to GitHub App installation
- * - Returning users: Use standard OAuth flow
+ * - Default: Use standard OAuth flow (all users)
+ * - With ?install=true: Redirect to GitHub App installation page
  */
 export async function GET(request: NextRequest) {
   const appClientId = process.env.GITHUB_APP_CLIENT_ID;
@@ -28,35 +26,18 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const forceInstall = searchParams.get("install") === "true";
 
-  // Check if user is already logged in and exists in DB
-  let isReturningUser = false;
-  try {
-    const sessionToken = request.cookies.get("revio_session")?.value;
-    if (sessionToken) {
-      const session = await verifySession(sessionToken);
-      if (session) {
-        const user = await db.user.findUnique({
-          where: { id: session.userId },
-          select: { id: true },
-        });
-        isReturningUser = !!user;
-      }
-    }
-  } catch {
-    // Session invalid or expired, treat as new user
-  }
-
   // Generate a random state for CSRF protection
   const state = crypto.randomUUID();
 
   let authUrl: string;
 
-  if (forceInstall || !isReturningUser) {
-    // New users or explicit install request: Use GitHub App installation URL
+  if (forceInstall) {
+    // Explicit install request: Use GitHub App installation URL
     // This will prompt user to install the app AND authorize OAuth in one flow
     authUrl = `https://github.com/apps/revio-bot/installations/new?state=${state}`;
   } else {
-    // Returning users: Use standard OAuth flow (faster, no install prompt)
+    // Default: Use standard OAuth flow
+    // If user hasn't installed the app, the callback will handle it
     const scopes = ["read:user", "user:email", "repo"];
     authUrl = `https://github.com/login/oauth/authorize?client_id=${appClientId}&redirect_uri=${encodeURIComponent(`${appUrl}/api/auth/github/callback`)}&scope=${scopes.join(" ")}&state=${state}`;
   }
