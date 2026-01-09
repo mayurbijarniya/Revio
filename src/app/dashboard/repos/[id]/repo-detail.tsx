@@ -26,7 +26,6 @@ import {
   ChevronDown,
   ChevronUp,
   Sliders,
-  Play,
   GitPullRequestDraft,
   User,
 } from "lucide-react";
@@ -392,12 +391,12 @@ export function RepoDetail({
               onClick={handleIndex}
               disabled={isIndexing || repository.indexStatus === "indexing"}
               className={cn(
-                "inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-colors",
+                "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border",
                 repository.indexStatus === "indexed"
-                  ? "text-gray-600 border hover:bg-gray-50 dark:text-gray-400 dark:border-gray-600"
-                  : "bg-[#4F46E5] text-white hover:bg-[#4338CA]",
+                  ? "bg-white dark:bg-transparent border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  : "bg-[#4F46E5] border-[#4F46E5] text-white hover:bg-[#4338CA] hover:border-[#4338CA]",
                 (isIndexing || repository.indexStatus === "indexing") &&
-                  "opacity-50 cursor-not-allowed"
+                "opacity-50 cursor-not-allowed bg-[#4F46E5] border-[#4F46E5] text-white"
               )}
             >
               {isIndexing || repository.indexStatus === "indexing" ? (
@@ -405,12 +404,12 @@ export function RepoDetail({
               ) : (
                 <RefreshCw className="w-4 h-4" />
               )}
-              {repository.indexStatus === "indexed" ? "Reindex" : "Index"}
+              {repository.indexStatus === "indexed" ? "Re-index" : "Index Repository"}
             </button>
             <button
               onClick={() => setDeleteDialogOpen(true)}
               disabled={isDeleting}
-              className="inline-flex items-center gap-2 px-4 py-2 text-[#EF4444] border border-[#FEF2F2] rounded-lg hover:bg-[#FEF2F2] disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-[#EF4444] border border-[#FEF2F2] hover:bg-[#FEF2F2] disabled:opacity-50 transition-colors"
             >
               {isDeleting ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -524,10 +523,10 @@ export function RepoDetail({
                             pr.reviewStatus === "completed"
                               ? "bg-[#ECFDF5] text-[#10B981]"
                               : pr.reviewStatus === "failed"
-                              ? "bg-[#FEF2F2] text-[#EF4444]"
-                              : pr.reviewStatus === "pending"
-                              ? "bg-[#EEF2FF] text-[#4F46E5]"
-                              : "bg-gray-100 text-gray-500"
+                                ? "bg-[#FEF2F2] text-[#EF4444]"
+                                : pr.reviewStatus === "pending"
+                                  ? "bg-[#EEF2FF] text-[#4F46E5]"
+                                  : "bg-gray-100 text-gray-500"
                           )}
                         >
                           {pr.reviewStatus}
@@ -537,50 +536,44 @@ export function RepoDetail({
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-                  <a
-                    href={pr.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                    title="View on GitHub"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
                   <button
                     onClick={() => handleReviewPR(pr.number)}
                     disabled={reviewingPR === pr.number || pr.reviewStatus === "pending"}
                     className={cn(
-                      "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                      "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border",
                       pr.reviewStatus === "pending"
-                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                        : pr.reviewStatus === "completed"
-                        ? "bg-white border border-[#4F46E5] text-[#4F46E5] hover:bg-[#EEF2FF]"
-                        : "bg-[#4F46E5] text-white hover:bg-[#4338CA]",
+                        ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
+                        : "bg-[#10B981] border-[#10B981] text-white hover:bg-[#059669] hover:border-[#059669]",
                       reviewingPR === pr.number && "opacity-50 cursor-not-allowed"
                     )}
                   >
                     {reviewingPR === pr.number ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Reviewing...
+                        {pr.reviewStatus === "pending" ? "In Progress" : "Reviewing..."}
                       </>
                     ) : pr.reviewStatus === "pending" ? (
                       <>
                         <Clock className="w-4 h-4" />
                         In Progress
                       </>
-                    ) : pr.reviewStatus === "completed" ? (
-                      <>
-                        <RefreshCw className="w-4 h-4" />
-                        Re-review
-                      </>
                     ) : (
                       <>
-                        <Play className="w-4 h-4" />
-                        Review
+                        <RefreshCw className="w-4 h-4" />
+                        {pr.reviewStatus === "completed" ? "Re-review" : "Review"}
                       </>
                     )}
                   </button>
+                  <a
+                    href={pr.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-[#4F46E5] border border-gray-200 dark:border-gray-600 rounded-lg hover:border-[#4F46E5]/30 transition-colors bg-white dark:bg-transparent"
+                    title="View on GitHub"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    GitHub
+                  </a>
                 </div>
               </div>
             ))}
@@ -761,8 +754,8 @@ export function RepoDetail({
                         pr.status === "completed"
                           ? "bg-[#ECFDF5] text-[#10B981]"
                           : pr.status === "failed"
-                          ? "bg-[#FEF2F2] text-[#EF4444]"
-                          : "bg-gray-100 text-gray-500 dark:bg-gray-700"
+                            ? "bg-[#FEF2F2] text-[#EF4444]"
+                            : "bg-gray-100 text-gray-500 dark:bg-gray-700"
                       )}
                     >
                       {pr.status}
