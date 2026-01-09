@@ -10,6 +10,8 @@ import {
   type ChatMessage,
 } from "@/lib/services/gemini";
 import { CHAT_SYSTEM_PROMPT, buildFollowUpMessage } from "@/lib/prompts/chat";
+import { extractFullRepoContext } from "@/lib/services/full-repo-context";
+import { Prisma } from "@prisma/client";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -90,23 +92,61 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
-    // Retrieve relevant context for this message
-    // Use low score threshold for complex cross-file queries
-    const newContext = repositoryIds.length === 1
-      ? await retrieveContext(repositoryIds[0]!, content, {
-          maxChunks: 15,
-          scoreThreshold: 0.1,
-          filters: searchFilters,
-        })
-      : await retrieveMultiRepoContext(repositoryIds, content, {
-          maxChunks: 15,
-          scoreThreshold: 0.1,
-          filters: searchFilters,
-        });
-    const formattedContext =
-      newContext.chunks.length > 0
-        ? formatContextForPrompt(newContext.chunks)
-        : undefined;
+    // Get context based on conversation mode
+    let formattedContext: string | undefined;
+    let contextChunksForStorage: unknown = null;
+
+    if (conversation.mode === "full_repo") {
+      // Full repo mode: Use cached context
+      const cachedContext = extractFullRepoContext(conversation.fullRepoContext);
+      if (cachedContext) {
+        formattedContext = cachedContext;
+        contextChunksForStorage = { type: "full_repo", cached: true };
+      } else {
+        // This shouldn't happen, but handle gracefully
+        console.error("Full repo context not found in conversation, falling back to indexed mode");
+        const newContext = repositoryIds.length === 1
+          ? await retrieveContext(repositoryIds[0]!, content, { maxChunks: 15, scoreThreshold: 0.1 })
+          : await retrieveMultiRepoContext(repositoryIds, content, { maxChunks: 15, scoreThreshold: 0.1 });
+        formattedContext = newContext.chunks.length > 0 ? formatContextForPrompt(newContext.chunks) : undefined;
+        contextChunksForStorage = newContext.chunks.length > 0
+          ? {
+              chunks: newContext.chunks.map((c) => ({
+                filePath: c.filePath,
+                startLine: c.startLine,
+                endLine: c.endLine,
+                content: c.content.slice(0, 500),
+              })),
+              totalTokens: newContext.totalTokens,
+            }
+          : null;
+      }
+    } else {
+      // Indexed mode: Vector search (default)
+      const newContext = repositoryIds.length === 1
+        ? await retrieveContext(repositoryIds[0]!, content, {
+            maxChunks: 15,
+            scoreThreshold: 0.1,
+            filters: searchFilters,
+          })
+        : await retrieveMultiRepoContext(repositoryIds, content, {
+            maxChunks: 15,
+            scoreThreshold: 0.1,
+            filters: searchFilters,
+          });
+      formattedContext = newContext.chunks.length > 0 ? formatContextForPrompt(newContext.chunks) : undefined;
+      contextChunksForStorage = newContext.chunks.length > 0
+        ? {
+            chunks: newContext.chunks.map((c) => ({
+              filePath: c.filePath,
+              startLine: c.startLine,
+              endLine: c.endLine,
+              content: c.content.slice(0, 500),
+            })),
+            totalTokens: newContext.totalTokens,
+          }
+        : null;
+    }
 
     // Build chat history
     const chatMessages: ChatMessage[] = conversation.messages.map((m) => ({
@@ -126,18 +166,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         conversationId: id,
         role: "user",
         content,
-        contextChunks:
-          newContext.chunks.length > 0
-            ? {
-                chunks: newContext.chunks.map((c) => ({
-                  filePath: c.filePath,
-                  startLine: c.startLine,
-                  endLine: c.endLine,
-                  content: c.content.slice(0, 500),
-                })),
-                totalTokens: newContext.totalTokens,
-              }
-            : undefined,
+        contextChunks: (contextChunksForStorage ?? Prisma.JsonNull) as Prisma.InputJsonValue,
       },
     });
 

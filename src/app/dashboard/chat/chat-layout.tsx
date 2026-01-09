@@ -19,6 +19,8 @@ import {
   Pin,
   PinOff,
   X,
+  Search,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
@@ -37,6 +39,7 @@ interface Conversation {
   lastMessage?: string;
   updatedAt: Date;
   isPinned?: boolean;
+  mode?: "indexed" | "full_repo";
 }
 
 interface Message {
@@ -80,6 +83,7 @@ export function ChatLayout({
   const [conversationToRename, setConversationToRename] = useState<string | null>(null);
   const [renameInput, setRenameInput] = useState("");
   const [isRenaming, setIsRenaming] = useState(false);
+  const [selectedMode, setSelectedMode] = useState<"indexed" | "full_repo">("indexed");
 
   // Handle initial conversation from URL
   useEffect(() => {
@@ -153,6 +157,7 @@ export function ChatLayout({
         body: JSON.stringify({
           repositoryIds: selectedRepos.map((r) => r.id),
           message: input.trim(),
+          mode: selectedMode,
         }),
       });
       const data = await res.json();
@@ -168,6 +173,7 @@ export function ChatLayout({
             lastMessage: input.trim().slice(0, 60),
             updatedAt: new Date(),
             isPinned: false,
+            mode: selectedMode,
           },
           ...prev,
         ]);
@@ -250,6 +256,7 @@ export function ChatLayout({
     setError(null);
     setShowRepoDropdown(false);
     setSelectedRepos([]);
+    setSelectedMode("indexed"); // Reset to default mode
     // Navigate to main chat page if we're on a conversation page
     if (pathname.startsWith("/dashboard/chat/")) {
       router.push("/dashboard/chat");
@@ -544,9 +551,39 @@ export function ChatLayout({
           </div>
         )}
 
-        {/* Header with Repo Selector - when creating new chat */}
+        {/* Header with Repo Selector and Mode - when creating new chat */}
         {!selectedConversation && repositories.length > 0 && (
-          <div className="sticky top-0 z-100 flex items-center gap-3 px-6 py-4 border-b border-gray-200 bg-white">
+          <div className="sticky top-0 z-100 flex items-center gap-3 px-6 py-4 border-b border-gray-200 bg-white flex-wrap">
+            {/* Mode Selector */}
+            <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-lg">
+              <button
+                onClick={() => setSelectedMode("indexed")}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-all",
+                  selectedMode === "indexed"
+                    ? "bg-white text-indigo-600 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                )}
+                title="Smart Search - Uses AI to find relevant code chunks"
+              >
+                <Search className="w-3.5 h-3.5" />
+                Smart
+              </button>
+              <button
+                onClick={() => setSelectedMode("full_repo")}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-all",
+                  selectedMode === "full_repo"
+                    ? "bg-white text-indigo-600 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                )}
+                title="Full Repo - Sends complete file list for broader understanding"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                Full
+              </button>
+            </div>
+
             {/* Selected Repo Display / Trigger */}
             <div className="relative" ref={dropdownRef}>
               <button
@@ -695,8 +732,37 @@ export function ChatLayout({
             <div className="max-w-3xl mx-auto">
               {/* Status Bar */}
               <div className="flex justify-between items-center px-4 py-2 bg-gray-50 border border-gray-200 border-b-0 rounded-t-lg">
-                {/* Left: Repository info */}
-                <div className="flex items-center gap-4">
+                {/* Left: Repository info & Mode badge */}
+                <div className="flex items-center gap-3">
+                  {/* Mode Badge */}
+                  {(() => {
+                    const currentConv = conversations.find((c) => c.id === selectedConversation);
+                    const mode = currentConv?.mode || "indexed";
+                    return (
+                      <div
+                        className={cn(
+                          "flex items-center gap-1 px-2 py-1 rounded text-xs font-medium",
+                          mode === "full_repo"
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-indigo-100 text-indigo-700"
+                        )}
+                        title={mode === "full_repo" ? "Full Repo Mode - Complete context" : "Smart Mode - Relevant chunks"}
+                      >
+                        {mode === "full_repo" ? (
+                          <>
+                            <FileText className="w-3 h-3" />
+                            Full
+                          </>
+                        ) : (
+                          <>
+                            <Search className="w-3 h-3" />
+                            Smart
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
+
                   {selectedRepos.length > 0 && (
                     <div className="flex items-center gap-2 text-sm text-gray-700">
                       <FolderGit2 className="w-4 h-4 text-gray-500" />
