@@ -15,6 +15,7 @@ import {
   ArrowUp,
   Filter,
   X,
+  ArrowLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
@@ -381,8 +382,13 @@ export function ChatLayout({
 
   return (
     <div className="flex h-[calc(100vh-4rem)] scrollbar-hide bg-gray-50">
-      {/* Sidebar - Fixed 280px width */}
-      <div className="w-72 border-r border-gray-200 bg-white flex flex-col flex-shrink-0">
+      {/* Sidebar - Fixed 280px width on desktop, full width on mobile when active */}
+      <div
+        className={cn(
+          "border-r border-gray-200 bg-white flex-col flex-shrink-0 bg-white md:w-72 md:flex",
+          selectedConversation ? "hidden" : "flex w-full"
+        )}
+      >
         {/* New Chat Button */}
         <div className="p-3 border-b border-gray-200">
           <button
@@ -409,7 +415,7 @@ export function ChatLayout({
                 <div
                   key={conv.id}
                   className={cn(
-                    "group relative w-full text-left p-2.5 rounded-lg transition-all text-sm",
+                    "group relative w-full text-left p-3 rounded-lg transition-all text-sm",
                     selectedConversation === conv.id
                       ? "bg-indigo-50 border border-indigo-200"
                       : "hover:bg-gray-100 border border-transparent"
@@ -419,9 +425,12 @@ export function ChatLayout({
                     onClick={() => loadConversation(conv.id)}
                     className="w-full text-left"
                   >
-                    <div className="font-medium text-xs truncate flex items-center gap-1.5 pr-6">
-                      <FolderGit2 className="w-3 h-3 text-gray-500 shrink-0" />
-                      <span className="text-gray-700">{conv.title}</span>
+                    <div className="font-medium text-sm truncate flex items-center gap-2 pr-6 mb-0.5">
+                      <FolderGit2 className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                      <span className="text-gray-900 truncate">{conv.title}</span>
+                    </div>
+                    <div className="text-xs text-gray-500 truncate pl-5.5">
+                      {conv.lastMessage || "No messages yet"}
                     </div>
                   </button>
                   <button
@@ -429,7 +438,7 @@ export function ChatLayout({
                       e.stopPropagation();
                       openDeleteDialog(conv.id);
                     }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-50 text-gray-400 hover:text-red-500 transition-all"
+                    className="absolute right-2 top-3 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-50 text-gray-400 hover:text-red-500 transition-all"
                     title="Delete conversation"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -442,208 +451,228 @@ export function ChatLayout({
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-gray-50">
+      <div
+        className={cn(
+          "flex-1 flex-col min-w-0 bg-gray-50",
+          !selectedConversation ? "hidden md:flex" : "flex"
+        )}
+      >
+        {/* Mobile Header - Active Conversation */}
+        {selectedConversation && (
+          <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white sticky top-0 z-10">
+            <button
+              onClick={() => setSelectedConversation(null)}
+              className="p-1 -ml-1 text-gray-600"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="font-medium truncate flex-1">
+              {conversations.find(c => c.id === selectedConversation)?.title || "Chat"}
+            </div>
+          </div>
+        )}
+
         {/* Header with Repo Selector - when creating new chat */}
         {!selectedConversation && repositories.length > 0 && (
           <>
-          <div className="sticky top-0 z-100 flex items-center gap-3 px-6 py-4 border-b border-gray-200 bg-white">
-            {/* Selected Repo Display / Trigger */}
-            <div className="relative" ref={dropdownRef}>
+            <div className="sticky top-0 z-100 flex items-center gap-3 px-6 py-4 border-b border-gray-200 bg-white">
+              {/* Selected Repo Display / Trigger */}
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setShowRepoDropdown(!showRepoDropdown)}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all",
+                    selectedRepos.length > 0
+                      ? "bg-indigo-50 border-indigo-200 text-gray-700"
+                      : "bg-gray-100 border-gray-200 text-gray-500 hover:border-indigo-400"
+                  )}
+                >
+                  <FolderGit2 className="w-4 h-4" />
+                  <span className="text-sm truncate max-w-[180px]">
+                    {selectedRepos.length === 0
+                      ? "Select Repos"
+                      : selectedRepos.length === 1
+                        ? selectedRepos[0]!.fullName.split("/")[1] || selectedRepos[0]!.fullName
+                        : `${selectedRepos.length} repos`}
+                  </span>
+                  <ChevronDown className={cn("w-4 h-4 transition-transform", showRepoDropdown && "rotate-180")} />
+                </button>
+
+                {/* Dropdown */}
+                {showRepoDropdown && (
+                  <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-50 animate-dropdown">
+                    {repositories.map((repo) => {
+                      const isSelected = selectedRepos.some((r) => r.id === repo.id);
+                      return (
+                        <button
+                          key={repo.id}
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedRepos((prev) => prev.filter((r) => r.id !== repo.id));
+                            } else {
+                              setSelectedRepos((prev) => [...prev, repo]);
+                            }
+                          }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-100 transition-colors"
+                        >
+                          <div
+                            className={cn(
+                              "w-4 h-4 rounded border flex items-center justify-center transition-colors",
+                              isSelected
+                                ? "bg-indigo-600 border-indigo-600"
+                                : "border-gray-300"
+                            )}
+                          >
+                            {isSelected && <Check className="w-3 h-3 text-white" />}
+                          </div>
+                          <FolderGit2 className="w-4 h-4 text-gray-500" />
+                          <div className="flex-1 min-w-0 text-left">
+                            <div className="text-sm text-gray-700 truncate">
+                              {repo.fullName.split("/")[1] || repo.fullName}
+                            </div>
+                            {repo.language && (
+                              <div className="text-xs text-gray-500">{repo.language}</div>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Selected Repos Tags */}
+              {selectedRepos.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {selectedRepos.map((repo) => (
+                    <span
+                      key={repo.id}
+                      className="inline-flex items-center gap-1.5 px-2 py-1 bg-indigo-50 border border-indigo-200 rounded text-xs text-indigo-700"
+                    >
+                      <FolderGit2 className="w-3 h-3" />
+                      <span className="truncate max-w-[120px]">{repo.fullName.split("/")[1]}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Filter Button */}
               <button
-                onClick={() => setShowRepoDropdown(!showRepoDropdown)}
+                onClick={() => setShowFilters(!showFilters)}
                 className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all",
-                  selectedRepos.length > 0
-                    ? "bg-indigo-50 border-indigo-200 text-gray-700"
-                    : "bg-gray-100 border-gray-200 text-gray-500 hover:border-indigo-400"
+                  "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ml-auto",
+                  hasActiveFilters
+                    ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+                    : "bg-gray-100 border-gray-200 text-gray-600 hover:border-indigo-400"
                 )}
               >
-                <FolderGit2 className="w-4 h-4" />
-                <span className="text-sm truncate max-w-[180px]">
-                  {selectedRepos.length === 0
-                    ? "Select Repos"
-                    : selectedRepos.length === 1
-                      ? selectedRepos[0]!.fullName.split("/")[1] || selectedRepos[0]!.fullName
-                      : `${selectedRepos.length} repos`}
-                </span>
-                <ChevronDown className={cn("w-4 h-4 transition-transform", showRepoDropdown && "rotate-180")} />
+                <Filter className="w-4 h-4" />
+                <span className="text-sm">Filters</span>
+                {hasActiveFilters && (
+                  <span className="w-5 h-5 bg-indigo-600 text-white text-xs rounded-full flex items-center justify-center">
+                    {filters.extensions.length + filters.paths.length + filters.types.length}
+                  </span>
+                )}
               </button>
-
-              {/* Dropdown */}
-              {showRepoDropdown && (
-                <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-50 animate-dropdown">
-                  {repositories.map((repo) => {
-                    const isSelected = selectedRepos.some((r) => r.id === repo.id);
-                    return (
-                      <button
-                        key={repo.id}
-                        onClick={() => {
-                          if (isSelected) {
-                            setSelectedRepos((prev) => prev.filter((r) => r.id !== repo.id));
-                          } else {
-                            setSelectedRepos((prev) => [...prev, repo]);
-                          }
-                        }}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-100 transition-colors"
-                      >
-                        <div
-                          className={cn(
-                            "w-4 h-4 rounded border flex items-center justify-center transition-colors",
-                            isSelected
-                              ? "bg-indigo-600 border-indigo-600"
-                              : "border-gray-300"
-                          )}
-                        >
-                          {isSelected && <Check className="w-3 h-3 text-white" />}
-                        </div>
-                        <FolderGit2 className="w-4 h-4 text-gray-500" />
-                        <div className="flex-1 min-w-0 text-left">
-                          <div className="text-sm text-gray-700 truncate">
-                            {repo.fullName.split("/")[1] || repo.fullName}
-                          </div>
-                          {repo.language && (
-                            <div className="text-xs text-gray-500">{repo.language}</div>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
             </div>
 
-            {/* Selected Repos Tags */}
-            {selectedRepos.length > 0 && (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {selectedRepos.map((repo) => (
-                  <span
-                    key={repo.id}
-                    className="inline-flex items-center gap-1.5 px-2 py-1 bg-indigo-50 border border-indigo-200 rounded text-xs text-indigo-700"
-                  >
-                    <FolderGit2 className="w-3 h-3" />
-                    <span className="truncate max-w-[120px]">{repo.fullName.split("/")[1]}</span>
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Filter Button */}
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={cn(
-                "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ml-auto",
-                hasActiveFilters
-                  ? "bg-indigo-50 border-indigo-200 text-indigo-700"
-                  : "bg-gray-100 border-gray-200 text-gray-600 hover:border-indigo-400"
-              )}
-            >
-              <Filter className="w-4 h-4" />
-              <span className="text-sm">Filters</span>
-              {hasActiveFilters && (
-                <span className="w-5 h-5 bg-indigo-600 text-white text-xs rounded-full flex items-center justify-center">
-                  {filters.extensions.length + filters.paths.length + filters.types.length}
-                </span>
-              )}
-            </button>
-          </div>
-
-          {/* Filter Panel */}
-          {showFilters && (
-            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 animate-dropdown">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-900">Search Filters</h3>
-                {hasActiveFilters && (
-                  <button
-                    onClick={clearFilters}
-                    className="text-xs text-gray-500 hover:text-gray-700"
-                  >
-                    Clear all
-                  </button>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* File Extensions */}
-                <div>
-                  <label className="text-xs font-medium text-gray-700 mb-2 block">File Types</label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {COMMON_EXTENSIONS.map((ext) => (
-                      <button
-                        key={ext.value}
-                        onClick={() => toggleExtension(ext.value)}
-                        className={cn(
-                          "px-2 py-1 text-xs rounded border transition-colors",
-                          filters.extensions.includes(ext.value)
-                            ? "bg-indigo-100 border-indigo-300 text-indigo-700"
-                            : "bg-white border-gray-200 text-gray-600 hover:border-indigo-300"
-                        )}
-                      >
-                        .{ext.value}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Code Types */}
-                <div>
-                  <label className="text-xs font-medium text-gray-700 mb-2 block">Code Types</label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {CODE_TYPES.map((type) => (
-                      <button
-                        key={type.value}
-                        onClick={() => toggleType(type.value)}
-                        className={cn(
-                          "px-2 py-1 text-xs rounded border transition-colors",
-                          filters.types.includes(type.value)
-                            ? "bg-indigo-100 border-indigo-300 text-indigo-700"
-                            : "bg-white border-gray-200 text-gray-600 hover:border-indigo-300"
-                        )}
-                      >
-                        {type.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Directory Paths */}
-                <div>
-                  <label className="text-xs font-medium text-gray-700 mb-2 block">Directory Paths</label>
-                  <div className="flex gap-1.5 mb-2">
-                    <input
-                      type="text"
-                      value={pathInput}
-                      onChange={(e) => setPathInput(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && addPath()}
-                      placeholder="e.g., src/components"
-                      className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:border-indigo-400"
-                    />
+            {/* Filter Panel */}
+            {showFilters && (
+              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 animate-dropdown">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-900">Search Filters</h3>
+                  {hasActiveFilters && (
                     <button
-                      onClick={addPath}
-                      disabled={!pathInput.trim()}
-                      className="px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
+                      onClick={clearFilters}
+                      className="text-xs text-gray-500 hover:text-gray-700"
                     >
-                      Add
+                      Clear all
                     </button>
-                  </div>
-                  {filters.paths.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {filters.paths.map((path) => (
-                        <span
-                          key={path}
-                          className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 border border-indigo-200 rounded text-xs text-indigo-700"
-                        >
-                          {path}
-                          <button onClick={() => removePath(path)} className="hover:text-indigo-900">
-                            <X className="w-3 h-3" />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
                   )}
                 </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* File Extensions */}
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 mb-2 block">File Types</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {COMMON_EXTENSIONS.map((ext) => (
+                        <button
+                          key={ext.value}
+                          onClick={() => toggleExtension(ext.value)}
+                          className={cn(
+                            "px-2 py-1 text-xs rounded border transition-colors",
+                            filters.extensions.includes(ext.value)
+                              ? "bg-indigo-100 border-indigo-300 text-indigo-700"
+                              : "bg-white border-gray-200 text-gray-600 hover:border-indigo-300"
+                          )}
+                        >
+                          .{ext.value}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Code Types */}
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 mb-2 block">Code Types</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {CODE_TYPES.map((type) => (
+                        <button
+                          key={type.value}
+                          onClick={() => toggleType(type.value)}
+                          className={cn(
+                            "px-2 py-1 text-xs rounded border transition-colors",
+                            filters.types.includes(type.value)
+                              ? "bg-indigo-100 border-indigo-300 text-indigo-700"
+                              : "bg-white border-gray-200 text-gray-600 hover:border-indigo-300"
+                          )}
+                        >
+                          {type.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Directory Paths */}
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 mb-2 block">Directory Paths</label>
+                    <div className="flex gap-1.5 mb-2">
+                      <input
+                        type="text"
+                        value={pathInput}
+                        onChange={(e) => setPathInput(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && addPath()}
+                        placeholder="e.g., src/components"
+                        className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:border-indigo-400"
+                      />
+                      <button
+                        onClick={addPath}
+                        disabled={!pathInput.trim()}
+                        className="px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
+                      >
+                        Add
+                      </button>
+                    </div>
+                    {filters.paths.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {filters.paths.map((path) => (
+                          <span
+                            key={path}
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 border border-indigo-200 rounded text-xs text-indigo-700"
+                          >
+                            {path}
+                            <button onClick={() => removePath(path)} className="hover:text-indigo-900">
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
           </>
         )}
 
@@ -709,7 +738,7 @@ export function ChatLayout({
 
         {/* Bottom Bar - Status + Input combined */}
         {selectedConversation && messages.length > 0 ? (
-          <div className="fixed bottom-6 left-80 right-6 z-50">
+          <div className="fixed bottom-6 left-4 md:left-80 right-4 md:right-6 z-50">
             <div className="max-w-3xl mx-auto">
               {/* Status Bar */}
               <div className="flex justify-between items-center px-4 py-2 bg-gray-50 border border-gray-200 border-b-0 rounded-t-lg">
@@ -770,7 +799,7 @@ export function ChatLayout({
           </div>
         ) : (
           /* Input Area for New Chat */
-          <div className="fixed bottom-6 left-80 right-6 z-50">
+          <div className="fixed bottom-6 left-4 md:left-80 right-4 md:right-6 z-50">
             <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
               <div className="relative bg-white border border-gray-200 rounded-lg shadow-sm">
                 <input

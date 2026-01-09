@@ -197,31 +197,31 @@ export default function AnalyticsDashboard() {
   const helpfulRate = totalFeedback > 0 ? Math.round((helpfulFeedback / totalFeedback) * 100) : 0;
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-8">
+    <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6 md:space-y-8">
       {/* Header Card */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex items-start justify-between">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 md:p-6">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-[#EEF2FF] dark:bg-[#1E1B4B] rounded-lg flex items-center justify-center border border-[#E0E7FF] dark:border-[#312E81]">
+            <div className="w-12 h-12 bg-[#EEF2FF] dark:bg-[#1E1B4B] rounded-lg flex items-center justify-center border border-[#E0E7FF] dark:border-[#312E81] flex-shrink-0">
               <BarChart3 className="w-6 h-6 text-[#4F46E5] dark:text-[#818CF8]" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">Analytics Dashboard</h1>
-              <p className="text-gray-500">Overview of repository methods and code quality insights</p>
-              <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+              <h1 className="text-xl md:text-2xl font-bold">Analytics Dashboard</h1>
+              <p className="text-sm md:text-base text-gray-500">Overview of repository methods and code quality insights</p>
+              <div className="flex items-center gap-4 mt-2 text-xs md:text-sm text-gray-500">
                 <span className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
+                  <Clock className="w-3 h-3 md:w-4 md:h-4" />
                   Last updated: {new Date().toLocaleTimeString()}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap md:flex-nowrap items-center gap-3 w-full md:w-auto">
             <select
               value={days}
               onChange={(e) => setDays(parseInt(e.target.value))}
-              className="px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-lg focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5]"
+              className="flex-1 md:flex-none px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-lg focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5]"
             >
               <option value={7}>Last 7 days</option>
               <option value={14}>Last 14 days</option>
@@ -239,7 +239,7 @@ export default function AnalyticsDashboard() {
             <button
               onClick={exportToCSV}
               disabled={!data}
-              className="flex items-center gap-2 px-3 py-2 bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] transition-colors disabled:opacity-50"
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-3 py-2 bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] transition-colors disabled:opacity-50"
               title="Export to CSV"
             >
               <Download className="w-4 h-4" />
@@ -250,7 +250,7 @@ export default function AnalyticsDashboard() {
       </div>
 
       {/* Overview Stats */}
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
           <div className="flex items-center gap-3 mb-3">
             <div className="p-2 bg-[#EEF2FF] rounded-lg">
@@ -302,7 +302,7 @@ export default function AnalyticsDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Reviews by Status */}
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold mb-4">Review Status</h3>
@@ -543,7 +543,7 @@ export default function AnalyticsDashboard() {
             <p className="text-sm">No issues found in this period</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Issue Severity Distribution */}
             <div>
               <h4 className="text-sm font-medium text-gray-500 mb-3">By Severity</h4>
