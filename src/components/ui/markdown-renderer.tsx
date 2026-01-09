@@ -222,41 +222,42 @@ function CodeBlock({ code, language }: CodeBlockProps) {
   const lineCount = displayCode.split("\n").length;
 
   return (
-    <div className="relative my-4 rounded-lg overflow-hidden bg-[#0d0d0d]">
-      {/* Minimal Header */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-[#0d0d0d]">
-        <div className="flex items-center gap-1.5">
+    <div className="relative group my-4 rounded-lg overflow-hidden border border-[#2d2d2d]">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-2 bg-[#1e1e1e] border-b border-[#2d2d2d]">
+        <div className="flex items-center gap-2">
           {getLanguageIcon(language)}
-          <span className="text-xs text-[#888888] font-medium">
+          <span className="font-mono text-xs text-[#808080]">
             {displayName}
           </span>
         </div>
 
         <button
           onClick={copyToClipboard}
-          className="p-1 rounded hover:bg-[#262626] transition-colors focus:outline-none focus:ring-2 focus:ring-[#4a4a4a] focus:ring-offset-2 focus:ring-offset-[#0d0d0d]"
+          className="p-1.5 rounded hover:bg-[#2d2d2d] transition-colors"
           title={copied ? "Copied!" : "Copy code"}
           aria-label={copied ? "Copied to clipboard" : "Copy code to clipboard"}
         >
           {copied ? (
-            <Check className="w-3.5 h-3.5 text-green-400" />
+            <Check className="w-4 h-4 text-green-400" />
           ) : (
-            <Copy className="w-3.5 h-3.5 text-[#666666] hover:text-[#888888]" />
+            <Copy className="w-4 h-4 text-[#808080] hover:text-[#cccccc]" />
           )}
         </button>
       </div>
 
-      {/* Code Content - styles defined in globals.css */}
-      <div className="relative overflow-auto max-h-[500px] code-block-content bg-[#0d0d0d]">
+      {/* Code Content */}
+      <div className="relative overflow-auto max-h-[500px] code-block-content">
         <SyntaxHighlighter
           language={language}
           style={vscDarkPlus}
           customStyle={{
             margin: 0,
-            padding: "0.875rem",
-            fontSize: "0.8125rem",
-            lineHeight: "1.5",
-            background: "#0d0d0d",
+            padding: "1rem",
+            fontSize: "0.875rem",
+            lineHeight: "1.6",
+            background: "#1e1e1e",
+            borderRadius: 0,
           }}
           showLineNumbers={lineCount > 1}
           lineNumberStyle={{
@@ -269,6 +270,7 @@ function CodeBlock({ code, language }: CodeBlockProps) {
           }}
           codeTagProps={{
             style: {
+              fontFamily: "'JetBrains Mono', 'Fira Code', 'Monaco', 'Consolas', monospace",
               background: "transparent",
             }
           }}

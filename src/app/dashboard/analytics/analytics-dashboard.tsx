@@ -15,7 +15,6 @@ import {
   ThumbsDown,
   Loader2,
   RefreshCw,
-  Calendar,
   AlertTriangle,
   Bug,
   Shield,
@@ -24,6 +23,18 @@ import {
   Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CartesianGrid, Line, LineChart, XAxis } from "recharts";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  ChartContainer,
+  ChartTooltip,
+} from "@/components/ui/chart";
 
 interface AnalyticsData {
   overview: {
@@ -184,9 +195,6 @@ export default function AnalyticsDashboard() {
   const notHelpfulFeedback = data.reviews.feedback.find((f) => f.feedback === "not_helpful")?.count || 0;
   const totalFeedback = helpfulFeedback + notHelpfulFeedback;
   const helpfulRate = totalFeedback > 0 ? Math.round((helpfulFeedback / totalFeedback) * 100) : 0;
-
-  // Calculate max values for bar charts
-  const maxReviewsPerDay = Math.max(...data.reviews.byDay.map((d) => d.count), 1);
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
@@ -406,51 +414,110 @@ export default function AnalyticsDashboard() {
       </div>
 
       {/* Reviews Over Time */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold">Reviews Over Time</h3>
-          <div className="flex items-center gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#4F46E5]" />
-              <span>Total</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#10B981]" />
-              <span>Completed</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#EF4444]" />
-              <span>Failed</span>
-            </div>
-          </div>
-        </div>
-        {data.reviews.byDay.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            <Calendar className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No reviews in this period</p>
-          </div>
-        ) : (
-          <div className="flex items-end gap-1 h-40">
-            {data.reviews.byDay.map((day, i) => (
-              <div
-                key={day.date}
-                className="flex-1 flex flex-col items-center gap-1"
-                title={`${day.date}: ${day.count} reviews`}
-              >
-                <div
-                  className="w-full bg-[#4F46E5] rounded-t transition-all hover:opacity-80"
-                  style={{ height: `${(day.count / maxReviewsPerDay) * 100}%`, minHeight: day.count > 0 ? "4px" : "0" }}
-                />
-                {i % Math.ceil(data.reviews.byDay.length / 10) === 0 && (
-                  <span className="text-xs text-gray-400 mt-1">
-                    {new Date(day.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <Card className="col-span-1">
+        <CardHeader>
+          <CardTitle>Reviews Over Time</CardTitle>
+          <CardDescription>
+            {new Date(data.reviews.byDay[0]?.date || Date.now()).toLocaleDateString()} - {new Date(data.reviews.byDay[data.reviews.byDay.length - 1]?.date || Date.now()).toLocaleDateString()}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={{
+            completed: {
+              label: "Completed",
+              color: "#10B981",
+            },
+            failed: {
+              label: "Failed",
+              color: "#EF4444",
+            },
+          }} className="h-[300px] w-full">
+            <LineChart
+              accessibilityLayer
+              data={data.reviews.byDay}
+              margin={{
+                left: 12,
+                right: 12,
+                top: 20,
+                bottom: 5,
+              }}
+            >
+              <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.5} />
+              <XAxis
+                dataKey="date"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                tickFormatter={(value) => new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                minTickGap={30}
+              />
+              <ChartTooltip
+                cursor={false}
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    return (
+                      <div className="rounded-lg border bg-background p-2 shadow-sm min-w-[120px]">
+                        <div className="font-bold text-muted-foreground mb-2 text-sm">
+                          {new Date(payload[0]?.payload?.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1">
+                              <div className="h-2 w-2 rounded-full bg-[#10B981]" />
+                              <span className="text-xs text-muted-foreground">Completed</span>
+                            </div>
+                            <span className="text-xs font-bold font-mono">
+                              {payload.find(p => p.dataKey === "completed")?.value}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1">
+                              <div className="h-2 w-2 rounded-full bg-[#EF4444]" />
+                              <span className="text-xs text-muted-foreground">Failed</span>
+                            </div>
+                            <span className="text-xs font-bold font-mono">
+                              {payload.find(p => p.dataKey === "failed")?.value}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Line
+                dataKey="completed"
+                type="monotone"
+                stroke="var(--color-completed)"
+                strokeWidth={2}
+                dot={{
+                  r: 4,
+                  fill: "var(--color-completed)",
+                }}
+                activeDot={{
+                  r: 6,
+                }}
+              />
+              <Line
+                dataKey="failed"
+                type="monotone"
+                stroke="var(--color-failed)"
+                strokeWidth={2}
+                strokeDasharray="4 4"
+                dot={{
+                  r: 4,
+                  fill: "var(--color-failed)",
+                }}
+                activeDot={{
+                  r: 6,
+                }}
+              />
+            </LineChart>
+          </ChartContainer>
+          <div className="h-2"></div>
+        </CardContent>
+      </Card>
 
       {/* Code Quality Section */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">

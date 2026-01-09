@@ -337,9 +337,9 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
       </div>
 
       {/* Reviews List */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col h-[600px]">
         {filteredReviews.length === 0 ? (
-          <div className="p-12 text-center">
+          <div className="p-12 text-center h-full flex flex-col items-center justify-center">
             <div className="empty-state-icon pr-reviews">
               <GitPullRequest />
             </div>
@@ -373,7 +373,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
             )}
           </div>
         ) : (
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
+          <div className="flex-1 overflow-y-auto divide-y divide-gray-200 dark:divide-gray-700">
             {filteredReviews.map((review) => {
               const status = statusConfig[review.status as keyof typeof statusConfig] || statusConfig.pending;
               const StatusIcon = status.icon;
@@ -461,7 +461,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
                       <button
                         onClick={() => handleReview(review)}
                         disabled={reviewLoading === review.id}
-                        className="flex items-center gap-1 px-3 py-1.5 text-sm bg-[#10B981] text-white rounded-lg hover:bg-[#059669] transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-[#10B981] text-white rounded-lg hover:bg-[#059669] transition-colors disabled:opacity-50"
                       >
                         {reviewLoading === review.id ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -472,7 +472,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
                       </button>
                       <Link
                         href={`/dashboard/reviews/${review.id}`}
-                        className="flex items-center gap-1 px-3 py-1.5 text-sm bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] transition-colors"
+                        className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] transition-colors"
                       >
                         View Details
                       </Link>
@@ -481,7 +481,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
                           href={review.prUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-[#4F46E5] border border-gray-200 dark:border-gray-600 rounded-lg hover:border-[#4F46E5]/30 transition-colors"
+                          className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-[#4F46E5] border border-gray-200 dark:border-gray-600 rounded-lg hover:border-[#4F46E5]/30 transition-colors"
                         >
                           <ExternalLink className="w-4 h-4" />
                           GitHub
@@ -497,7 +497,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
 
         {/* Show count */}
         {filteredReviews.length > 0 && (
-          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-500">
+          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-500 bg-gray-50 dark:bg-gray-800/50 flex-shrink-0">
             Showing {filteredReviews.length} of {reviews.length} reviews
           </div>
         )}

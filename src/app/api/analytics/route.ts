@@ -72,17 +72,34 @@ export async function GET(request: NextRequest) {
 
     // Group reviews by day
     const reviewsByDay: Record<string, { date: string; count: number; completed: number; failed: number }> = {};
+
+    // Initialize all days in range with 0
+    for (let i = 0; i < days; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split("T")[0] ?? "";
+      if (dateStr) {
+        reviewsByDay[dateStr] = { date: dateStr, count: 0, completed: 0, failed: 0 };
+      }
+    }
+
     reviewsOverTime.forEach((review) => {
       const dateParts = review.createdAt.toISOString().split("T");
       const date = dateParts[0] ?? "";
-      if (!date) return;
-      if (!reviewsByDay[date]) {
-        reviewsByDay[date] = { date, count: 0, completed: 0, failed: 0 };
+      if (!date || !reviewsByDay[date]) return;
+
+      const dayStat = reviewsByDay[date];
+      if (dayStat) {
+        dayStat.count++;
+        if (review.status === "completed") dayStat.completed++;
+        if (review.status === "failed") dayStat.failed++;
       }
-      reviewsByDay[date].count++;
-      if (review.status === "completed") reviewsByDay[date].completed++;
-      if (review.status === "failed") reviewsByDay[date].failed++;
     });
+
+    // Sort by date ascending for the graph
+    const sortedReviewsByDay = Object.values(reviewsByDay).sort((a, b) =>
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
 
     // Get top repositories by reviews
     const topReposByReviews = await db.prReview.groupBy({
@@ -249,7 +266,7 @@ export async function GET(request: NextRequest) {
           status: s.status,
           count: s._count,
         })),
-        byDay: Object.values(reviewsByDay),
+        byDay: sortedReviewsByDay,
         topRepositories: topReposWithNames,
         feedback: feedbackStats.map((f) => ({
           feedback: f.feedback,
