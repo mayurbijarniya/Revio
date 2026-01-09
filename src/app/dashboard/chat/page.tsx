@@ -7,6 +7,29 @@ interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
+// Extended conversation type that includes fields from Prisma schema
+// These fields exist in the DB but may not be in generated types if out of sync
+interface ConversationWithExtras {
+  id: string;
+  title: string | null;
+  updatedAt: Date;
+  repositoryId: string;
+  repositoryIds: string[];
+  isPinned: boolean;
+  mode: string;
+  repository: { fullName: string };
+  messages: { content: string }[];
+}
+
+// Type for loaded conversation with full message details
+interface LoadedConversation {
+  id: string;
+  repositoryId: string;
+  repositoryIds: string[];
+  mode: string;
+  messages: { id: string; role: string; content: string; createdAt: Date }[];
+}
+
 export default async function ChatPage({ searchParams }: PageProps) {
   const session = await getSession();
 
@@ -48,10 +71,9 @@ export default async function ChatPage({ searchParams }: PageProps) {
     },
     orderBy: { updatedAt: "desc" },
     take: 20,
-  });
+  }) as unknown as ConversationWithExtras[];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const formattedConversations = conversations.map((conv: any) => ({
+  const formattedConversations = conversations.map((conv) => ({
     id: conv.id,
     title: conv.title ?? "New conversation",
     repositoryName: conv.repository.fullName,
@@ -84,12 +106,11 @@ export default async function ChatPage({ searchParams }: PageProps) {
           },
         },
       },
-    });
+    }) as unknown as LoadedConversation | null;
 
     if (conversation) {
       initialConversationId = conversation.id;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      initialMode = ((conversation as any).mode as "indexed" | "full_repo") || "indexed";
+      initialMode = (conversation.mode as "indexed" | "full_repo") || "indexed";
       initialMessages = conversation.messages.map((msg) => ({
         id: msg.id,
         role: msg.role as "user" | "assistant",
