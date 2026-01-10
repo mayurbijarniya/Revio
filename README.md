@@ -98,6 +98,39 @@ src/
 └── prisma/                # Relational schema for repos, PRs, and users
 ```
 
+## Review Workflow Sequence
+
+When a pull request is detected, Revio executes the following sequence:
+
+1.  **Context Construction**: The system identifies changed files and extracts semantic anchors (function signatures, class names, etc.).
+2.  **Semantic Retrieval**: It queries the Qdrant vector store to find the top $N$ most relevant code snippets across the entire repository that correlate with the proposed changes.
+3.  **Prompt Orchestration**: A multi-turn prompt is constructed including:
+    -   The PR Diff.
+    -   Retrieved semantic context.
+    -   Repository-specific review rules (configured in the dashboard).
+4.  **AI Inference**: The orchestrated prompt is processed by the configured LLM to generate granular, line-by-line feedback.
+5.  **GitHub Reflection**: Feedback is mapped back to specific line numbers in the PR using a fuzzy-match coordinate system to ensure alignment even if the file has shifted.
+
+## Contributing
+
+We welcome technical contributions focused on:
+- Improving AST-aware code chunking algorithms.
+- Refining RAG retrieval precision.
+- Adding support for new language-specific architectural patterns.
+
+### Local Development Flow
+1. Fork and clone the repository.
+2. Ensure Redis and PostgreSQL are running locally.
+3. Use `npm run dev` to start the Next.js development server.
+4. Run `npx prisma studio` to inspect local database state.
+
+## Roadmap
+
+- [ ] Support for multi-repository context (system-of-systems analysis).
+- [ ] Direct IDE integration (VS Code extension / JetBrains plugin).
+- [ ] Custom fine-tuned models for specific architectural styles.
+- [ ] Automated fix generation (Pull Request suggestions).
+
 ## License
 
 MIT © Revio
