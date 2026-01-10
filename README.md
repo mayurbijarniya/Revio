@@ -52,7 +52,7 @@ npm install
 
 # 2. Infrastructure Setup
 cp .env.example .env
-# Configure DATABASE_URL, QDRANT_URL, and GITHUB_APP_ID
+# Edit .env with your credentials
 
 # 3. Database & Indexing
 npx prisma db push
@@ -60,6 +60,26 @@ npx prisma generate
 
 # 4. Run Development
 npm run dev
+```
+
+### Environment Variables
+
+Configure the following keys in your `.env` file:
+
+```env
+DATABASE_URL="postgresql://..."
+DIRECT_URL="postgresql://..."
+GITHUB_APP_ID="your_github_app_id"
+GITHUB_APP_CLIENT_ID="your_github_app_client_id"
+GITHUB_APP_CLIENT_SECRET="your_github_app_client_secret"
+GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
+GITHUB_WEBHOOK_SECRET="your_webhook_secret"
+GOOGLE_AI_API_KEY="..."
+QDRANT_URL="..."
+QDRANT_API_KEY="..."
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+SESSION_SECRET="..."
+ENCRYPTION_KEY="..."
 ```
 
 ## Project Structure
