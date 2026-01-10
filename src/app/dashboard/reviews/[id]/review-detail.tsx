@@ -107,13 +107,13 @@ interface ReviewDetailProps {
 }
 
 const SEVERITY_CONFIG: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
-  critical: { icon: AlertOctagon, color: "text-red-600", bg: "bg-red-100" },
-  high: { icon: AlertTriangle, color: "text-orange-600", bg: "bg-orange-100" },
-  warning: { icon: AlertCircle, color: "text-amber-600", bg: "bg-amber-100" },
-  medium: { icon: AlertCircle, color: "text-amber-600", bg: "bg-amber-100" },
-  low: { icon: Info, color: "text-blue-600", bg: "bg-blue-100" },
-  info: { icon: Info, color: "text-blue-600", bg: "bg-blue-100" },
-  suggestion: { icon: Lightbulb, color: "text-green-600", bg: "bg-green-100" },
+  critical: { icon: AlertOctagon, color: "text-red-600 dark:text-red-400", bg: "bg-red-100 dark:bg-red-900/30" },
+  high: { icon: AlertTriangle, color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-100 dark:bg-orange-900/30" },
+  warning: { icon: AlertCircle, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-100 dark:bg-amber-900/30" },
+  medium: { icon: AlertCircle, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-100 dark:bg-amber-900/30" },
+  low: { icon: Info, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-900/30" },
+  info: { icon: Info, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-900/30" },
+  suggestion: { icon: Lightbulb, color: "text-green-600 dark:text-green-400", bg: "bg-green-100 dark:bg-green-900/30" },
 };
 
 const CATEGORY_CONFIG: Record<string, { icon: React.ElementType; label: string }> = {
@@ -237,7 +237,7 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
   if (error || !review) {
     return (
       <div className="p-6">
-        <div className="bg-red-50 text-red-600 p-4 rounded-lg">
+        <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg">
           {error || "Review not found"}
         </div>
         <Link
@@ -252,9 +252,9 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
   }
 
   const statusConfig = {
-    completed: { icon: CheckCircle2, color: "text-green-600", bg: "bg-green-100", label: "Completed" },
-    failed: { icon: XCircle, color: "text-red-600", bg: "bg-red-100", label: "Failed" },
-    pending: { icon: Clock, color: "text-amber-600", bg: "bg-amber-100", label: "Pending" },
+    completed: { icon: CheckCircle2, color: "text-green-600 dark:text-green-400", bg: "bg-green-100 dark:bg-green-900/30", label: "Completed" },
+    failed: { icon: XCircle, color: "text-red-600 dark:text-red-400", bg: "bg-red-100 dark:bg-red-900/30", label: "Failed" },
+    pending: { icon: Clock, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-100 dark:bg-amber-900/30", label: "Pending" },
   };
 
   const status = statusConfig[review.status as keyof typeof statusConfig] || statusConfig.pending;
@@ -266,7 +266,7 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
       <div className="mb-6">
         <Link
           href="/dashboard/reviews"
-          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+          className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 mb-4"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Reviews
@@ -276,7 +276,7 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
           <div className="flex-1 min-w-0 w-full">
             <div className="flex flex-wrap items-center gap-3 mb-2">
               <GitPullRequest className="h-6 w-6 text-[#4F46E5] flex-shrink-0" />
-              <h1 className="text-xl font-bold text-gray-900 truncate">
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white truncate">
                 #{review.prNumber} {review.prTitle || "Pull Request"}
               </h1>
               <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-medium ${status.bg} ${status.color} flex-shrink-0`}>
@@ -321,7 +321,7 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
               href={review.prUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 h-10 whitespace-nowrap"
+              className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-900 dark:bg-gray-700 text-white rounded-lg hover:bg-gray-800 dark:hover:bg-gray-600 h-10 whitespace-nowrap"
             >
               <ExternalLink className="h-4 w-4" />
               View on GitHub
@@ -332,24 +332,24 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <div className="text-sm text-gray-500 mb-1">Total Issues</div>
-          <div className="text-2xl font-bold text-gray-900">{review.issueCount}</div>
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+          <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Issues</div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">{review.issueCount}</div>
         </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <div className="text-sm text-gray-500 mb-1">Files Analyzed</div>
-          <div className="text-2xl font-bold text-gray-900">{review.filesAnalyzed.length}</div>
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+          <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Files Analyzed</div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">{review.filesAnalyzed.length}</div>
         </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <div className="text-sm text-gray-500 mb-1">Processing Time</div>
-          <div className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+          <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Processing Time</div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <Clock className="h-5 w-5 text-gray-400" />
             {review.processingTimeMs ? `${(review.processingTimeMs / 1000).toFixed(1)}s` : "-"}
           </div>
         </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <div className="text-sm text-gray-500 mb-1">Tokens Used</div>
-          <div className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+          <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Tokens Used</div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <Zap className="h-5 w-5 text-gray-400" />
             {review.tokensUsed?.toLocaleString() || "-"}
           </div>
@@ -364,8 +364,8 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
             : review.mergeVerdict === "needs_changes"
               ? "bg-red-50 border-red-300"
               : review.mergeVerdict === "review"
-                ? "bg-amber-50 border-amber-300"
-                : "bg-gray-50 border-gray-300"
+                ? "bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-800"
+                : "bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700"
             }`}
         >
           <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
@@ -375,8 +375,8 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
                 : review.mergeVerdict === "needs_changes"
                   ? "bg-red-100"
                   : review.mergeVerdict === "review"
-                    ? "bg-amber-100"
-                    : "bg-gray-100"
+                    ? "bg-amber-100 dark:bg-amber-900/40"
+                    : "bg-gray-100 dark:bg-gray-700"
                 }`}
             >
               {review.mergeVerdict === "ready" ? (
@@ -396,8 +396,8 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
                   : review.mergeVerdict === "needs_changes"
                     ? "text-red-800"
                     : review.mergeVerdict === "review"
-                      ? "text-amber-800"
-                      : "text-gray-800"
+                      ? "text-amber-800 dark:text-amber-300"
+                      : "text-gray-800 dark:text-gray-200"
                   }`}
               >
                 {review.mergeVerdict === "ready"
@@ -463,8 +463,8 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
 
       {/* Severity Breakdown */}
       {review.issueCount > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
-          <h3 className="font-semibold text-gray-900 mb-3">Issue Severity Breakdown</h3>
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-6">
+          <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Issue Severity Breakdown</h3>
           <div className="flex flex-wrap gap-4">
             {Object.entries(review.severityCounts)
               .filter(([, count]) => count > 0)
@@ -486,9 +486,9 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
 
       {/* Summary */}
       {review.summary && (
-        <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">Review Summary</h2>
-          <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap">
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Review Summary</h2>
+          <div className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
             {review.summary}
           </div>
         </div>
@@ -496,9 +496,9 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
 
       {/* Feedback Section */}
       {review.status === "completed" && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-6">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600">Was this review helpful?</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">Was this review helpful?</span>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => handleFeedback("helpful")}
@@ -529,9 +529,9 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
 
       {/* Issues by File */}
       {review.issueCount > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-6">
-          <div className="p-4 border-b border-gray-200 bg-gray-50">
-            <h2 className="text-lg font-semibold text-gray-900">
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden mb-6">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Issues Found ({review.issueCount})
             </h2>
           </div>
@@ -542,7 +542,7 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
                 {/* File Header */}
                 <button
                   onClick={() => toggleFile(file)}
-                  className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 text-left"
+                  className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 text-left"
                 >
                   {expandedFiles.has(file) ? (
                     <ChevronDown className="h-5 w-5 text-gray-400" />
@@ -550,13 +550,13 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
                     <ChevronRight className="h-5 w-5 text-gray-400" />
                   )}
                   <FileCode className="h-5 w-5 text-gray-400" />
-                  <span className="font-medium text-gray-900 flex-1">{file}</span>
-                  <span className="text-sm text-gray-500">{issues?.length || 0} issues</span>
+                  <span className="font-medium text-gray-900 dark:text-white flex-1">{file}</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{issues?.length || 0} issues</span>
                 </button>
 
                 {/* Issues List */}
                 {expandedFiles.has(file) && issues && (
-                  <div className="border-t border-gray-100 bg-gray-50">
+                  <div className="border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
                     {issues.map((issue, idx) => {
                       const sevConfig = SEVERITY_CONFIG[issue.severity || "info"] ?? SEVERITY_CONFIG.info;
                       const SevIcon = sevConfig?.icon ?? Info;
@@ -569,7 +569,7 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
                       return (
                         <div
                           key={idx}
-                          className="p-4 border-b border-gray-100 last:border-b-0"
+                          className="p-4 border-b border-gray-100 dark:border-gray-800 last:border-b-0"
                         >
                           <div className="flex items-start gap-3">
                             <div className={`p-1.5 rounded ${sevBg}`}>
@@ -577,34 +577,34 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
-                                <span className="font-medium text-gray-900">
+                                <span className="font-medium text-gray-900 dark:text-white">
                                   {issue.title || "Issue"}
                                 </span>
                                 {issue.line && (
-                                  <span className="text-sm text-gray-500">
+                                  <span className="text-sm text-gray-500 dark:text-gray-400">
                                     Line {issue.line}
                                   </span>
                                 )}
                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${sevBg} ${sevColor}`}>
                                   {issue.severity || "info"}
                                 </span>
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
                                   <CatIcon className="h-3 w-3" />
                                   {catLabel}
                                 </span>
                               </div>
                               {issue.description && (
-                                <p className="text-sm text-gray-600 mb-2">
+                                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
                                   {issue.description}
                                 </p>
                               )}
                               {issue.suggestion && (
-                                <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                                  <div className="flex items-center gap-2 text-green-700 text-sm font-medium mb-1">
+                                <div className="mt-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                                  <div className="flex items-center gap-2 text-green-700 dark:text-green-400 text-sm font-medium mb-1">
                                     <Lightbulb className="h-4 w-4" />
                                     Suggestion
                                   </div>
-                                  <p className="text-sm text-green-800">
+                                  <p className="text-sm text-green-800 dark:text-green-300">
                                     {issue.suggestion}
                                   </p>
                                 </div>
@@ -629,18 +629,18 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
 
       {/* No Issues State */}
       {review.status === "completed" && review.issueCount === 0 && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6 text-center">
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-6 mb-6 text-center">
           <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-green-800 mb-1">No Issues Found!</h3>
-          <p className="text-green-600">This pull request looks good. Great job!</p>
+          <h3 className="text-lg font-semibold text-green-800 dark:text-green-400 mb-1">No Issues Found!</h3>
+          <p className="text-green-600 dark:text-green-300">This pull request looks good. Great job!</p>
         </div>
       )}
 
       {/* Suggestions */}
       {review.suggestions && review.suggestions.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-6">
-          <div className="p-4 border-b border-gray-200 bg-gray-50">
-            <h2 className="text-lg font-semibold text-gray-900">
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden mb-6">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Suggestions ({review.suggestions.length})
             </h2>
           </div>
@@ -648,16 +648,16 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
             {review.suggestions.map((suggestion, idx) => (
               <div key={idx} className="p-4">
                 <div className="flex items-start gap-3">
-                  <div className="p-1.5 rounded bg-blue-100">
-                    <Lightbulb className="h-4 w-4 text-blue-600" />
+                  <div className="p-1.5 rounded bg-blue-100 dark:bg-blue-900/30">
+                    <Lightbulb className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
-                    <h4 className="font-medium text-gray-900 mb-1">
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-1">
                       {suggestion.title || `Suggestion ${idx + 1}`}
                     </h4>
-                    <p className="text-sm text-gray-600">{suggestion.description}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">{suggestion.description}</p>
                     {suggestion.priority && (
-                      <span className="inline-block mt-2 text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">
+                      <span className="inline-block mt-2 text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
                         Priority: {suggestion.priority}
                       </span>
                     )}
@@ -671,17 +671,17 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
 
       {/* Files Analyzed */}
       {review.filesAnalyzed && review.filesAnalyzed.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <div className="p-4 border-b border-gray-200 bg-gray-50">
-            <h2 className="text-lg font-semibold text-gray-900">
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Files Analyzed ({review.filesAnalyzed.length})
             </h2>
           </div>
-          <div className="divide-y divide-gray-200 max-h-[400px] overflow-y-auto">
+          <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-[400px] overflow-y-auto">
             {review.filesAnalyzed.map((file, idx) => (
-              <div key={idx} className="flex items-center gap-3 p-3 hover:bg-gray-50">
+              <div key={idx} className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                 <FileCode className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                <span className="flex-1 text-sm font-mono text-gray-700 break-all">
+                <span className="flex-1 text-sm font-mono text-gray-700 dark:text-gray-300 break-all">
                   {file.path || "Unknown file"}
                 </span>
                 {(file.additions !== undefined || file.deletions !== undefined) && (

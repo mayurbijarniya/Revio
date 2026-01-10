@@ -21,6 +21,7 @@ import {
   Zap,
   FileWarning,
   Download,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CartesianGrid, Line, LineChart, XAxis } from "recharts";
@@ -218,16 +219,21 @@ export default function AnalyticsDashboard() {
           </div>
 
           <div className="flex flex-wrap md:flex-nowrap items-center gap-3 w-full md:w-auto">
-            <select
-              value={days}
-              onChange={(e) => setDays(parseInt(e.target.value))}
-              className="flex-1 md:flex-none px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-lg focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5]"
-            >
-              <option value={7}>Last 7 days</option>
-              <option value={14}>Last 14 days</option>
-              <option value={30}>Last 30 days</option>
-              <option value={90}>Last 90 days</option>
-            </select>
+            <div className="relative flex-1 md:flex-none">
+              <select
+                value={days}
+                onChange={(e) => setDays(parseInt(e.target.value))}
+                className="w-full appearance-none px-3 py-2 pr-8 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-lg focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5]"
+              >
+                <option value={7}>Last 7 days</option>
+                <option value={14}>Last 14 days</option>
+                <option value={30}>Last 30 days</option>
+                <option value={90}>Last 90 days</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                <ChevronDown className="h-4 w-4" />
+              </div>
+            </div>
             <button
               onClick={fetchAnalytics}
               disabled={loading}
@@ -414,7 +420,7 @@ export default function AnalyticsDashboard() {
       </div>
 
       {/* Reviews Over Time */}
-      <Card className="col-span-1">
+      <Card className="col-span-1 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
         <CardHeader>
           <CardTitle>Reviews Over Time</CardTitle>
           <CardDescription>

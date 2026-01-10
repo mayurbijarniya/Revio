@@ -145,23 +145,28 @@ export function ReviewRulesEditor({
             <span className="text-sm text-gray-600 dark:text-gray-400">
               Minimum severity to report
             </span>
-            <select
-              value={settings.minSeverity}
-              onChange={(e) => {
-                setSettings({
-                  ...settings,
-                  minSeverity: e.target.value as SeverityLevel,
-                });
-                setIsEditing(true);
-              }}
-              className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
-            >
-              {SeverityLevels.map((level) => (
-                <option key={level} value={level}>
-                  {level.charAt(0).toUpperCase() + level.slice(1)}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                value={settings.minSeverity}
+                onChange={(e) => {
+                  setSettings({
+                    ...settings,
+                    minSeverity: e.target.value as SeverityLevel,
+                  });
+                  setIsEditing(true);
+                }}
+                className="px-3 py-1.5 pr-8 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-[#4F46E5] appearance-none"
+              >
+                {SeverityLevels.map((level) => (
+                  <option key={level} value={level}>
+                    {level.charAt(0).toUpperCase() + level.slice(1)}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                <ChevronDown className="h-4 w-4" />
+              </div>
+            </div>
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer">
@@ -295,10 +300,10 @@ export function ReviewRulesEditor({
               {REVIEW_RULE_TEMPLATES.every((t) =>
                 settings.customRules.some((r) => r.id === t.id)
               ) && (
-                <p className="text-xs text-gray-500 text-center py-2">
-                  All templates have been added
-                </p>
-              )}
+                  <p className="text-xs text-gray-500 text-center py-2">
+                    All templates have been added
+                  </p>
+                )}
             </div>
           </div>
         )}
@@ -343,38 +348,48 @@ export function ReviewRulesEditor({
                 className="w-full px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
               />
               <div className="flex gap-2">
-                <select
-                  value={newRule.category || "style"}
-                  onChange={(e) =>
-                    setNewRule({
-                      ...newRule,
-                      category: e.target.value as IssueCategory,
-                    })
-                  }
-                  className="flex-1 px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
-                >
-                  {IssueCategories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat.replace("_", " ")}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={newRule.severity || "warning"}
-                  onChange={(e) =>
-                    setNewRule({
-                      ...newRule,
-                      severity: e.target.value as SeverityLevel,
-                    })
-                  }
-                  className="flex-1 px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
-                >
-                  {SeverityLevels.map((level) => (
-                    <option key={level} value={level}>
-                      {level}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative flex-1">
+                  <select
+                    value={newRule.category || "style"}
+                    onChange={(e) =>
+                      setNewRule({
+                        ...newRule,
+                        category: e.target.value as IssueCategory,
+                      })
+                    }
+                    className="w-full px-3 py-1.5 pr-8 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-[#4F46E5] appearance-none"
+                  >
+                    {IssueCategories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat.replace("_", " ")}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                    <ChevronDown className="h-4 w-4" />
+                  </div>
+                </div>
+                <div className="relative flex-1">
+                  <select
+                    value={newRule.severity || "warning"}
+                    onChange={(e) =>
+                      setNewRule({
+                        ...newRule,
+                        severity: e.target.value as SeverityLevel,
+                      })
+                    }
+                    className="w-full px-3 py-1.5 pr-8 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-[#4F46E5] appearance-none"
+                  >
+                    {SeverityLevels.map((level) => (
+                      <option key={level} value={level}>
+                        {level}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                    <ChevronDown className="h-4 w-4" />
+                  </div>
+                </div>
               </div>
               <div className="flex justify-end gap-2">
                 <button
