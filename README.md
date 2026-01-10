@@ -1,106 +1,81 @@
-# Revio
+# Revio: Context-Aware AI Code Reviewer
 
-**AI-Powered Code Review Platform**
+**Engineering high-quality code through semantic codebase intelligence.**
 
-Revio is an intelligent code review agent that understands your codebase context. Connect your GitHub repositories to get automated PR reviews, natural language code search, and chat-based code assistance.
+Revio is a high-performance, context-aware code review agent built for modern engineering teams. Unlike standard AI linters, Revio implements a **Retrieval-Augmented Generation (RAG)** pipeline over your entire codebase to provide reviews that understand your internal abstractions, design patterns, and architectural invariants.
 
-## Features
+## Key Technical Features
 
-- **Contextual PR Reviews** - AI analyzes your entire codebase to provide meaningful, context-aware code reviews
-- **Code Chat** - Ask questions about your codebase in natural language
-- **Semantic Search** - Find code by describing what it does, not just keywords
-- **Security Analysis** - Automatic detection of security vulnerabilities and best practice violations
-- **Analytics Dashboard** - Track review metrics, code quality trends, and team activity
+- **Semantic Codebase Intelligence**: Uses vector embeddings (Qdrant) to index your entire repository, enabling the AI to "know" your codebase before it reviews a single line of a PR.
+- **Context-Aware PR Analysis**: Automatically retrieves relevant cross-file context (shared types, utility functions, usage patterns) to minimize false positives and provide actionable feedback.
+- **Natural Language Code Search**: Implements semantic search over code chunks, allowing developers to query the codebase using intent (e.g., *"Where do we handle cross-origin auth?"*) rather than just keyword matches.
+- **Security & Best Practices**: Automated AST-aware scanning combined with LLM reasoning to detect complex logical vulnerabilities and architectural drifts.
+- **Automated Workflow**: Native GitHub App integration with event-driven triggers (webhooks) and background job processing (BullMQ/Redis).
 
-## How It Works
+## Technical Architecture
 
-Revio transforms the traditional code review process by leveraging advanced AI models combined with deep codebase understanding. When you connect a repository, Revio indexes your entire codebase using semantic embeddings, creating a searchable knowledge graph of your code structure, patterns, and relationships. This isn't just keyword matching - Revio understands the intent and purpose behind your code.
+Revio is designed as a modular, event-driven system:
 
-When a pull request is opened, Revio's AI agent retrieves relevant context from your indexed codebase, including related functions, similar patterns, and architectural conventions your team follows. This context-aware approach means reviews aren't generic suggestions from an AI that doesn't understand your project - they're specific, actionable insights that respect your codebase's unique style and requirements.
-
-The review process analyzes multiple dimensions: code correctness, security vulnerabilities, performance implications, maintainability concerns, and adherence to your team's established patterns. Each issue is categorized by severity (critical, warning, or suggestion) and includes concrete recommendations for improvement. For security issues, Revio provides detailed explanations of the vulnerability, potential attack vectors, and remediation steps.
-
-Beyond PR reviews, the Code Chat feature lets you have natural conversations about your codebase. Ask questions like "How does authentication work in this project?" or "Show me all the places where we handle payment processing" and get accurate, contextual answers backed by your actual code. This is especially valuable for onboarding new team members or when working with unfamiliar parts of a large codebase.
-
-The Analytics Dashboard provides insights into your team's code quality trends over time, tracking metrics like issues per review, common vulnerability categories, and files that frequently require fixes. This data helps identify systemic issues and measure the impact of your code quality initiatives.
+1.  **Ingestion Engine**: Extracts code from GitHub, chunks it using AST-aware dividers, and generates vector embeddings via `text-embedding-3-small` (or Gemini equivalent).
+2.  **Vector Store (Qdrant)**: Stores high-dimensional code representations for sub-millisecond similarity searches.
+3.  **Review Orchestrator**: 
+    - Triggered by GitHub `pull_request` webhooks.
+    - Performs **Context Retrieval**: Identifies modified files and fetches semantically related code from the vector store.
+    - **Reasoning Loop**: Feeds the diff + retrieved context into a high-reasoning LLM (Gemini 1.5 Pro / GPT-4o) with a specialized system prompt.
+4.  **Feedback Loop**: Posts results as high-fidelity GitHub inline comments or summary reviews.
 
 ## Tech Stack
 
-- **Framework**: Next.js 15 (App Router)
-- **Language**: TypeScript
-- **Database**: PostgreSQL (Supabase)
-- **Vector Store**: Qdrant
-- **AI**: Google Gemini / OpenAI
-- **Styling**: Tailwind CSS
-- **ORM**: Prisma
+- **Frontend/API**: Next.js 15 (App Router, Server Actions)
+- **Runtime**: Node.js 20+
+- **Database**: PostgreSQL (Prisma ORM)
+- **Vector Intelligence**: Qdrant
+- **Message Queue**: BullMQ (Redis)
+- **AI Models**: Google Gemini 1.5 Pro / Flash, OpenAI GPT-4o
+- **Auth & API**: Octokit (GitHub App Architecture)
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js >= 20.11.0
-- PostgreSQL database (Supabase recommended)
-- Qdrant instance for vector storage
-- GitHub OAuth App credentials
+- **Node.js**: >= 20.11.0
+- **PostgreSQL**: e.g., Supabase or local instance
+- **Redis**: Required for BullMQ background workers
+- **Qdrant**: Local Docker instance or Qdrant Cloud
 
 ### Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/mayurbijarniya/Revio.git
-cd Revio
-
-# Install dependencies
+# 1. Clone & Install
+git clone https://github.com/mayurbijarniya/Revio.git && cd Revio
 npm install
 
-# Set up environment variables
+# 2. Infrastructure Setup
 cp .env.example .env
-# Edit .env with your credentials
+# Configure DATABASE_URL, QDRANT_URL, and GITHUB_APP_ID
 
-# Generate Prisma client
+# 3. Database & Indexing
+npx prisma db push
 npx prisma generate
 
-# Run database migrations
-npx prisma db push
-
-# Start development server
+# 4. Run Development
 npm run dev
-```
-
-### Environment Variables
-
-Create a `.env` file with the following:
-
-```env
-DATABASE_URL="postgresql://..."
-DIRECT_URL="postgresql://..."
-GITHUB_APP_ID="your_github_app_id"
-GITHUB_APP_CLIENT_ID="your_github_app_client_id"
-GITHUB_APP_CLIENT_SECRET="your_github_app_client_secret"
-GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
-GITHUB_WEBHOOK_SECRET="your_webhook_secret"
-GOOGLE_AI_API_KEY="..."
-QDRANT_URL="..."
-QDRANT_API_KEY="..."
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
-SESSION_SECRET="..."
-ENCRYPTION_KEY="..."
 ```
 
 ## Project Structure
 
-```
+```text
 src/
-├── app/                    # Next.js App Router pages
-│   ├── (marketing)/        # Public marketing pages
-│   ├── api/                # API routes
-│   ├── dashboard/          # Protected dashboard pages
-│   └── login/              # Authentication
-├── components/             # Reusable UI components
-├── lib/                    # Utilities and services
-│   ├── services/           # Business logic (GitHub, AI, etc.)
-│   └── prompts/            # AI prompt templates
-└── types/                  # TypeScript type definitions
+├── app/
+│   ├── api/webhooks/      # High-scale webhook ingestion logic
+│   ├── dashboard/         # SSR-heavy analytics and management UI
+├── lib/
+│   ├── services/          
+│   │   ├── github.ts      # Octokit wrappers for PR manipulation
+│   │   ├── reviewer.ts    # Core RAG reasoning & review logic
+│   │   ├── indexer.ts     # AST-based code chunking & embedding
+│   └── queue.ts           # BullMQ job definitions
+└── prisma/                # Relational schema for repos, PRs, and users
 ```
 
 ## License
