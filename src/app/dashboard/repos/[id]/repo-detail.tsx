@@ -105,6 +105,7 @@ export function RepoDetail({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [autoReview, setAutoReview] = useState(repository.autoReview);
   const [ignoredPaths, setIgnoredPaths] = useState<string[]>(repository.ignoredPaths || []);
   const [newIgnoredPath, setNewIgnoredPath] = useState("");
@@ -144,8 +145,8 @@ export function RepoDetail({
       if (data.success) {
         setOpenPRs(data.data.pullRequests);
       }
-    } catch (err) {
-      console.warn("Failed to fetch open PRs:", err);
+    } catch {
+      // Failed to fetch open PRs
     } finally {
       setIsLoadingPRs(false);
     }
@@ -160,6 +161,7 @@ export function RepoDetail({
   async function handleReviewPR(prNumber: number) {
     setReviewingPR(prNumber);
     setError(null);
+    setMessage(null);
     try {
       const res = await fetch(`/api/repos/${repository.id}/review`, {
         method: "POST",
@@ -168,7 +170,10 @@ export function RepoDetail({
       });
       const data = await res.json();
       if (data.success) {
-        // Refresh the page to show the new review
+        if (data.data.skipped) {
+          setMessage(data.data.message || "Review already in progress");
+        }
+        // Refresh the page to show the new review (or updated status)
         router.refresh();
         // Re-fetch open PRs to update review status
         fetchOpenPRs();
@@ -338,6 +343,13 @@ export function RepoDetail({
         <div className="mb-6 p-4 bg-[#FEF2F2] dark:bg-[#7F1D1D] border border-[#FECACA] dark:border-[#991B1B] rounded-lg flex items-center gap-3">
           <AlertCircle className="w-5 h-5 text-[#EF4444]" />
           <span className="text-[#991B1B] dark:text-[#FECACA]">{error}</span>
+        </div>
+      )}
+
+      {message && (
+        <div className="mb-6 p-4 bg-[#EEF2FF] dark:bg-[#1e1b4b] border border-[#C7D2FE] dark:border-[#312e81] rounded-lg flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-[#4F46E5]" />
+          <span className="text-[#312e81] dark:text-[#C7D2FE]">{message}</span>
         </div>
       )}
 

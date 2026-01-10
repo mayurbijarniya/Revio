@@ -65,16 +65,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     let accessToken = botService?.token;
 
     if (!accessToken) {
-      console.log(`[Review] Bot service unavailable for ${owner}/${repo}, falling back to user token`);
+      console.warn(`[Review] Bot service unavailable for ${owner}/${repo}, falling back to user token`);
       // Fallback to user token
       accessToken = (await getUserAccessToken(session.userId)) ?? undefined;
       if (!accessToken) {
         console.error(`[Review] No access token found for user ${session.userId}`);
         return jsonError("AUTH_004", "Access token not found. Please reconnect your GitHub account or ensure the Revio App is installed.", 401);
       }
-      console.log(`[Review] Using user token for ${owner}/${repo}`);
+      console.warn(`[Review] Using user token for ${owner}/${repo}`);
     } else {
-      console.log(`[Review] Using bot token for ${owner}/${repo}`);
+      console.warn(`[Review] Using bot token for ${owner}/${repo}`);
     }
 
     // Get PR details from GitHub
@@ -83,9 +83,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     let prDetails;
     try {
-      console.log(`[Review] Fetching PR #${prNumber} from ${owner}/${repo}`);
+      console.warn(`[Review] Fetching PR #${prNumber} from ${owner}/${repo}`);
       prDetails = await github.getPullRequest(owner, repo, prNumber);
-      console.log(`[Review] Successfully fetched PR #${prNumber}: ${prDetails.title}`);
+      console.warn(`[Review] Successfully fetched PR #${prNumber}: ${prDetails.title}`);
     } catch (error: unknown) {
       const err = error as { status?: number; message?: string };
       console.error(`[Review] Failed to fetch PR #${prNumber}:`, {
@@ -101,6 +101,30 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
 
       return jsonError("PR_001", `PR #${prNumber} not found or access denied`, 404);
+    }
+
+    // Check for existing pending review to prevent duplicates
+    const existingReview = await db.prReview.findUnique({
+      where: {
+        repositoryId_prNumber: {
+          repositoryId: id,
+          prNumber,
+        },
+      },
+    });
+
+    if (existingReview?.status === "pending") {
+      // Check if it's stale (older than 10 minutes)
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+      if (existingReview.createdAt > tenMinutesAgo) {
+        console.warn(`[Review] Skipping manual trigger for PR #${prNumber} - review already in progress`);
+        return jsonSuccess({
+          message: "Review already in progress",
+          prNumber,
+          status: "pending",
+          skipped: true
+        });
+      }
     }
 
     // Create or update pending PR review record

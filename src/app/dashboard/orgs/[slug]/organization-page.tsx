@@ -127,8 +127,8 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
       if (data.success) {
         setRepositories(data.data.repositories);
       }
-    } catch (error) {
-      console.warn("Failed to fetch repositories:", error);
+    } catch {
+      // Failed to fetch repositories
     } finally {
       setLoadingRepos(false);
     }
@@ -143,8 +143,8 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
       if (data.success) {
         setActivities(data.data.activities);
       }
-    } catch (error) {
-      console.warn("Failed to fetch activities:", error);
+    } catch {
+      // Failed to fetch activities
     } finally {
       setLoadingActivities(false);
     }
@@ -159,8 +159,8 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
       if (data.success) {
         setAnalytics(data.data);
       }
-    } catch (error) {
-      console.warn("Failed to fetch analytics:", error);
+    } catch {
+      // Failed to fetch analytics
     } finally {
       setLoadingAnalytics(false);
     }
