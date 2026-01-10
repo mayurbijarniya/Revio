@@ -51,7 +51,7 @@ export function ThemeSwitcher({ className, value, onChange }: ThemeSwitcherProps
         <button
             onClick={cycleTheme}
             className={cn(
-                "relative inline-flex items-center justify-center w-9 h-9 rounded-full transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none",
+                "relative inline-flex items-center justify-center w-10 h-10 rounded-md transition-all hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 focus:outline-none",
                 className
             )}
             title={`Current theme: ${currentTheme}`}
