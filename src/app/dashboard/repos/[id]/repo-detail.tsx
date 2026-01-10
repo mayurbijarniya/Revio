@@ -145,7 +145,7 @@ export function RepoDetail({
       if (data.success) {
         setOpenPRs(data.data.pullRequests);
       }
-    } catch (err) {
+    } catch {
       // Failed to fetch open PRs
     } finally {
       setIsLoadingPRs(false);
