@@ -19,6 +19,8 @@ import {
   BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ThemeSwitcher } from "@/components/ui/shadcn-io/theme-switcher";
+
 
 interface NavUser {
   username: string;
@@ -111,8 +113,10 @@ export function DashboardNav({ user }: DashboardNavProps) {
 
           {/* User menu */}
           <div className="flex items-center gap-4">
+            <ThemeSwitcher />
             {/* Plan badge */}
             <span
+
               className={cn(
                 "hidden sm:inline-flex team-badge",
                 user.plan === "free" ? "" : user.plan === "pro" ? "pro" : ""

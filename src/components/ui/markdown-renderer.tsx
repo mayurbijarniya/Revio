@@ -292,10 +292,13 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
               return <CodeBlock code={codeString} language={language} />;
             }
 
-            // Inline code - monospace with subtle gray background like file paths
+            // Inline code - use globals.css variables by removing specific color classes,
+            // or use explicit dark mode overrides if you prefer Tailwind classes over CSS vars.
+            // Since globals.css has .markdown-renderer code styles, we can trust them OR explicitly match them.
+            // Let's rely on globals.css but ensure base styles don't conflict.
             return (
               <code
-                className="font-mono text-gray-900 bg-gray-200 px-1.5 py-0.5 rounded text-[0.875em]"
+                className="font-mono px-1.5 py-0.5 rounded text-[0.875em] bg-gray-200 text-gray-900 dark:bg-gray-800 dark:text-gray-200"
                 {...props}
               >
                 {children}
@@ -306,31 +309,32 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
             return <>{children}</>;
           },
           p({ children }) {
-            return <p className="mb-3 text-gray-800 leading-7">{children}</p>;
+            return <p className="mb-3 leading-7 text-gray-800 dark:text-gray-300">{children}</p>;
           },
           h1({ children }) {
-            return <h1 className="text-gray-900 font-bold text-lg mb-4 mt-6">{children}</h1>;
+            return <h1 className="font-bold text-lg mb-4 mt-6 text-gray-900 dark:text-gray-100">{children}</h1>;
           },
           h2({ children }) {
-            return <h2 className="text-gray-900 font-semibold text-base mb-3 mt-5">{children}</h2>;
+            return <h2 className="font-semibold text-base mb-3 mt-5 text-gray-900 dark:text-gray-200">{children}</h2>;
           },
           h3({ children }) {
-            return <h3 className="text-gray-900 font-medium text-sm mb-2 mt-4">{children}</h3>;
+            return <h3 className="font-medium text-sm mb-2 mt-4 text-gray-900 dark:text-gray-200">{children}</h3>;
           },
           ul({ children }) {
-            return <ul className="mb-3 ml-5 space-y-1.5 text-gray-800 list-disc marker:text-gray-400">{children}</ul>;
+            return <ul className="mb-3 ml-5 space-y-1.5 list-disc marker:text-gray-400 text-gray-800 dark:text-gray-300">{children}</ul>;
           },
           ol({ children }) {
-            return <ol className="mb-3 ml-5 space-y-1.5 text-gray-800 list-decimal marker:text-gray-500">{children}</ol>;
+            return <ol className="mb-3 ml-5 space-y-1.5 list-decimal marker:text-gray-500 text-gray-800 dark:text-gray-300">{children}</ol>;
           },
           li({ children }) {
             return <li className="pl-1 leading-relaxed">{children}</li>;
           },
           blockquote({ children }) {
-            return <blockquote className="border-l-4 border-gray-300 pl-4 py-1 my-4 text-gray-700 bg-gray-50">{children}</blockquote>;
+            // Updated blockquote colors
+            return <blockquote className="border-l-4 pl-4 py-1 my-4 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">{children}</blockquote>;
           },
           hr({ }) {
-            return <hr className="my-6 border-t border-gray-200" />;
+            return <hr className="my-6 border-t border-gray-200 dark:border-gray-700" />;
           },
           a({ href, children }) {
             return (
@@ -338,7 +342,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-indigo-600 hover:underline"
+                className="hover:underline text-indigo-600 dark:text-indigo-400"
               >
                 {children}
               </a>

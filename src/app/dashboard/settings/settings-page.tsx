@@ -81,7 +81,7 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
     <div className="max-w-4xl mx-auto p-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold flex items-center gap-3">
+        <h1 className="text-2xl font-bold flex items-center gap-3 text-gray-900 dark:text-white">
           <Settings className="w-7 h-7" />
           Settings
         </h1>
@@ -117,7 +117,7 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
         <div className="space-y-6">
           {/* Profile Card */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
               <User className="w-5 h-5" />
               Profile
             </h2>
@@ -162,7 +162,7 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
 
           {/* Connected Account */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
               <Github className="w-5 h-5" />
               Connected Account
             </h2>
@@ -187,7 +187,7 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
 
           {/* GitHub App Installation */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
               <Bot className="w-5 h-5" />
               Revio Bot
             </h2>
@@ -221,7 +221,7 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
 
           {/* Security */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
               <Shield className="w-5 h-5" />
               Security
             </h2>
@@ -252,7 +252,7 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
         <div className="space-y-6">
           {/* All-time Stats */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
               <BarChart3 className="w-5 h-5" />
               All-time Statistics
             </h2>
@@ -278,7 +278,7 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
 
           {/* Monthly Usage */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="text-lg font-semibold mb-4">This Month&apos;s Usage</h2>
+            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">This Month&apos;s Usage</h2>
             <div className="space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -340,7 +340,7 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
         <div className="space-y-6">
           {/* Current Plan */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
               <CreditCard className="w-5 h-5" />
               Current Plan
             </h2>
@@ -369,7 +369,7 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
 
           {/* Plan Limits */}
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
               <CreditCard className="w-5 h-5" />
               Plan Limits
             </h2>

@@ -294,31 +294,41 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-2">Repository</label>
-                <select
-                  value={repoFilter}
-                  onChange={(e) => setRepoFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                >
-                  <option value="all">All Repositories</option>
-                  {repositories.map((repo) => (
-                    <option key={repo.id} value={repo.id}>
-                      {repo.fullName}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    value={repoFilter}
+                    onChange={(e) => setRepoFilter(e.target.value)}
+                    className="w-full px-3 py-2 pr-8 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 appearance-none focus:outline-none focus:ring-2 focus:ring-[#4F46E5] text-gray-900 dark:text-white"
+                  >
+                    <option value="all">All Repositories</option>
+                    {repositories.map((repo) => (
+                      <option key={repo.id} value={repo.id}>
+                        {repo.fullName}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                    <ChevronDown className="h-4 w-4" />
+                  </div>
+                </div>
               </div>
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-2">Status</label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                >
-                  <option value="all">All Statuses</option>
-                  <option value="completed">Completed</option>
-                  <option value="failed">Failed</option>
-                  <option value="pending">Pending</option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+                    className="w-full px-3 py-2 pr-8 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 appearance-none focus:outline-none focus:ring-2 focus:ring-[#4F46E5] text-gray-900 dark:text-white"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="completed">Completed</option>
+                    <option value="failed">Failed</option>
+                    <option value="pending">Pending</option>
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                    <ChevronDown className="h-4 w-4" />
+                  </div>
+                </div>
               </div>
             </div>
             {(statusFilter !== "all" || repoFilter !== "all") && (

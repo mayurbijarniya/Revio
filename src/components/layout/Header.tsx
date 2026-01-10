@@ -3,6 +3,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Github } from "lucide-react";
+import { ThemeSwitcher } from "@/components/ui/shadcn-io/theme-switcher";
+
 
 interface HeaderProps {
     user?: {
@@ -38,7 +40,8 @@ export function Header({ user }: HeaderProps) {
                     </div>
                 </div>
 
-                <div className="col-span-9 md:col-span-3 lg:col-span-2 flex items-center justify-end px-6">
+                <div className="col-span-9 md:col-span-3 lg:col-span-2 flex items-center justify-end px-6 gap-3">
+                    <ThemeSwitcher />
                     {isAuthenticated ? (
                         <Link
                             href="/dashboard"
