@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import crypto from "crypto";
 import { db } from "@/lib/db";
 import { WEBHOOK_CONFIG } from "@/lib/constants";
@@ -174,11 +174,15 @@ async function handlePullRequestEvent(
     },
   });
 
-  // Process review inline (for serverless environments like Vercel)
-  // This runs asynchronously but responds early to avoid webhook timeout
-  console.warn(`[Webhook] Queueing async review for PR #${pr.number}`);
-  processReviewAsync(repository, pr).catch((error) => {
-    console.error(`[Webhook] Critical error in review background process for PR #${pr.number}:`, error);
+  // Process review using the Next.js 15 after() API
+  // This ensures the background process continues after the response is sent to GitHub
+  console.warn(`[Webhook] Scheduling async review for PR #${pr.number} using after()`);
+  after(async () => {
+    try {
+      await processReviewAsync(repository, pr);
+    } catch (error) {
+      console.error(`[Webhook] Critical error in review background process for PR #${pr.number}:`, error);
+    }
   });
 
   return NextResponse.json({
