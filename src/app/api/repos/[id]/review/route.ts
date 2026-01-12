@@ -157,6 +157,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Process the review
     try {
+      console.warn(`[Review] Starting manual review for PR #${prNumber}`);
       const review = await reviewPullRequest(
         id,
         {
@@ -170,12 +171,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         },
         accessToken // Pass the working token (App or User)
       );
+      console.warn(`[Review] Manual review generated for PR #${prNumber}`);
 
       if (!review) {
         throw new Error("Failed to generate review");
       }
 
       // Post to GitHub
+      console.warn(`[Review] Posting manual review to GitHub for PR #${prNumber}`);
       await postReviewToGitHub(id, prNumber, review, accessToken);
 
       return jsonSuccess({

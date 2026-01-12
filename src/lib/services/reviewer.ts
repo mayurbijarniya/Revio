@@ -65,20 +65,23 @@ export async function reviewPullRequest(
   const github = new GitHubService(accessToken);
 
   // Get PR diff
+  console.warn(`[Reviewer] Fetching diff for PR #${prData.number}`);
   const diff = await github.getPrDiff(owner, repo, prData.number);
+  console.warn(`[Reviewer] Diff fetched: ${diff.length} bytes`);
 
   // Check if PR is too large
   if (diff.length > REVIEW_CONFIG.maxDiffBytes) {
-    console.warn(`PR ${prData.number} diff too large: ${diff.length} bytes`);
+    console.warn(`[Reviewer] PR ${prData.number} diff too large: ${diff.length} bytes (limit: ${REVIEW_CONFIG.maxDiffBytes})`);
     // Still process but truncate
   }
 
   // Parse changed files from diff
   const changedFiles = parseChangedFiles(diff);
+  console.warn(`[Reviewer] Parsed ${changedFiles.length} files from diff`);
 
   // Check file count limit
   if (changedFiles.length > REVIEW_CONFIG.maxFiles) {
-    console.warn(`PR ${prData.number} has too many files: ${changedFiles.length}`);
+    console.warn(`[Reviewer] PR ${prData.number} has too many files: ${changedFiles.length} (limit: ${REVIEW_CONFIG.maxFiles})`);
   }
 
   // Build queries for context retrieval based on changed files
@@ -89,12 +92,14 @@ export async function reviewPullRequest(
   // Retrieve codebase context
   let codebaseContext = "No additional context available.";
   if (repository.indexStatus === "indexed" && contextQueries.length > 0) {
+    console.warn(`[Reviewer] Retrieving semantic context for ${contextQueries.length} queries`);
     const context = await retrieveMultiContext(repositoryId, contextQueries, {
       maxChunksPerQuery: 3,
       maxTotalChunks: REVIEW_CONFIG.maxContextChunks,
       maxTokens: REVIEW_CONFIG.maxContextTokens,
     });
     codebaseContext = formatContextForPrompt(context.chunks);
+    console.warn(`[Reviewer] Retrieved ${context.chunks.length} context chunks`);
   }
 
   // Determine if we need the complex model
@@ -148,11 +153,13 @@ export async function reviewPullRequest(
   const systemPrompt = buildReviewSystemPrompt(reviewSettings);
 
   // Generate review
+  console.warn(`[Reviewer] Starting AI generation using ${isComplex ? 'complex' : 'standard'} model`);
   const rawResponse = await generateReviewResponse(
     systemPrompt,
     reviewPrompt,
     { isComplex }
   );
+  console.warn(`[Reviewer] AI generation completed, parsing response`);
 
   // Parse response
   const review = parseReviewResponse(rawResponse);
