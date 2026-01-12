@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, after } from "next/server";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { jsonSuccess, jsonError } from "@/lib/api-utils";
@@ -155,58 +155,54 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
     });
 
-    // Process the review
-    try {
-      console.warn(`[Review] Starting manual review for PR #${prNumber}`);
-      const review = await reviewPullRequest(
-        id,
-        {
-          number: prNumber,
-          title: prDetails.title,
-          body: prDetails.body || "",
-          author: prDetails.user.login,
-          url: prDetails.html_url,
-          baseBranch: prDetails.base.ref,
-          headBranch: prDetails.head.ref,
-        },
-        accessToken // Pass the working token (App or User)
-      );
-      console.warn(`[Review] Manual review generated for PR #${prNumber}`);
-
-      if (!review) {
-        throw new Error("Failed to generate review");
-      }
-
-      // Post to GitHub
-      console.warn(`[Review] Posting manual review to GitHub for PR #${prNumber}`);
-      await postReviewToGitHub(id, prNumber, review, accessToken);
-
-      return jsonSuccess({
-        message: "PR review completed",
-        prNumber,
-        summary: review.summary,
-        recommendation: review.recommendation,
-      });
-    } catch (error) {
-      console.error(`Failed to review PR #${prNumber}:`, error);
-
-      // Update status to failed
-      await db.prReview.update({
-        where: {
-          repositoryId_prNumber: {
-            repositoryId: id,
-            prNumber,
+    // Process the review using the Next.js 15 after() API
+    // This prevents Vercel timeouts by responding early and finishing the analysis in the background
+    console.warn(`[Review] Scheduling manual review for PR #${prNumber} using after()`);
+    after(async () => {
+      try {
+        const review = await reviewPullRequest(
+          id,
+          {
+            number: prNumber,
+            title: prDetails.title,
+            body: prDetails.body || "",
+            author: prDetails.user.login,
+            url: prDetails.html_url,
+            baseBranch: prDetails.base.ref,
+            headBranch: prDetails.head.ref,
           },
-        },
-        data: { status: "failed" },
-      });
+          accessToken // Pass the working token (App or User)
+        );
+        console.warn(`[Review] Manual review generated for PR #${prNumber}`);
 
-      return jsonError(
-        "REVIEW_001",
-        `Failed to review PR #${prNumber}`,
-        500
-      );
-    }
+        if (!review) {
+          throw new Error("Failed to generate review");
+        }
+
+        // Post to GitHub
+        console.warn(`[Review] Posting manual review to GitHub for PR #${prNumber}`);
+        await postReviewToGitHub(id, prNumber, review, accessToken);
+      } catch (error) {
+        console.error(`[Review] Manual review failed for PR #${prNumber}:`, error);
+
+        // Update status to failed
+        await db.prReview.update({
+          where: {
+            repositoryId_prNumber: {
+              repositoryId: id,
+              prNumber,
+            },
+          },
+          data: { status: "failed" },
+        });
+      }
+    });
+
+    return jsonSuccess({
+      message: "PR review started",
+      prNumber,
+      status: "pending"
+    });
   } catch (error) {
     console.error("Failed to trigger PR review:", error);
     return jsonError("INTERNAL_001", "Failed to trigger PR review", 500);
