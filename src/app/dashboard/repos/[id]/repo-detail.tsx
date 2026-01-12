@@ -23,15 +23,12 @@ import {
   ToggleRight,
   X,
   Plus,
-  ChevronDown,
-  ChevronUp,
   Sliders,
   GitPullRequestDraft,
   User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { ReviewRulesEditor } from "@/components/ui/review-rules-editor";
 import { type ReviewSettings, parseReviewSettings } from "@/types/review";
 
 interface Repository {
@@ -110,8 +107,7 @@ export function RepoDetail({
   const [ignoredPaths, setIgnoredPaths] = useState<string[]>(repository.ignoredPaths || []);
   const [newIgnoredPath, setNewIgnoredPath] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [showAdvancedRules, setShowAdvancedRules] = useState(false);
-  const [reviewSettings, setReviewSettings] = useState<ReviewSettings>(
+  const [reviewSettings] = useState<ReviewSettings>(
     parseReviewSettings(repository.reviewRules)
   );
   const [openPRs, setOpenPRs] = useState<OpenPR[]>([]);
@@ -300,28 +296,6 @@ export function RepoDetail({
       }
     } catch {
       setError("Failed to update settings");
-    } finally {
-      setIsUpdating(false);
-    }
-  }
-
-  async function handleSaveReviewRules(newSettings: ReviewSettings) {
-    setIsUpdating(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/repos/${repository.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reviewRules: newSettings }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setReviewSettings(newSettings);
-      } else {
-        setError(data.error?.message || "Failed to update review rules");
-      }
-    } catch {
-      setError("Failed to update review rules");
     } finally {
       setIsUpdating(false);
     }
@@ -690,40 +664,30 @@ export function RepoDetail({
               )}
             </div>
 
-            {/* Advanced Review Rules */}
+            {/* Custom Review Rules */}
             <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-              <button
-                onClick={() => setShowAdvancedRules(!showAdvancedRules)}
-                className="w-full flex items-center justify-between py-2 text-left"
+              <Link
+                href={`/dashboard/repos/${repository.id}/rules`}
+                className="block p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all group"
               >
-                <div className="flex items-center gap-2">
-                  <Sliders className="w-4 h-4 text-gray-500" />
-                  <span className="font-medium">Advanced Review Rules</span>
-                  {reviewSettings.customRules.length > 0 && (
-                    <span className="px-1.5 py-0.5 bg-[#4F46E5] text-white text-xs rounded-full">
-                      {reviewSettings.customRules.filter((r) => r.enabled).length}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Sliders className="w-4 h-4 text-gray-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
+                    <span className="font-medium group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                      Custom Review Rules
                     </span>
-                  )}
+                    {reviewSettings.customRules.length > 0 && (
+                      <span className="px-1.5 py-0.5 bg-[#4F46E5] text-white text-xs rounded-full">
+                        {reviewSettings.customRules.filter((r) => r.enabled).length}
+                      </span>
+                    )}
+                  </div>
+                  <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
                 </div>
-                {showAdvancedRules ? (
-                  <ChevronUp className="w-4 h-4 text-gray-400" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-gray-400" />
-                )}
-              </button>
-              <p className="text-sm text-gray-500 mb-3">
-                Configure custom review rules, severity thresholds, and focus areas
-              </p>
-
-              {showAdvancedRules && (
-                <div className="mt-4">
-                  <ReviewRulesEditor
-                    settings={reviewSettings}
-                    onSave={handleSaveReviewRules}
-                    isLoading={isUpdating}
-                  />
-                </div>
-              )}
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Configure custom rules, severity thresholds, and focus areas
+                </p>
+              </Link>
             </div>
           </div>
 

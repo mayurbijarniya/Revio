@@ -177,7 +177,7 @@ export function ReviewRulesEditor({
                 setSettings({ ...settings, blockOnCritical: e.target.checked });
                 setIsEditing(true);
               }}
-              className="w-4 h-4 rounded border-gray-300 text-[#4F46E5] focus:ring-[#4F46E5]"
+              className="w-4 h-4 rounded border-gray-300 accent-[#4F46E5] cursor-pointer"
             />
             <span className="text-sm text-gray-600 dark:text-gray-400">
               Request changes on critical issues
@@ -192,7 +192,7 @@ export function ReviewRulesEditor({
                 setSettings({ ...settings, blockOnSecurity: e.target.checked });
                 setIsEditing(true);
               }}
-              className="w-4 h-4 rounded border-gray-300 text-[#4F46E5] focus:ring-[#4F46E5]"
+              className="w-4 h-4 rounded border-gray-300 accent-[#4F46E5] cursor-pointer"
             />
             <span className="text-sm text-gray-600 dark:text-gray-400">
               Request changes on security issues

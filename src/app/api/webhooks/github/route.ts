@@ -175,9 +175,10 @@ async function handlePullRequestEvent(
   });
 
   // Process review inline (for serverless environments like Vercel)
-  // This runs synchronously but responds early to avoid webhook timeout
+  // This runs asynchronously but responds early to avoid webhook timeout
+  console.warn(`[Webhook] Queueing async review for PR #${pr.number}`);
   processReviewAsync(repository, pr).catch((error) => {
-    console.error(`[Webhook] Review processing failed for PR #${pr.number}:`, error);
+    console.error(`[Webhook] Critical error in review background process for PR #${pr.number}:`, error);
   });
 
   return NextResponse.json({
@@ -243,6 +244,7 @@ async function processReviewAsync(
     console.error(`[Webhook] Failed to process PR #${pr.number}:`, error);
 
     // Update the PR review status to failed
+    console.warn(`[Webhook] Marking PR #${pr.number} as failed in database`);
     await db.prReview.update({
       where: {
         repositoryId_prNumber: {
