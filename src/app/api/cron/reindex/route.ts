@@ -13,13 +13,18 @@ import { decrypt } from "@/lib/encryption";
  * - indexedAt is older than 7 days
  */
 export async function GET(request: NextRequest) {
-  // Verify cron secret (Vercel sets this automatically)
+  // Authentication for cron jobs
+  // Option 1: Check Authorization header (for manual triggers)
   const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    // In development, allow without auth
-    if (process.env.NODE_ENV === "production") {
-      return new Response("Unauthorized", { status: 401 });
-    }
+  const isValidAuth = authHeader === `Bearer ${process.env.CRON_SECRET}`;
+
+  // Option 2: Trust Vercel Cron (check for Vercel-specific headers)
+  const isVercelCron = request.headers.get("user-agent")?.includes("vercel-cron") ||
+                       request.headers.has("x-vercel-id");
+
+  // Allow if either auth method passes, or in development
+  if (!isValidAuth && !isVercelCron && process.env.NODE_ENV === "production") {
+    return new Response("Unauthorized", { status: 401 });
   }
 
   const staleThresholdDays = 7;
