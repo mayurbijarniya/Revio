@@ -1,6 +1,10 @@
 -- Enable Row Level Security (RLS) on all tables
 -- This adds defense-in-depth security without breaking Prisma
 -- RLS is bypassed by service_role key which Prisma uses
+--
+-- IMPORTANT: This migration was manually applied on Jan 13, 2026
+-- The migration was marked as "applied" in tracking but SQL was executed separately
+-- RLS is now active on all tables (verified via Prisma client)
 
 -- Users table
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
