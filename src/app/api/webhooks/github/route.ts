@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { WEBHOOK_CONFIG } from "@/lib/constants";
 import { reviewPullRequest, postReviewToGitHub } from "@/lib/services/reviewer";
 import { decrypt } from "@/lib/encryption";
+import { createBotGitHubService } from "@/lib/services/github-app";
 
 // GitHub App webhook secret (global for all repos)
 const GITHUB_APP_WEBHOOK_SECRET = process.env.GITHUB_APP_WEBHOOK_SECRET;
@@ -207,8 +208,26 @@ async function processReviewAsync(
   }
 ) {
   try {
-    // Decrypt the access token
-    const decryptedToken = decrypt(repository.user.accessToken);
+    const parts = repository.fullName.split("/");
+    const owner = parts[0];
+    const repo = parts[1];
+
+    if (!owner || !repo) {
+      throw new Error("Invalid repository name");
+    }
+
+    // Try to get bot service first for more reliable authentication
+    const botService = await createBotGitHubService(owner, repo);
+    let accessToken: string;
+
+    if (botService) {
+      console.warn(`[Webhook] Using bot token for ${repository.fullName}`);
+      accessToken = botService.token;
+    } else {
+      console.warn(`[Webhook] Bot service unavailable for ${repository.fullName}, falling back to user token`);
+      // Decrypt the user access token as fallback
+      accessToken = decrypt(repository.user.accessToken);
+    }
 
     // Get repository details for default branch
     const repoDetails = await db.repository.findUnique({
@@ -228,7 +247,7 @@ async function processReviewAsync(
         baseBranch: repoDetails?.defaultBranch || pr.base.ref,
         headBranch: pr.head.ref,
       },
-      decryptedToken
+      accessToken
     );
 
     if (!review) {
@@ -240,7 +259,7 @@ async function processReviewAsync(
       repository.id,
       pr.number,
       review,
-      decryptedToken
+      accessToken
     );
 
     console.warn(`[Webhook] Completed review for PR #${pr.number}`);
