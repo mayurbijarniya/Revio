@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -24,6 +24,7 @@ import {
   Copy,
   Check,
   FileCode,
+  BarChart3,
 } from "lucide-react";
 
 type DocSection =
@@ -32,8 +33,10 @@ type DocSection =
   | "github-connection"
   | "repository-indexing"
   | "pr-reviews"
+  | "security-scanner"
   | "chat"
   | "organizations"
+  | "analytics"
   | "custom-rules"
   | "settings"
   | "troubleshooting";
@@ -44,9 +47,11 @@ const sections: { id: DocSection; title: string; icon: React.ElementType }[] = [
   { id: "github-connection", title: "GitHub Connection", icon: Github },
   { id: "repository-indexing", title: "Repository Indexing", icon: FolderGit2 },
   { id: "pr-reviews", title: "PR Reviews", icon: GitPullRequest },
+  { id: "security-scanner", title: "Security Scanner", icon: Shield },
   { id: "chat", title: "Chat with Codebase", icon: MessageSquare },
   { id: "organizations", title: "Organizations", icon: Users },
-  { id: "custom-rules", title: "Custom Review Rules", icon: Shield },
+  { id: "analytics", title: "Team Analytics", icon: BarChart3 },
+  { id: "custom-rules", title: "Custom Review Rules", icon: Bot },
   { id: "settings", title: "Settings", icon: Settings },
   { id: "troubleshooting", title: "Troubleshooting", icon: AlertTriangle },
 ];
@@ -186,61 +191,88 @@ function DocNote({ type = "info", children }: { type?: "info" | "warning" | "suc
 export default function DocsPage() {
   const [activeSection, setActiveSection] = useState<DocSection>("getting-started");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const filteredSections = sections.filter(section =>
+    section.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    section.id.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <div className="w-full max-w-[1920px] mx-auto border-x border-[var(--code-border)] flex-1 bg-[var(--background)]">
+    <div className="w-full max-w-[1920px] mx-auto border-x border-[var(--code-border)] flex-1 bg-[var(--background)] no-footer">
       {/* Header */}
       <div className="border-b border-[var(--code-border)] p-4 sm:p-6 lg:p-8">
-        <span className="font-mono text-[10px] sm:text-xs font-medium text-[var(--primary)] mb-2 block">[ DOCUMENTATION ]</span>
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold">REVIO DOCS</h1>
-        <p className="text-sm sm:text-base text-[var(--foreground)]/60 mt-2 max-w-2xl">
-          Complete documentation for Revio - the AI-powered code review platform.
-          Learn how to set up, configure, and get the most out of your code reviews.
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">DOCUMENTATION</h1>
+        <p className="text-xs sm:text-sm text-[var(--foreground)]/50 mt-1">
+          Everything you need to set up and master Revio.
         </p>
       </div>
 
-      {/* Mobile Nav Toggle */}
-      <div className="lg:hidden border-b border-[var(--code-border)] p-3">
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="w-full flex items-center justify-between px-3 py-2 bg-[var(--code-bg)] text-sm font-medium"
-        >
-          <span className="flex items-center gap-2">
-            <BookOpen className="w-4 h-4" />
-            {sections.find(s => s.id === activeSection)?.title || "Navigation"}
-          </span>
-          <ChevronRight className={`w-4 h-4 transition-transform ${sidebarOpen ? "rotate-90" : ""}`} />
-        </button>
-      </div>
-
-      <div className="flex flex-col lg:flex-row">
+      <div className="flex flex-col lg:flex-row min-h-[calc(100vh-140px)]">
         {/* Sidebar */}
-        <aside className={`lg:w-72 border-b lg:border-b-0 lg:border-r border-[var(--code-border)] lg:min-h-[calc(100vh-200px)] lg:sticky lg:top-16 ${sidebarOpen ? "block" : "hidden lg:block"}`}>
-          <nav className="p-3 sm:p-4">
-            <div className="font-mono text-[10px] sm:text-xs text-[var(--foreground)]/40 mb-3 sm:mb-4 px-2 sm:px-3">[ NAVIGATION ]</div>
-            <ul className="space-y-0.5 sm:space-y-1">
-              {sections.map((section) => {
-                const Icon = section.icon;
-                const isActive = activeSection === section.id;
-                return (
-                  <li key={section.id}>
-                    <button
-                      onClick={() => {
-                        setActiveSection(section.id);
-                        setSidebarOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm font-medium transition-colors text-left ${
-                        isActive
+        <aside className={`lg:w-72 border-b lg:border-b-0 lg:border-r border-[var(--code-border)] lg:h-[calc(100vh-64px)] lg:sticky lg:top-16 overflow-hidden flex flex-col ${sidebarOpen ? "block" : "hidden lg:flex"}`}>
+          <nav className="p-3 sm:p-4 flex-1 flex flex-col overflow-hidden">
+            <div className="font-mono text-[9px] sm:text-[10px] text-[var(--foreground)]/30 mb-4 sm:mb-6 px-2 sm:px-3 uppercase tracking-[0.2em] font-bold">[ NAVIGATION ]</div>
+
+            {/* Search Bar - Theme Compatible */}
+            <div className="px-2 sm:px-3 mb-8">
+              <div className="relative group">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--foreground)]/20 group-focus-within:text-[var(--primary)] transition-colors pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="SEARCH_CODE..."
+                  className="w-full bg-[var(--code-bg)] border border-[var(--code-border)] py-2.5 pl-9 pr-3 text-[10px] sm:text-xs font-mono text-[var(--foreground)] placeholder:text-[var(--foreground)]/20 focus:outline-none focus:border-[var(--primary)]/50 focus:ring-1 focus:ring-[var(--primary)]/10 transition-all rounded-sm"
+                />
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 items-center opacity-10 group-focus-within:opacity-30 transition-opacity">
+                  <span className="text-[9px] px-1 py-0 border border-[var(--code-border)] bg-[var(--background)] rounded">⌘</span>
+                  <span className="text-[9px] px-1 py-0 border border-[var(--code-border)] bg-[var(--background)] rounded">K</span>
+                </div>
+              </div>
+            </div>
+
+            <ul className="space-y-0.5 sm:space-y-1 flex-1 overflow-y-auto pr-1">
+              {filteredSections.length > 0 ? (
+                filteredSections.map((section) => {
+                  const Icon = section.icon;
+                  const isActive = activeSection === section.id;
+                  return (
+                    <li key={section.id}>
+                      <button
+                        onClick={() => {
+                          setActiveSection(section.id);
+                          setSidebarOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm font-medium transition-colors text-left ${isActive
                           ? "bg-[var(--primary)] text-[var(--background)]"
                           : "text-[var(--foreground)]/70 hover:bg-[var(--code-bg)] hover:text-[var(--foreground)]"
-                      }`}
-                    >
-                      <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
-                      {section.title}
-                    </button>
-                  </li>
-                );
-              })}
+                          }`}
+                      >
+                        <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                        {section.title}
+                      </button>
+                    </li>
+                  );
+                })
+              ) : (
+                <div className="px-3 py-4 text-center">
+                  <p className="text-[10px] font-mono text-[var(--foreground)]/30 uppercase tracking-widest">No results found</p>
+                </div>
+              )}
             </ul>
 
             {/* Quick Links */}
@@ -543,6 +575,48 @@ export default function DocsPage() {
             </div>
           )}
 
+          {/* Security Scanner */}
+          {activeSection === "security-scanner" && (
+            <div>
+              <DocHeading id="security-scanner">Security Scanner</DocHeading>
+              <DocParagraph>
+                Revio features a specialized security engine that runs alongside every PR review.
+                It uses pattern-based detection to identify common vulnerabilities and security smells.
+              </DocParagraph>
+
+              <DocSubHeading>Core Protections</DocSubHeading>
+              <DocList items={[
+                "Hardcoded Secrets - Detection of API keys, tokens, and credentials in code",
+                "SQL Injection - Identification of unparameterized database queries",
+                "Cross-Site Scripting (XSS) - Catching unsafe rendering of user-controlled data",
+                "SSRF - Detecting vulnerable URL construction and server-side fetching",
+                "Remote Code Execution (RCE) - Flagging dangerous use of code execution functions (e.g. e-v-a-l) or system shells",
+                "Weak Cryptography - Identifying obsolete hashing algorithms (MD5, SHA1)",
+              ]} />
+
+              <DocSubHeading>Severity Levels</DocSubHeading>
+              <DocParagraph>
+                Security findings are categorized by severity to help you prioritize fixes:
+              </DocParagraph>
+              <DocList items={[
+                "Critical - Immediate action required (e.g., leaked production keys)",
+                "High - Significant security risk (e.g., SQLi or RCE vulnerabilities)",
+                "Medium - Potential security issue or weak practice (e.g., insecure configuration)",
+                "Low - Security best practice recommendation",
+              ]} />
+
+              <DocSubHeading>Zero Data Retention Policy</DocSubHeading>
+              <DocParagraph>
+                Security is our priority. Revio does NOT use your code to train base AI models.
+                All analysis is performed in ephemeral environments that are destroyed after the review completes.
+              </DocParagraph>
+
+              <DocNote type="info">
+                You can configure minimum severity thresholds for security alerts in your Repository Settings.
+              </DocNote>
+            </div>
+          )}
+
           {/* Chat */}
           {activeSection === "chat" && (
             <div>
@@ -645,6 +719,42 @@ export default function DocsPage() {
                 "PR reviews completed",
                 "Settings changes",
               ]} />
+            </div>
+          )}
+
+          {/* Team Analytics */}
+          {activeSection === "analytics" && (
+            <div>
+              <DocHeading id="analytics">Team Analytics</DocHeading>
+              <DocParagraph>
+                Revio provides deep insights into your team&apos;s development velocity and codebase health.
+                Our analytics engine aggregates data from PR reviews, conversations, and repository metrics.
+              </DocParagraph>
+
+              <DocSubHeading>Key Metrics</DocSubHeading>
+              <DocList items={[
+                "Review Volume - Track the number of AI reviews over days, weeks, or months",
+                "Feedback Satisfaction - Monitor helpfulness ratings from your team",
+                "Issue Distribution - Breakdown of bugs vs. security flaws vs. style issues",
+                "Hotspot Detection - Identify files that frequently trigger complex issues",
+                "Team Velocity - Measure how quickly the AI processes and detects findings",
+              ]} />
+
+              <DocSubHeading>Code Quality Scores</DocSubHeading>
+              <DocParagraph>
+                Every repository is assigned a dynamic health score based on the frequency and severity
+                of issues found in recent PRs. A higher score indicates a more stable, secure codebase.
+              </DocParagraph>
+
+              <DocSubHeading>Security Debt Tracking</DocSubHeading>
+              <DocParagraph>
+                Monitor your security debt in real-time. Revio tracks unresolved security findings
+                across your entire organization, allowing you to prioritize fixes where they matter most.
+              </DocParagraph>
+
+              <DocNote type="success">
+                Analytics data can be exported to CSV for custom reporting in external BI tools.
+              </DocNote>
             </div>
           )}
 

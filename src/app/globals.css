@@ -1256,3 +1256,8 @@ body {
 .dark .markdown-renderer table tr:nth-child(2n) {
   background-color: #0d1117 !important;
 }
+
+/* Hide footer on specific pages (like Docs) */
+body:has(.no-footer) footer {
+  display: none !important;
+}

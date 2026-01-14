@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   GitPullRequest,
   MessageSquare,
@@ -11,7 +12,6 @@ import {
   AlertTriangle,
   ChevronRight,
   ArrowRight,
-  Zap,
   Play,
   Pause,
 } from "lucide-react";
@@ -91,10 +91,10 @@ function DashboardDemo() {
       {/* Nav */}
       <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#2d2d2d]">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded bg-[var(--primary)] flex items-center justify-center">
-            <Zap className="w-4 h-4 text-white" />
+          <div className="w-5 h-5 rounded overflow-hidden">
+            <Image src="/logo.svg" alt="Revio" width={20} height={20} className="w-full h-full object-contain" />
           </div>
-          <span className="font-bold text-white">Revio</span>
+          <span className="font-bold text-white text-sm">Revio</span>
         </div>
         <div className="flex items-center gap-4 text-sm text-[#808080]">
           <span className="text-white">Repositories</span>
@@ -105,42 +105,41 @@ function DashboardDemo() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3 mb-4">
-        <div className="bg-[#252525] rounded-lg p-3">
-          <div className="text-xs text-[#808080] mb-1">Repositories</div>
-          <div className="text-2xl font-bold text-white">12</div>
+        <div className="bg-[#252525] border border-[#333] rounded-lg p-3">
+          <div className="text-[10px] text-[#808080] mb-1">TEAM_VELOCITY</div>
+          <div className="text-xl font-bold text-white">+24%</div>
         </div>
-        <div className="bg-[#252525] rounded-lg p-3">
-          <div className="text-xs text-[#808080] mb-1">PR Reviews</div>
-          <div className="text-2xl font-bold text-white">147</div>
+        <div className="bg-[#252525] border border-[#333] rounded-lg p-3">
+          <div className="text-[10px] text-[#808080] mb-1">HEALTH_SCORE</div>
+          <div className="text-xl font-bold text-green-400">92/100</div>
         </div>
-        <div className="bg-[#252525] rounded-lg p-3">
-          <div className="text-xs text-[#808080] mb-1">Issues Found</div>
-          <div className="text-2xl font-bold text-white">89</div>
+        <div className="bg-[#252525] border border-[#333] rounded-lg p-3">
+          <div className="text-[10px] text-[#808080] mb-1">SECURITY_DEBT</div>
+          <div className="text-xl font-bold text-amber-400">Low</div>
         </div>
       </div>
 
       {/* Repo List */}
       <div className="space-y-2">
-        <div className="text-xs text-[#808080] mb-2">Connected Repositories</div>
+        <div className="text-xs text-[#808080] mb-2 uppercase font-mono">[ ACTIVE_REPOSITORIES ]</div>
         {[
-          { name: "acme/frontend", lang: "TypeScript", status: "indexed" },
-          { name: "acme/api-server", lang: "Go", status: "indexed" },
-          { name: "acme/mobile-app", lang: "Swift", status: "indexing" },
+          { name: "revio/frontend", lang: "TypeScript", status: "indexed" },
+          { name: "revio/api-server", lang: "Go", status: "indexed" },
+          { name: "revio/shared-ui", lang: "React", status: "indexed" },
         ].map((repo) => (
-          <div key={repo.name} className="flex items-center justify-between bg-[#252525] rounded-lg p-3">
+          <div key={repo.name} className="flex items-center justify-between bg-[#252525] border border-[#333] rounded-lg p-2.5">
             <div className="flex items-center gap-3">
               <FolderGit2 className="w-4 h-4 text-[#808080]" />
               <div>
-                <div className="text-sm text-white font-medium">{repo.name}</div>
-                <div className="text-xs text-[#808080]">{repo.lang}</div>
+                <div className="text-xs text-white font-medium">{repo.name}</div>
+                <div className="text-[10px] text-[#808080]">{repo.lang}</div>
               </div>
             </div>
-            <span className={`text-xs px-2 py-0.5 rounded ${
-              repo.status === "indexed"
-                ? "bg-green-500/20 text-green-400"
-                : "bg-amber-500/20 text-amber-400"
-            }`}>
-              {repo.status}
+            <span className={`text-[10px] px-2 py-0.5 rounded ${repo.status === "indexed"
+              ? "bg-green-500/10 text-green-400 border border-green-500/20"
+              : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+              }`}>
+              {repo.status.toUpperCase()}
             </span>
           </div>
         ))}
@@ -185,22 +184,22 @@ function PRReviewDemo() {
       {/* Issues */}
       {showIssues && (
         <div className="space-y-2 animate-in slide-in-from-bottom-2 duration-300">
-          <div className="text-xs text-[#808080] mb-2">Issues Found</div>
-          <div className="bg-[#252525] rounded-lg p-3 border-l-2 border-amber-500">
+          <div className="text-[10px] text-[#808080] mb-2 uppercase font-mono">[ DETECTED_ISSUES ]</div>
+          <div className="bg-[#252525] border-l-2 border-red-500 p-2.5 rounded shadow-lg">
             <div className="flex items-center gap-2 mb-1">
-              <AlertTriangle className="w-3 h-3 text-amber-400" />
-              <span className="text-xs font-medium text-amber-400">Warning</span>
-              <span className="text-xs text-[#808080]">auth.ts:45</span>
+              <Shield className="w-3 h-3 text-red-500" />
+              <span className="text-[10px] font-bold text-red-500 uppercase">Security</span>
+              <span className="text-[10px] text-[#808080] font-mono">api.ts:89</span>
             </div>
-            <div className="text-sm text-[#cccccc]">Consider adding rate limiting to prevent brute force attacks</div>
+            <div className="text-xs text-[#cccccc]">Potential SSRF via unsanitized redirect URL. Use a safelist for the redirect parameter.</div>
           </div>
-          <div className="bg-[#252525] rounded-lg p-3 border-l-2 border-blue-500">
+          <div className="bg-[#252525] border-l-2 border-amber-500 p-2.5 rounded shadow-lg">
             <div className="flex items-center gap-2 mb-1">
-              <Check className="w-3 h-3 text-blue-400" />
-              <span className="text-xs font-medium text-blue-400">Suggestion</span>
-              <span className="text-xs text-[#808080]">session.ts:12</span>
+              <AlertTriangle className="w-3 h-3 text-amber-500" />
+              <span className="text-[10px] font-bold text-amber-500 uppercase">Warning</span>
+              <span className="text-[10px] text-[#808080] font-mono">auth.ts:12</span>
             </div>
-            <div className="text-sm text-[#cccccc]">Use httpOnly cookies for better security</div>
+            <div className="text-xs text-[#cccccc]">Session token entropy is low. Recommend 32+ bytes for security.</div>
           </div>
         </div>
       )}
@@ -241,11 +240,10 @@ function ChatDemo() {
       <div className="flex-1 p-3 space-y-3 overflow-auto">
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[80%] rounded-lg p-3 text-sm ${
-              msg.role === "user"
-                ? "bg-[var(--primary)] text-white"
-                : "bg-[#252525] text-[#cccccc]"
-            }`}>
+            <div className={`max-w-[80%] rounded-lg p-3 text-sm ${msg.role === "user"
+              ? "bg-[var(--primary)] text-white"
+              : "bg-[#252525] text-[#cccccc]"
+              }`}>
               <pre className="whitespace-pre-wrap font-sans">{msg.text}</pre>
             </div>
           </div>
@@ -441,11 +439,10 @@ export default function DemoPage() {
                       setActiveScreen(screen.id);
                       setAutoPlay(false);
                     }}
-                    className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
-                      isActive
-                        ? "bg-[var(--primary)] text-white"
-                        : "text-[var(--foreground)]/60 hover:text-[var(--foreground)] hover:bg-[var(--code-bg)]"
-                    }`}
+                    className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${isActive
+                      ? "bg-[var(--primary)] text-white"
+                      : "text-[var(--foreground)]/60 hover:text-[var(--foreground)] hover:bg-[var(--code-bg)]"
+                      }`}
                   >
                     <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     <span className="hidden xs:inline sm:inline">{screen.title}</span>
@@ -455,11 +452,10 @@ export default function DemoPage() {
             </div>
             <button
               onClick={() => setAutoPlay(!autoPlay)}
-              className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded text-xs sm:text-sm transition-colors ${
-                autoPlay
-                  ? "bg-[var(--primary)]/10 text-[var(--primary)]"
-                  : "text-[var(--foreground)]/40 hover:text-[var(--foreground)]"
-              }`}
+              className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded text-xs sm:text-sm transition-colors ${autoPlay
+                ? "bg-[var(--primary)]/10 text-[var(--primary)]"
+                : "text-[var(--foreground)]/40 hover:text-[var(--foreground)]"
+                }`}
             >
               {autoPlay ? <Pause className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
               {autoPlay ? "Auto-playing" : "Paused"}

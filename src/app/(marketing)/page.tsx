@@ -21,7 +21,7 @@ export default function Home() {
       <Link href="/changelog" className="block border-b border-[var(--code-border)] py-2 px-4 sm:px-6 bg-[var(--code-bg)] hover:bg-[var(--code-bg)]/80 transition-colors">
         <p className="font-mono text-[10px] sm:text-xs font-medium text-[var(--foreground)]/60 uppercase tracking-wide flex items-center gap-2">
           <span className="w-2 h-2 bg-[var(--primary)] inline-block flex-shrink-0"></span>
-          <span className="truncate">[ ANNOUNCEMENT ] : REVIO V2.1 IS NOW LIVE WITH INTERACTIVE DEMO & DOCS</span>
+          <span className="truncate">[ ANNOUNCEMENT ] : REVIO V2.2.0 IS NOW LIVE WITH TEAM ANALYTICS & ADVANCED SECURITY</span>
         </p>
       </Link>
 
@@ -35,9 +35,10 @@ export default function Home() {
             </span>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tight mb-6 sm:mb-8 mt-10 sm:mt-12 leading-[0.9] animate-in fade-in slide-in-from-bottom-8 duration-1000 fill-mode-forwards">
-            SHIP CODE <br />
-            <span className="text-[var(--primary)]">WITH CONFIDENCE.</span>
+          <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tighter mb-6 sm:mb-8 mt-10 sm:mt-12 leading-[0.85] animate-in fade-in slide-in-from-bottom-8 duration-1000 fill-mode-forwards">
+            <span className="block [word-spacing:-0.15em]">SHIP CODE</span>
+            <span className="text-[var(--primary)] block">WITH</span>
+            <span className="text-[var(--primary)] block">CONFIDENCE</span>
           </h1>
 
           <p className="text-base sm:text-xl text-[var(--foreground)]/70 max-w-lg mb-8 sm:mb-12 font-light leading-relaxed">
@@ -80,14 +81,14 @@ export default function Home() {
         <div className="grid grid-cols-2 md:grid-cols-4">
           <div className="p-4 sm:p-6 lg:p-8 border-r border-b md:border-b-0 border-[var(--code-border)]">
             <div className="font-mono text-[10px] sm:text-xs text-[var(--foreground)]/40 mb-1 sm:mb-2">[ LANGUAGES ]</div>
-            <div className="text-2xl sm:text-3xl lg:text-4xl font-bold">11+</div>
+            <div className="text-2xl sm:text-3xl lg:text-4xl font-bold">14+</div>
           </div>
           <div className="p-4 sm:p-6 lg:p-8 border-b md:border-b-0 md:border-r border-[var(--code-border)]">
             <div className="font-mono text-[10px] sm:text-xs text-[var(--foreground)]/40 mb-1 sm:mb-2">[ AVG_REVIEW_TIME ]</div>
             <div className="text-2xl sm:text-3xl lg:text-4xl font-bold">&lt; 30s</div>
           </div>
           <div className="p-4 sm:p-6 lg:p-8 border-r border-[var(--code-border)]">
-            <div className="font-mono text-[10px] sm:text-xs text-[var(--foreground)]/40 mb-1 sm:mb-2">[ CONTEXT_WINDOW ]</div>
+            <div className="font-mono text-[10px] sm:text-xs text-[var(--foreground)]/40 mb-1 sm:mb-2">[ CODEBASE_VISIBILITY ]</div>
             <div className="text-2xl sm:text-3xl lg:text-4xl font-bold">100%</div>
           </div>
           <div className="p-4 sm:p-6 lg:p-8">
@@ -105,7 +106,7 @@ export default function Home() {
               COMPLETE VISIBILITY INTO YOUR CODEBASE HEALTH
             </h2>
             <span className="font-mono text-[10px] sm:text-xs text-[var(--foreground)]/50">
-              [ INTERFACE_PREVIEW_V1.0 ]
+              [ INTERFACE_PREVIEW_V2.2.0 ]
             </span>
           </div>
 
@@ -121,12 +122,12 @@ export default function Home() {
       <section id="features" className="border-b border-[var(--code-border)] scroll-mt-24">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {[
-            { icon: GitPullRequest, title: "AUTO_PR_REVIEW", desc: "Instant feedback on every pull request. We catch bugs before your users do." },
-            { icon: MessageSquare, title: "CONTEXT_CHAT", desc: "Chat with your codebase. Ask complex architectural questions and get cited answers." },
-            { icon: Shield, title: "SECURITY_SCAN", desc: "Vulnerability detection logic that goes beyond simple pattern matching regex." },
-            { icon: Brain, title: "SEMANTIC_UNDERSTANDING", desc: "Vector-based code indexing allows the AI to understand dependencies across files." },
-            { icon: FileCode, title: "MULTI_LANGUAGE", desc: "Native support for TS, Python, Go, Rust, Java, and C++. One tool for your whole stack." },
-            { icon: Users, title: "TEAM_GOVERNANCE", desc: "Enforce review policies and coding standards automatically across your org." }
+            { icon: GitPullRequest, title: "AUTO_PR_REVIEW", desc: "Instant feedback on every pull request. Catch logical bugs and architectural flaws before they merge." },
+            { icon: MessageSquare, title: "CONTEXT_CHAT", desc: "Chat with your codebase using semantic search. Ask complex questions and get cited answers." },
+            { icon: Shield, title: "SECURITY_SCANNER", desc: "Pattern-based detection for SSRF, SQLi, XSS, and hardcoded secrets. Integrated directly into the review loop." },
+            { icon: Brain, title: "SEMANTIC_INDEXING", desc: "Vector-based indexing using Qdrant allows the AI to understand dependencies across files." },
+            { icon: FileCode, title: "MULTI_LANGUAGE", desc: "Native support for TS, Go, Python, Rust, Java, C++, PHP, and more. Optimized for modern stacks." },
+            { icon: Users, title: "TEAM_ANALYTICS", desc: "Track code quality trends, PR velocity, and security debt across your entire organization." }
           ].map((feature, i) => (
             <div key={i} className={`group p-6 sm:p-8 lg:p-10 border-b border-[var(--code-border)] hover:bg-[var(--code-bg)] transition-colors relative overflow-hidden ${i % 2 === 0 ? 'sm:border-r' : ''} ${i % 3 !== 2 ? 'lg:border-r' : 'lg:border-r-0'}`}>
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[var(--background)] border border-[var(--code-border)] flex items-center justify-center mb-4 sm:mb-6 group-hover:scale-110 transition-transform">
