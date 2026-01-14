@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { DashboardNav } from "./dashboard-nav";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 export default async function DashboardLayout({
   children,
@@ -37,7 +38,9 @@ export default async function DashboardLayout({
           plan: user.plan,
         }}
       />
-      <main>{children}</main>
+      <ErrorBoundary>
+        <main>{children}</main>
+      </ErrorBoundary>
     </div>
   );
 }
