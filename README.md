@@ -1,4 +1,4 @@
-# Revio: Context-Aware AI Code Reviewer
+# Revio: Context-Aware AI Code Reviewer (v0.1.0)
 
 Engineering high-quality code through semantic codebase intelligence.
 
