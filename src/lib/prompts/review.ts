@@ -190,22 +190,29 @@ export interface ReviewResult {
  */
 export function parseReviewResponse(response: string): ReviewResult | null {
   try {
-    // Try to extract JSON from the response
+    let jsonContent = response;
     const jsonMatch = response.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error("No JSON found in review response");
-      return null;
+    if (jsonMatch) {
+      jsonContent = jsonMatch[0];
     }
 
-    const parsed = JSON.parse(jsonMatch[0]) as ReviewResult;
+    jsonContent = jsonContent.replace(/[\x00-\x1F\x7F-\x9F]/g, " ");
 
-    // Validate required fields
-    if (!parsed.summary || !parsed.riskLevel || !Array.isArray(parsed.issues)) {
-      console.error("Invalid review response structure");
-      return null;
+    try {
+      const parsed = JSON.parse(jsonContent) as ReviewResult;
+
+      if (!parsed.summary || !parsed.riskLevel || !Array.isArray(parsed.issues)) {
+        console.error("Invalid review response structure");
+        return null;
+      }
+
+      return parsed;
+    } catch (parseError) {
+      console.warn("Standard JSON parse failed, trying fallback...", parseError);
+      const cleaned = jsonContent.replace(/"\s*\n\s*"/g, '""');
+      const parsed = JSON.parse(cleaned) as ReviewResult;
+      return parsed;
     }
-
-    return parsed;
   } catch (error) {
     console.error("Failed to parse review response:", error);
     return null;

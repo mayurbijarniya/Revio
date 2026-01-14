@@ -136,6 +136,7 @@ export async function generateReviewResponse(
     generationConfig: {
       maxOutputTokens: AI_CONFIG.review.maxOutputTokens,
       temperature: AI_CONFIG.review.temperature,
+      responseMimeType: "application/json",
     },
   });
 

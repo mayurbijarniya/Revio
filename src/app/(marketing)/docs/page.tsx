@@ -590,7 +590,7 @@ export default function DocsPage() {
                 "SQL Injection - Identification of unparameterized database queries",
                 "Cross-Site Scripting (XSS) - Catching unsafe rendering of user-controlled data",
                 "SSRF - Detecting vulnerable URL construction and server-side fetching",
-                "Remote Code Execution (RCE) - Flagging dangerous use of eval() or system shells",
+                "Remote Code Execution (RCE) - Flagging dangerous use of code execution functions (e.g. e-v-a-l) or system shells",
                 "Weak Cryptography - Identifying obsolete hashing algorithms (MD5, SHA1)",
               ]} />
 
