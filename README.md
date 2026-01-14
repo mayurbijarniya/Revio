@@ -65,16 +65,20 @@ By integrating Revio into your development workflow, organizations achieve:
 3.  Reduced Engineering Costs: Senior developers are freed from repetitive linting-style reviews.
 4.  Improved Onboarding: Intelligent code search helps new developers understand complex systems instantly.
 
-## Product Showcase
+### 1. Autonomous Code Review
+Revio doesn't just scan for syntax; it understands architectural intent. By indexing your entire codebase, it can identify when a PR violates existing design patterns, duplicates logic across modules, or introduces subtle regressions that standard linters miss.
 
-### 1. Intelligent PR Analysis
-Revio provides more than just linting. It analyzes logic, design patterns, and potential edge cases. Because it has indexed your entire codebase, it can tell you if a new change violates a pattern used elsewhere or if it duplicates an existing utility.
+### 2. Multi-Layer Security Scanner
+Equipped with a high-fidelity pattern engine, Revio automatically detects:
+- **Injection Attacks**: SQLi, NoSQLi, and Command Injection.
+- **Data Exposure**: XSS, hardcoded secrets, and PII leakage.
+- **Weak Cryptography**: Obsolete hashing (MD5/SHA1) and insecure random number generation.
+- **Configuration Risks**: Insecure CORS policies and debug mode exposure.
 
-### 2. Custom Review Rules
-Teams can define specific "rules" in dashboard. These rules are injected into the AI's reasoning loop, allowing for repo-specific enforcement of architecture (e.g., "Always use Repository pattern for database access").
-
-### 3. Analytics Dashboard
-Monitor review coverage, common security issues, and team velocity through a high-fidelity dashboard built on Next.js 15.
+### 3. Organization & Team Intelligence
+- **Team Velocity**: Monitor review turnaround times and throughput across repositories.
+- **Quality Hotspots**: Identify specific files or modules that frequently introduce technical debt.
+- **Activity Feed**: Real-time audit log of all repository events and review findings for organization admins.
 
 ## Technology Stack
 
