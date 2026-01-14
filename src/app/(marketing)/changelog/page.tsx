@@ -31,6 +31,33 @@ interface Release {
 
 const releases: Release[] = [
   {
+    version: "2.2.0",
+    date: "January 14, 2026",
+    title: "Team Intelligence & Advanced Security",
+    description: "Launch of Team Analytics, enhanced Security Scanner, and Organization activity feeds.",
+    type: "minor",
+    icon: BarChart3,
+    changes: [
+      {
+        category: "added",
+        items: [
+          "Team Analytics Dashboard - Insights into PR velocity and code quality",
+          "Advanced Security Scanner - Detection for SSRF, SQLi, XSS, and more",
+          "Organization Activity Feed - Real-time stream of team events",
+          "Usage Tracking & Plan Limits - Granular control for enterprise customers",
+        ],
+      },
+      {
+        category: "improved",
+        items: [
+          "Hero Animation - Optimized for mobile/desktop split paths",
+          "Prompt Engineering - Refined Gemini models for lower hallucination",
+          "Vercel after() API integration - 100% reliability for long reviews",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.1.0",
     date: "January 8, 2026",
     title: "Documentation & Interactive Demo",
@@ -43,7 +70,8 @@ const releases: Release[] = [
         items: [
           "Full documentation with sidebar navigation",
           "Interactive demo page with macOS window mockup",
-          "Syntax highlighting for code blocks using Prism",
+          "Premium syntax highlighting using Shiki with Vesper theme",
+          "Automatic file path extraction from code comments",
         ],
       },
       {
