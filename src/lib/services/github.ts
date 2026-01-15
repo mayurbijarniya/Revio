@@ -395,6 +395,7 @@ export class GitHubService {
     }));
   }
 
+
   /**
    * Get repository file tree (all files recursively)
    * Uses Git Trees API for efficient fetching

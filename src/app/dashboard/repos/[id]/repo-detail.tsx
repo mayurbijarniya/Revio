@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { CodingStandardsPanel } from "@/components/ui/coding-standards-panel";
 import { type ReviewSettings, parseReviewSettings } from "@/types/review";
 
 interface Repository {
@@ -80,10 +81,26 @@ interface OpenPR {
   lastReviewedAt: string | null;
 }
 
+interface CodingStandard {
+  id: string;
+  source: string;
+  filePath: string;
+  rulesCount: number;
+  enabled: boolean;
+  detectedAt: string;
+  updatedAt: string;
+  parsedRules?: Array<{
+    category: string;
+    rule: string;
+    severity?: "critical" | "warning" | "suggestion";
+  }>;
+}
+
 interface RepoDetailProps {
   repository: Repository;
   indexedFiles: IndexedFile[];
   prReviews: PrReview[];
+  codingStandards?: CodingStandard[];
   counts: {
     indexedFiles: number;
     prReviews: number;
@@ -95,6 +112,7 @@ export function RepoDetail({
   repository,
   indexedFiles,
   prReviews,
+  codingStandards = [],
   counts,
 }: RepoDetailProps) {
   const router = useRouter();
@@ -688,6 +706,14 @@ export function RepoDetail({
                   Configure custom rules, severity thresholds, and focus areas
                 </p>
               </Link>
+            </div>
+
+            {/* Coding Standards */}
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+              <CodingStandardsPanel
+                repositoryId={repository.id}
+                initialStandards={codingStandards}
+              />
             </div>
           </div>
 

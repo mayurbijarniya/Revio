@@ -222,14 +222,21 @@ export function parseReviewResponse(response: string): ReviewResult | null {
 /**
  * Format review for GitHub comment
  */
-export function formatReviewForGitHub(review: ReviewResult): string {
+export function formatReviewForGitHub(review: ReviewResult, confidenceScore?: number): string {
   const { severity, risk } = TEXT_INDICATORS;
 
   const riskBadge = risk[review.riskLevel as keyof typeof risk] || risk.low;
 
   let comment = `## Revio AI Code Review\n\n`;
-  comment += `${riskBadge} **Risk Level:** ${review.riskLevel.toUpperCase()}\n\n`;
-  comment += `### Summary\n${review.summary}\n\n`;
+  comment += `${riskBadge} **Risk Level:** ${review.riskLevel.toUpperCase()}\n`;
+
+  // Add confidence score if available
+  if (confidenceScore) {
+    const stars = "★".repeat(confidenceScore) + "☆".repeat(5 - confidenceScore);
+    comment += `**Confidence Score:** ${stars} (${confidenceScore}/5)\n`;
+  }
+
+  comment += `\n### Summary\n${review.summary}\n\n`;
 
   if (review.issues.length > 0) {
     comment += `### Issues Found (${review.issues.length})\n\n`;

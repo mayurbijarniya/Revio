@@ -103,13 +103,16 @@ model Repository {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  organization  Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  indexedFiles  IndexedFile[]
-  conversations Conversation[]
-  prReviews     PrReview[]
-  usage         Usage[]
-  activities    Activity[]
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization     Organization?      @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  indexedFiles     IndexedFile[]
+  conversations    Conversation[]
+  prReviews        PrReview[]
+  usage            Usage[]
+  activities       Activity[]
+  codingStandards  CodingStandards[]
+  codeGraph        CodeGraph?
+  botConversations BotConversation[]
 
   @@unique([userId, githubRepoId])
   @@index([userId])
@@ -193,6 +196,7 @@ model PrReview {
   filesAnalyzed  Json     @default("[]") @map("files_analyzed")
   recommendation String?  @db.VarChar(20) // "approve" | "request_changes" | "comment"
   riskLevel      String?  @map("risk_level") @db.VarChar(20) // "low" | "medium" | "high" | "critical"
+  confidenceScore Int?    @map("confidence_score") @db.SmallInt // 1-5 scale for merge readiness
 
   // Status
   status          String @default("pending") @db.VarChar(50)
@@ -210,9 +214,10 @@ model PrReview {
   createdAt DateTime @default(now()) @map("created_at")
 
   // Relations
-  repository  Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  requestedBy User?      @relation("ReviewsRequested", fields: [requestedById], references: [id], onDelete: SetNull)
-  assignedTo  User?      @relation("ReviewsAssigned", fields: [assignedToId], references: [id], onDelete: SetNull)
+  repository      Repository       @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  requestedBy     User?            @relation("ReviewsRequested", fields: [requestedById], references: [id], onDelete: SetNull)
+  assignedTo      User?            @relation("ReviewsAssigned", fields: [assignedToId], references: [id], onDelete: SetNull)
+  botConversation BotConversation?
 
   @@unique([repositoryId, prNumber])
   @@index([repositoryId])
@@ -260,4 +265,59 @@ model Activity {
 
   @@index([organizationId, createdAt])
   @@map("activities")
+}
+
+// Coding Standards (auto-detected from repository files)
+model CodingStandards {
+  id           String   @id @default(uuid()) @db.Uuid
+  repositoryId String   @map("repository_id") @db.Uuid
+  source       String   @db.VarChar(100) // "claude.md" | "cursorrules" | "agents.md" | "ai_folder" | "manual"
+  filePath     String   @map("file_path") @db.VarChar(500) // Path to the standards file
+  content      String   @db.Text // Original file content
+  parsedRules  Json     @default("[]") @map("parsed_rules") // Extracted rules as structured data
+  enabled      Boolean  @default(true) // Whether to use these standards in reviews
+  detectedAt   DateTime @default(now()) @map("detected_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryId, source])
+  @@index([repositoryId])
+  @@map("coding_standards")
+}
+
+// Code Graph (function relationships and dependencies)
+model CodeGraph {
+  id           String   @id @default(uuid()) @db.Uuid
+  repositoryId String   @unique @map("repository_id") @db.Uuid
+  nodes        Json     // [{id, type: "function"|"class"|"file", name, file, line}]
+  edges        Json     // [{from, to, type: "calls"|"imports"|"extends"}]
+  metadata     Json     // {entryPoints, circularDeps, stats}
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@map("code_graphs")
+}
+
+// Bot Conversations (interactive @bot conversations in PR comments)
+model BotConversation {
+  id           String   @id @default(uuid()) @db.Uuid
+  prReviewId   String   @map("pr_review_id") @db.Uuid
+  repositoryId String   @map("repository_id") @db.Uuid
+  prNumber     Int      @map("pr_number")
+  messages     Json     @default("[]") // [{role: "user"|"bot", content, timestamp, commentId, userId}]
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  prReview   PrReview   @relation(fields: [prReviewId], references: [id], onDelete: Cascade)
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([prReviewId])
+  @@index([repositoryId])
+  @@index([prNumber])
+  @@map("bot_conversations")
 }

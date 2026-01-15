@@ -75,6 +75,7 @@ export default async function ReviewsPage() {
         status: r.status as "completed" | "failed" | "pending",
         summary: r.summary,
         feedback: r.feedback as "helpful" | "not_helpful" | null,
+        confidenceScore: (r as { confidenceScore?: number }).confidenceScore || null,
         createdAt: r.createdAt,
         repository: r.repository,
       }))}

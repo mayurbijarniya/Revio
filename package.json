@@ -14,6 +14,9 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@babel/parser": "^7.28.6",
+    "@babel/traverse": "^7.28.6",
+    "@babel/types": "^7.28.6",
     "@google/generative-ai": "latest",
     "@octokit/rest": "latest",
     "@octokit/webhooks": "latest",
@@ -44,6 +47,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "latest",
     "@tailwindcss/postcss": "latest",
+    "@types/babel__traverse": "^7.28.0",
     "@types/crypto-js": "latest",
     "@types/node": "latest",
     "@types/react": "^19.0.0",

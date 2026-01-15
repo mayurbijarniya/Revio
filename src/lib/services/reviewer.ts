@@ -21,6 +21,9 @@ import {
   type SecurityIssue,
 } from "./security-scanner";
 import { getLanguageFromPath } from "./chunker";
+import { StandardsDetector } from "./standards-detector";
+import { calculateConfidenceScore } from "./confidence-scorer";
+import { getCodeGraph, formatGraphContextForPrompt } from "./code-graph";
 
 /**
  * PR data for review
@@ -140,13 +143,39 @@ export async function reviewPullRequest(
     securityContext = formatSecurityContext(securityIssues, severityCounts, securityScore);
   }
 
-  // Build review prompt with filtered files and security context
+  // Get coding standards for this repository
+  const codingStandards = await StandardsDetector.getRepositoryStandards(repositoryId);
+  const standardsContext = StandardsDetector.formatStandardsForPrompt(codingStandards);
+
+  // Get code graph for impact analysis
+  let graphContext = "";
+  try {
+    const codeGraph = await getCodeGraph(repositoryId);
+    if (codeGraph) {
+      const changedFilePaths = filteredFiles.map((f) => f.path);
+      graphContext = formatGraphContextForPrompt(codeGraph, changedFilePaths);
+      console.warn(`[Reviewer] Added graph context with impact analysis`);
+    }
+  } catch (graphError) {
+    console.warn(`[Reviewer] Failed to retrieve graph context:`, graphError);
+  }
+
+  // Build review prompt with filtered files, security context, coding standards, and graph analysis
   const truncatedDiff = filterDiffByPaths(diff, filteredFiles.map((f) => f.path));
+  const fullContext = [
+    codebaseContext,
+    securityContext,
+    standardsContext,
+    graphContext,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
   const reviewPrompt = buildReviewPrompt(
     prData.title,
     prData.body,
     truncatedDiff.slice(0, REVIEW_CONFIG.maxDiffBytes),
-    codebaseContext + (securityContext ? "\n\n" + securityContext : "")
+    fullContext
   );
 
   // Build system prompt with custom rules
@@ -170,6 +199,26 @@ export async function reviewPullRequest(
   }
 
   const processingTime = Date.now() - startTime;
+
+  // Calculate confidence score for merge readiness
+  const linesChanged = changedFiles.reduce((sum, f) => sum + f.lineCount, 0);
+
+  // Count standards violations from review issues
+  const standardsViolations = (review.issues || []).filter((issue) =>
+    issue.description?.toLowerCase().includes("coding standard") ||
+    issue.description?.toLowerCase().includes("standard violation")
+  ).length;
+
+  const confidenceResult = calculateConfidenceScore(
+    review,
+    securityIssues,
+    changedFiles.length,
+    linesChanged,
+    standardsViolations
+  );
+
+  console.warn(`[Reviewer] Confidence score: ${confidenceResult.score}/5 (${confidenceResult.level})`);
+  console.warn(`[Reviewer] Reasoning: ${confidenceResult.reasoning.join(", ")}`);
 
   // Transform positives (strings) to suggestions format (objects with title/description)
   const formattedSuggestions = (review.positives || []).map((positive: string, idx: number) => ({
@@ -202,6 +251,7 @@ export async function reviewPullRequest(
       filesAnalyzed: JSON.parse(JSON.stringify(formattedFiles)),
       recommendation: review.recommendation,
       riskLevel: review.riskLevel,
+      confidenceScore: confidenceResult.score,
       status: "completed",
       processingTimeMs: processingTime,
     },
@@ -217,6 +267,7 @@ export async function reviewPullRequest(
       filesAnalyzed: JSON.parse(JSON.stringify(formattedFiles)),
       recommendation: review.recommendation,
       riskLevel: review.riskLevel,
+      confidenceScore: confidenceResult.score,
       status: "completed",
       processingTimeMs: processingTime,
     },
@@ -267,8 +318,14 @@ export async function postReviewToGitHub(
     throw new Error("Invalid repository name");
   }
 
-  // Format the main comment
-  const commentBody = formatReviewForGitHub(review);
+  // Get the confidence score from the database
+  const prReview = await db.prReview.findFirst({
+    where: { repositoryId, prNumber },
+    select: { confidenceScore: true },
+  });
+
+  // Format the main comment with confidence score
+  const commentBody = formatReviewForGitHub(review, prReview?.confidenceScore ?? undefined);
 
   // Create inline comments
   const inlineComments = createInlineComments(review);

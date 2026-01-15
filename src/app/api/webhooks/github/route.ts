@@ -5,6 +5,13 @@ import { WEBHOOK_CONFIG } from "@/lib/constants";
 import { reviewPullRequest, postReviewToGitHub } from "@/lib/services/reviewer";
 import { decrypt } from "@/lib/encryption";
 import { createBotGitHubService } from "@/lib/services/github-app";
+import {
+  parseBotCommand,
+  getOrCreateConversation,
+  addMessageToConversation,
+  processBotCommand,
+  type BotMessage,
+} from "@/lib/services/bot-conversation";
 
 // GitHub App webhook secret (global for all repos)
 const GITHUB_APP_WEBHOOK_SECRET = process.env.GITHUB_APP_WEBHOOK_SECRET;
@@ -94,6 +101,11 @@ export async function POST(request: NextRequest) {
   // Handle pull_request events
   if (event === "pull_request") {
     return handlePullRequestEvent(body, repository);
+  }
+
+  // Handle issue_comment events (for @bot conversations)
+  if (event === "issue_comment") {
+    return handleIssueCommentEvent(body, repository);
   }
 
   // Handle push events (for re-indexing in the future)
@@ -279,6 +291,184 @@ async function processReviewAsync(
         status: "failed",
       },
     });
+  }
+}
+
+/**
+ * Handle issue_comment events (for @bot conversations)
+ */
+async function handleIssueCommentEvent(
+  body: Record<string, unknown>,
+  repository: RepositoryWithUser
+) {
+  const action = body.action as string;
+  const comment = body.comment as {
+    id: number;
+    body: string;
+    user: { login: string; id: number; type?: string };
+    created_at: string;
+  };
+  const issue = body.issue as {
+    number: number;
+    pull_request?: { url: string };
+  };
+
+  // Only process created comments (not edited/deleted)
+  if (action !== "created") {
+    return NextResponse.json({ message: "Comment action not supported" });
+  }
+
+  // Only process comments on pull requests (not regular issues)
+  if (!issue.pull_request) {
+    return NextResponse.json({ message: "Comment not on pull request" });
+  }
+
+  // Ignore bot-authored comments to prevent loops
+  const isBotUser =
+    comment.user.type === "Bot" || comment.user.login.toLowerCase().endsWith("[bot]");
+  if (isBotUser) {
+    return NextResponse.json({ message: "Ignoring bot comment" });
+  }
+
+  // Check if comment mentions the bot
+  const botCommand = parseBotCommand(comment.body);
+
+  if (!botCommand) {
+    return NextResponse.json({ message: "No bot command found in comment" });
+  }
+
+  console.warn(
+    `[Webhook] Bot command detected in PR #${issue.number}: ${botCommand.command}`
+  );
+
+  // Find the PR review for this PR
+  const prReview = await db.prReview.findUnique({
+    where: {
+      repositoryId_prNumber: {
+        repositoryId: repository.id,
+        prNumber: issue.number,
+      },
+    },
+  });
+
+  if (!prReview) {
+    console.warn(`[Webhook] No PR review found for PR #${issue.number}`);
+    return NextResponse.json({ error: "PR review not found" }, { status: 404 });
+  }
+
+  // Process bot command in background
+  after(async () => {
+    try {
+      await processBotCommentAsync(
+        repository,
+        prReview.id,
+        issue.number,
+        comment,
+        botCommand
+      );
+    } catch (error) {
+      console.error(`[Webhook] Failed to process bot comment for PR #${issue.number}:`, error);
+    }
+  });
+
+  return NextResponse.json({
+    message: "Bot command received",
+    command: botCommand.command,
+  });
+}
+
+/**
+ * Process bot comment asynchronously
+ */
+async function processBotCommentAsync(
+  repository: RepositoryWithUser,
+  prReviewId: string,
+  prNumber: number,
+  comment: {
+    id: number;
+    body: string;
+    user: { login: string; id: number };
+    created_at: string;
+  },
+  botCommand: { command: string; args: string; rawContent: string }
+) {
+  try {
+    // Get or create conversation
+    const conversation = await getOrCreateConversation(
+      prReviewId,
+      repository.id,
+      prNumber
+    );
+
+    // Add user message to conversation
+    const userMessage: BotMessage = {
+      role: "user",
+      content: botCommand.rawContent,
+      timestamp: comment.created_at,
+      commentId: comment.id,
+      userId: String(comment.user.id),
+    };
+
+    await addMessageToConversation(conversation.id, userMessage);
+
+    // Process command and generate bot response
+    const botResponse = await processBotCommand(
+      botCommand as { command: "explain" | "why" | "ignore" | "re-review" | "unknown"; args: string; rawContent: string },
+      prReviewId,
+      repository.id,
+      prNumber
+    );
+
+    // Add bot response to conversation
+    const botMessage: BotMessage = {
+      role: "bot",
+      content: botResponse,
+      timestamp: new Date().toISOString(),
+    };
+
+    await addMessageToConversation(conversation.id, botMessage);
+
+    // Post bot response as GitHub comment
+    const parts = repository.fullName.split("/");
+    const owner = parts[0];
+    const repo = parts[1];
+
+    if (!owner || !repo) {
+      throw new Error("Invalid repository name");
+    }
+
+    // Use bot service to post comment
+    const botService = await createBotGitHubService(owner, repo);
+    let accessToken: string;
+
+    if (botService) {
+      console.warn(`[Webhook] Using bot token for comment reply in ${repository.fullName}`);
+      accessToken = botService.token;
+    } else {
+      console.warn(`[Webhook] Bot service unavailable, falling back to user token`);
+      accessToken = decrypt(repository.user.accessToken);
+    }
+
+    // Import GitHubService
+    const { GitHubService } = await import("@/lib/services/github");
+    const githubService = new GitHubService(accessToken);
+
+    // Post comment reply
+    await githubService.createPrComment(owner, repo, prNumber, botResponse);
+
+    console.warn(`[Webhook] Posted bot response to PR #${prNumber}`);
+
+    if (botCommand.command === "re-review") {
+      try {
+        const pr = await githubService.getPullRequest(owner, repo, prNumber);
+        await processReviewAsync(repository, pr);
+      } catch (reviewError) {
+        console.error(`[Webhook] Failed to re-review PR #${prNumber}:`, reviewError);
+      }
+    }
+  } catch (error) {
+    console.error(`[Webhook] Failed to process bot comment:`, error);
+    throw error;
   }
 }
 

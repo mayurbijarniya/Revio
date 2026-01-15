@@ -1,6 +1,7 @@
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { jsonSuccess, jsonError } from "@/lib/api-utils";
+import { getConfidenceLevel } from "@/lib/services/confidence-scorer";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -117,6 +118,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
     // Determine merge readiness based on recommendation and issues
     const recommendation = (review as { recommendation?: string }).recommendation || null;
     const riskLevel = (review as { riskLevel?: string }).riskLevel || null;
+    const confidenceScore = (review as { confidenceScore?: number }).confidenceScore || null;
+    const confidenceLevel = confidenceScore ? getConfidenceLevel(confidenceScore) : null;
 
     // Calculate merge readiness verdict
     let mergeVerdict: "ready" | "needs_changes" | "review" | "pending" = "pending";
@@ -155,6 +158,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
       filesAnalyzed: filesAnalyzed || [],
       recommendation,
       riskLevel,
+      confidenceScore,
+      confidenceLevel,
       mergeVerdict,
       mergeMessage,
       feedback: review.feedback,

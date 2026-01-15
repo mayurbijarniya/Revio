@@ -1,6 +1,6 @@
 import { ComponentPropsWithoutRef, ReactNode, useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
-import { createHighlighter } from "shiki";
+import { createHighlighter, type BundledLanguage } from "shiki";
 import remarkGfm from "remark-gfm";
 import { Check, FileCode } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -177,12 +177,8 @@ function CodeBlock({ code, language }: CodeBlockProps) {
     async function highlight() {
       try {
         const highlighter = await getHighlighterInstance();
-        // Load language if not loaded? 
-        // Shiki createHighlighter loads specified langs. 
-        // If language isn't in our list, fallback to text or load it?
-        // simple fallback for now.
         const loadedLangs = highlighter.getLoadedLanguages();
-        const lang = loadedLangs.includes(language as any) ? language : 'markdown'; // fallback
+        const lang = loadedLangs.includes(language as BundledLanguage) ? language : 'markdown';
 
         const html = highlighter.codeToHtml(code, {
           lang,

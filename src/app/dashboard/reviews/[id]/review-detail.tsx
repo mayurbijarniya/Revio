@@ -32,6 +32,7 @@ import {
   User,
   Calendar,
   RefreshCw,
+  Star,
 } from "lucide-react";
 
 interface ReviewIssue {
@@ -76,6 +77,8 @@ interface ReviewData {
   filesAnalyzed: FileAnalyzed[];
   recommendation: string | null;
   riskLevel: string | null;
+  confidenceScore: number | null;
+  confidenceLevel: string | null;
   mergeVerdict: "ready" | "needs_changes" | "review" | "pending";
   mergeMessage: string;
   feedback: string | null;
@@ -455,6 +458,27 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
                 >
                   {review.riskLevel.charAt(0).toUpperCase() + review.riskLevel.slice(1)}
                 </span>
+              </div>
+            )}
+            {review.confidenceScore && (
+              <div className="text-right">
+                <div className="text-xs text-gray-500 mb-1">Confidence Score</div>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      className={`h-5 w-5 ${star <= review.confidenceScore!
+                        ? "text-amber-500 fill-amber-500"
+                        : "text-gray-300 dark:text-gray-600"
+                        }`}
+                    />
+                  ))}
+                </div>
+                {review.confidenceLevel && (
+                  <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    {review.confidenceLevel.replace("_", " ").split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
+                  </div>
+                )}
               </div>
             )}
           </div>
