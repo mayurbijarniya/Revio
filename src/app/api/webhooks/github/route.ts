@@ -141,7 +141,7 @@ async function handlePullRequestEvent(
     html_url: string;
     draft?: boolean;
     base: { ref: string };
-    head: { ref: string };
+    head: { ref: string; sha?: string };
   };
 
   // Only process specific actions
@@ -216,7 +216,7 @@ async function processReviewAsync(
     user: { login: string };
     html_url: string;
     base: { ref: string };
-    head: { ref: string };
+    head: { ref: string; sha?: string };
   }
 ) {
   try {
@@ -258,6 +258,7 @@ async function processReviewAsync(
         url: pr.html_url,
         baseBranch: repoDetails?.defaultBranch || pr.base.ref,
         headBranch: pr.head.ref,
+        headSha: pr.head.sha,
       },
       accessToken
     );

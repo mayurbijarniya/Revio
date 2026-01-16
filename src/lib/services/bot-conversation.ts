@@ -8,6 +8,7 @@
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import type { Prisma } from "@prisma/client";
+import { recordIgnorePattern } from "./learning";
 
 export interface BotMessage {
   role: "user" | "bot";
@@ -256,6 +257,19 @@ export async function handleIgnoreCommand(
     repositoryId,
     pattern: args,
   });
+
+  try {
+    await recordIgnorePattern({
+      repositoryId,
+      pattern: args || "this type of issue",
+      reason: `Ignored via @revio-bot on review ${prReviewId}`,
+    });
+  } catch (error) {
+    logger.error("Failed to record ignore pattern", error as Error, {
+      prReviewId,
+      repositoryId,
+    });
+  }
 
   return `Noted! I'll remember that you want to ignore: "${args || "this type of issue"}"\n\nThis feedback will help improve future reviews for this repository. You can also configure ignored patterns in the repository settings.`;
 }

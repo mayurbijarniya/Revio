@@ -16,6 +16,7 @@ import {
   GitPullRequest,
   MessageSquare,
   Settings,
+  TrendingUp,
   ExternalLink,
   ArrowLeft,
   Trash2,
@@ -119,6 +120,7 @@ export function RepoDetail({
   const [isIndexing, setIsIndexing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isUpgradingWebhook, setIsUpgradingWebhook] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [autoReview, setAutoReview] = useState(repository.autoReview);
@@ -262,6 +264,27 @@ export function RepoDetail({
       setError("Failed to update settings");
     } finally {
       setIsUpdating(false);
+    }
+  }
+
+  async function handleUpgradeWebhook() {
+    setIsUpgradingWebhook(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/repos/${repository.id}/webhook/upgrade`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMessage(data.data?.message || "Webhook upgrade complete.");
+      } else {
+        setError(data.error?.message || "Failed to upgrade webhook");
+      }
+    } catch {
+      setError("Failed to upgrade webhook");
+    } finally {
+      setIsUpgradingWebhook(false);
     }
   }
 
@@ -621,16 +644,29 @@ export function RepoDetail({
                   {repository.webhookId ? "Active" : "Not configured"}
                 </div>
               </div>
-              <span
-                className={cn(
-                  "px-2 py-1 rounded text-xs",
-                  repository.webhookId
-                    ? "bg-[#ECFDF5] text-[#10B981]"
-                    : "status-disconnected"
+              <div className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    "px-2 py-1 rounded text-xs",
+                    repository.webhookId
+                      ? "bg-[#ECFDF5] text-[#10B981]"
+                      : "status-disconnected"
+                  )}
+                >
+                  {repository.webhookId ? "Connected" : "Disconnected"}
+                </span>
+                {repository.webhookId && (
+                  <button
+                    onClick={handleUpgradeWebhook}
+                    disabled={isUpgradingWebhook}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+                    title="Upgrade webhook to include issue_comment events"
+                  >
+                    <RefreshCw className={cn("w-3 h-3", isUpgradingWebhook && "animate-spin")} />
+                    Upgrade
+                  </button>
                 )}
-              >
-                {repository.webhookId ? "Connected" : "Disconnected"}
-              </span>
+              </div>
             </div>
 
             {/* Ignored Paths */}
@@ -704,6 +740,27 @@ export function RepoDetail({
                 </div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   Configure custom rules, severity thresholds, and focus areas
+                </p>
+              </Link>
+            </div>
+
+            {/* Insights */}
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+              <Link
+                href={`/dashboard/repos/${repository.id}/insights`}
+                className="block p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all group"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-gray-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
+                    <span className="font-medium group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                      Repository Insights
+                    </span>
+                  </div>
+                  <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
+                </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  View code quality trends, security score, and issue hotspots
                 </p>
               </Link>
             </div>

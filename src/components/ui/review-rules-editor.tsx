@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Shield,
   Bug,
@@ -61,6 +61,11 @@ export function ReviewRulesEditor({
   const [showTemplates, setShowTemplates] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [newRule, setNewRule] = useState<Partial<ReviewRule> | null>(null);
+
+  useEffect(() => {
+    setSettings(initialSettings);
+    setIsEditing(false);
+  }, [initialSettings]);
 
   const handleToggleCategory = (category: IssueCategory) => {
     const enabled = settings.enabledCategories.includes(category);

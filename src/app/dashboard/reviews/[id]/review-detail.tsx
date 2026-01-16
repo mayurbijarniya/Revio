@@ -34,6 +34,10 @@ import {
   RefreshCw,
   Star,
 } from "lucide-react";
+import { BlastRadiusPanel } from "@/components/ui/blast-radius-panel";
+import type { BlastRadiusData } from "@/types/blast-radius";
+import { TestCoveragePanel } from "@/components/ui/test-coverage-panel";
+import type { TestCoverageData } from "@/types/test-coverage";
 
 interface ReviewIssue {
   file?: string;
@@ -79,6 +83,16 @@ interface ReviewData {
   riskLevel: string | null;
   confidenceScore: number | null;
   confidenceLevel: string | null;
+  sequenceDiagram: string | null;
+  blastRadius: BlastRadiusData | null;
+  testCoverage: TestCoverageData | null;
+  docstringSuggestions?: Array<{
+    path: string;
+    line: number;
+    language?: string;
+    docstring: string;
+    signatureLine: string;
+  }>;
   mergeVerdict: "ready" | "needs_changes" | "review" | "pending";
   mergeMessage: string;
   feedback: string | null;
@@ -515,6 +529,67 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
           <div className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
             {review.summary}
           </div>
+        </div>
+      )}
+
+      {/* Sequence Diagram */}
+      {review.sequenceDiagram && (
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6">
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Sequence Diagram
+            </h2>
+            <span className="text-xs text-gray-500">
+              Mermaid syntax
+            </span>
+          </div>
+          <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 overflow-x-auto">
+            <pre className="text-xs font-mono text-gray-800 dark:text-gray-200 whitespace-pre">
+              {review.sequenceDiagram}
+            </pre>
+          </div>
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            Paste this into a Mermaid renderer (e.g. Mermaid Live Editor) to visualize the flow.
+          </p>
+        </div>
+      )}
+
+      {/* Blast Radius */}
+      {review.blastRadius && (
+        <BlastRadiusPanel blastRadius={review.blastRadius} />
+      )}
+
+      {/* Test Coverage */}
+      {review.testCoverage && (
+        <TestCoveragePanel testCoverage={review.testCoverage} />
+      )}
+
+      {/* Docstring Suggestions */}
+      {review.docstringSuggestions && review.docstringSuggestions.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+            Docstring Suggestions ({review.docstringSuggestions.length})
+          </h2>
+          <div className="space-y-4">
+            {review.docstringSuggestions.slice(0, 10).map((s, idx) => (
+              <div
+                key={`${s.path}:${s.line}:${idx}`}
+                className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
+              >
+                <div className="px-4 py-2 bg-gray-50 dark:bg-gray-900 text-xs text-gray-600 dark:text-gray-300 font-mono">
+                  {s.path}:{s.line}
+                </div>
+                <div className="p-4 bg-white dark:bg-gray-800 overflow-x-auto">
+                  <pre className="text-xs font-mono text-gray-800 dark:text-gray-200 whitespace-pre">
+                    {s.docstring}
+                  </pre>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            These are also posted as GitHub inline suggestions when possible.
+          </p>
         </div>
       )}
 

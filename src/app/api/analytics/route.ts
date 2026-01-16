@@ -174,6 +174,7 @@ export async function GET(request: NextRequest) {
       select: {
         issues: true,
         repositoryId: true,
+        createdAt: true,
       },
     });
 
@@ -207,9 +208,16 @@ export async function GET(request: NextRequest) {
     const fileCounts: Record<string, number> = {};
     let totalIssues = 0;
 
+    // Track repo-level quality trend (first half vs second half)
+    const midDate = new Date(startDate);
+    midDate.setDate(midDate.getDate() + Math.floor(days / 2));
+    const repoTrendAgg = new Map<
+      string,
+      { beforeSum: number; beforeCount: number; afterSum: number; afterCount: number }
+    >();
+
     completedReviews.forEach((review) => {
-      const issues = review.issues as ReviewIssue[] | null;
-      if (!Array.isArray(issues)) return;
+      const issues = Array.isArray(review.issues) ? (review.issues as ReviewIssue[]) : [];
 
       issues.forEach((issue) => {
         totalIssues++;
@@ -231,7 +239,54 @@ export async function GET(request: NextRequest) {
           fileCounts[issue.file] = (fileCounts[issue.file] ?? 0) + 1;
         }
       });
+
+      // Repo trend quality score per review: 100 - (issues * 10)
+      const quality = Math.max(0, 100 - Math.round(issues.length * 10));
+      const agg = repoTrendAgg.get(review.repositoryId) || {
+        beforeSum: 0,
+        beforeCount: 0,
+        afterSum: 0,
+        afterCount: 0,
+      };
+      if (review.createdAt < midDate) {
+        agg.beforeSum += quality;
+        agg.beforeCount++;
+      } else {
+        agg.afterSum += quality;
+        agg.afterCount++;
+      }
+      repoTrendAgg.set(review.repositoryId, agg);
     });
+
+    const repoIndex = new Map(topRepos.map((r) => [r.id, r]));
+
+    const decliningRepositories = Array.from(repoTrendAgg.entries())
+      .map(([repositoryId, agg]) => {
+        const beforeAvg = agg.beforeCount > 0 ? agg.beforeSum / agg.beforeCount : null;
+        const afterAvg = agg.afterCount > 0 ? agg.afterSum / agg.afterCount : null;
+        const reviewCount = agg.beforeCount + agg.afterCount;
+        if (beforeAvg === null || afterAvg === null) return null;
+        if (reviewCount < 4) return null;
+
+        const fromQuality = Math.round(beforeAvg * 10) / 10;
+        const toQuality = Math.round(afterAvg * 10) / 10;
+        const deltaQuality = Math.round((toQuality - fromQuality) * 10) / 10;
+
+        const repo = repoIndex.get(repositoryId);
+        return {
+          repositoryId,
+          name: repo?.name || "Unknown",
+          fullName: repo?.fullName || "Unknown",
+          reviewCount,
+          fromQuality,
+          toQuality,
+          deltaQuality,
+        };
+      })
+      .filter((r): r is NonNullable<typeof r> => Boolean(r))
+      .sort((a, b) => a.deltaQuality - b.deltaQuality)
+      .slice(0, 5)
+      .filter((r) => r.deltaQuality < 0);
 
     // Get top files with most issues (top 10)
     const topFilesWithIssues = Object.entries(fileCounts)
@@ -290,6 +345,7 @@ export async function GET(request: NextRequest) {
         bySeverity,
         byCategory,
         topFilesWithIssues,
+        decliningRepositories,
         avgIssuesPerReview: completedReviews.length > 0
           ? Math.round((totalIssues / completedReviews.length) * 10) / 10
           : 0,

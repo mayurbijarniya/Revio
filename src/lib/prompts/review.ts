@@ -4,11 +4,16 @@ import {
   type ReviewRule,
   DEFAULT_REVIEW_SETTINGS,
 } from "@/types/review";
+import type { BlastRadiusData } from "@/types/blast-radius";
+import type { TestCoverageData } from "@/types/test-coverage";
 
 /**
  * Build system prompt with custom rules
  */
-export function buildReviewSystemPrompt(settings?: ReviewSettings): string {
+export function buildReviewSystemPrompt(
+  settings?: ReviewSettings,
+  extraInstructions?: string
+): string {
   const effectiveSettings = settings || DEFAULT_REVIEW_SETTINGS;
 
   let customRulesSection = "";
@@ -34,7 +39,7 @@ Prioritize checking for issues in these categories: ${effectiveSettings.enabledC
 - Block on critical issues: ${effectiveSettings.blockOnCritical ? "Yes" : "No"}
 - Block on security issues: ${effectiveSettings.blockOnSecurity ? "Yes" : "No"}`;
 
-  return `You are an expert code reviewer for the Revio AI code review platform. Your role is to provide comprehensive, actionable feedback on pull requests.${customRulesSection}${categoriesSection}${severitySection}
+  return `You are an expert code reviewer for the Revio AI code review platform. Your role is to provide comprehensive, actionable feedback on pull requests.${customRulesSection}${categoriesSection}${severitySection}${extraInstructions || ""}
 
 ${REVIEW_CORE_INSTRUCTIONS}`;
 }
@@ -222,21 +227,91 @@ export function parseReviewResponse(response: string): ReviewResult | null {
 /**
  * Format review for GitHub comment
  */
-export function formatReviewForGitHub(review: ReviewResult, confidenceScore?: number): string {
+export interface DocstringSuggestion {
+  path: string;
+  line: number;
+  language?: string;
+  docstring: string;
+  signatureLine: string;
+}
+
+export function formatReviewForGitHub(
+  review: ReviewResult,
+  options: {
+    confidenceScore?: number;
+    sequenceDiagram?: string | null;
+    docstringSuggestions?: DocstringSuggestion[] | null;
+    blastRadius?: BlastRadiusData | null;
+    testCoverage?: TestCoverageData | null;
+  } = {}
+): string {
   const { severity, risk } = TEXT_INDICATORS;
 
   const riskBadge = risk[review.riskLevel as keyof typeof risk] || risk.low;
+  const { confidenceScore, sequenceDiagram, docstringSuggestions, blastRadius, testCoverage } = options;
 
   let comment = `## Revio AI Code Review\n\n`;
   comment += `${riskBadge} **Risk Level:** ${review.riskLevel.toUpperCase()}\n`;
 
   // Add confidence score if available
-  if (confidenceScore) {
+  if (typeof confidenceScore === "number") {
     const stars = "★".repeat(confidenceScore) + "☆".repeat(5 - confidenceScore);
     comment += `**Confidence Score:** ${stars} (${confidenceScore}/5)\n`;
   }
 
   comment += `\n### Summary\n${review.summary}\n\n`;
+
+  if (sequenceDiagram) {
+    comment += `### Sequence Diagram\n`;
+    comment += `<details>\n<summary>View Mermaid sequence diagram</summary>\n\n`;
+    comment += "```mermaid\n";
+    comment += `${sequenceDiagram}\n`;
+    comment += "```\n\n";
+    comment += `</details>\n\n`;
+  }
+
+  if (blastRadius?.mermaid) {
+    comment += `### Blast Radius\n`;
+    comment += `<details>\n<summary>View impact diagram (${blastRadius.riskLevel.toUpperCase()} risk, ${blastRadius.totalImpactRadius} affected nodes)</summary>\n\n`;
+    comment += "```mermaid\n";
+    comment += `${blastRadius.mermaid}\n`;
+    comment += "```\n\n";
+    comment += `</details>\n\n`;
+  }
+
+  if (testCoverage) {
+    const missingCount = Array.isArray(testCoverage.missingTests)
+      ? testCoverage.missingTests.length
+      : 0;
+    const testChangedCount = Array.isArray(testCoverage.testFilesChanged)
+      ? testCoverage.testFilesChanged.length
+      : 0;
+    const nonTestChangedCount = Array.isArray(testCoverage.nonTestFilesChanged)
+      ? testCoverage.nonTestFilesChanged.length
+      : 0;
+
+    if (nonTestChangedCount > 0) {
+      const summary =
+        missingCount === 0
+          ? `No obvious missing tests detected`
+          : `${missingCount} change${missingCount === 1 ? "" : "s"} may need tests`;
+
+      comment += `### Test Coverage\n`;
+      comment += `<details>\n<summary>${summary} (confidence: ${testCoverage.coverageConfidence})</summary>\n\n`;
+      comment += `- Non-test files changed: ${nonTestChangedCount}\n`;
+      comment += `- Test files changed: ${testChangedCount}\n`;
+
+      if (missingCount > 0) {
+        comment += `\n**Potential gaps:**\n`;
+        for (const item of testCoverage.missingTests.slice(0, 10)) {
+          const suggestion = item.suggestedTestFiles?.[0] ? ` → \`${item.suggestedTestFiles[0]}\`` : "";
+          comment += `- \`${item.file}\`${suggestion}\n`;
+        }
+      }
+
+      comment += `\n</details>\n\n`;
+    }
+  }
 
   if (review.issues.length > 0) {
     comment += `### Issues Found (${review.issues.length})\n\n`;
@@ -262,6 +337,15 @@ export function formatReviewForGitHub(review: ReviewResult, confidenceScore?: nu
       comment += `- ${positive}\n`;
     }
     comment += `\n`;
+  }
+
+  if (docstringSuggestions && docstringSuggestions.length > 0) {
+    comment += `### Docstring Suggestions (${docstringSuggestions.length})\n`;
+    comment += `<details>\n<summary>View suggested docstrings (apply via inline suggestions when available)</summary>\n\n`;
+    for (const s of docstringSuggestions.slice(0, 10)) {
+      comment += `- \`${s.path}:${s.line}\`\n`;
+    }
+    comment += `\n</details>\n\n`;
   }
 
   comment += `### Recommendation\n`;

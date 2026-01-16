@@ -50,6 +50,7 @@ model Organization {
   repositories Repository[]
   usage        Usage[]
   activities   Activity[]
+  reviewLearning ReviewLearning?
 
   @@map("organizations")
 }
@@ -113,6 +114,7 @@ model Repository {
   codingStandards  CodingStandards[]
   codeGraph        CodeGraph?
   botConversations BotConversation[]
+  reviewLearning   ReviewLearning?
 
   @@unique([userId, githubRepoId])
   @@index([userId])
@@ -197,6 +199,12 @@ model PrReview {
   recommendation String?  @db.VarChar(20) // "approve" | "request_changes" | "comment"
   riskLevel      String?  @map("risk_level") @db.VarChar(20) // "low" | "medium" | "high" | "critical"
   confidenceScore Int?    @map("confidence_score") @db.SmallInt // 1-5 scale for merge readiness
+  sequenceDiagram String? @map("sequence_diagram") @db.Text // Mermaid diagram syntax
+  docstringSuggestions Json @default("[]") @map("docstring_suggestions") // [{path, line, language, docstring, signatureLine}]
+  blastRadius    Json     @default("{}") @map("blast_radius") // Impact visualization + affected nodes
+  testCoverage   Json     @default("{}") @map("test_coverage") // Heuristic test-coverage signals
+  headSha        String?  @map("head_sha") @db.VarChar(40)
+  runCount       Int      @default(0) @map("run_count")
 
   // Status
   status          String @default("pending") @db.VarChar(50)
@@ -212,12 +220,14 @@ model PrReview {
   feedbackAt       DateTime? @map("feedback_at")
 
   createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
   repository      Repository       @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   requestedBy     User?            @relation("ReviewsRequested", fields: [requestedById], references: [id], onDelete: SetNull)
   assignedTo      User?            @relation("ReviewsAssigned", fields: [assignedToId], references: [id], onDelete: SetNull)
   botConversation BotConversation?
+  runs            PrReviewRun[]
 
   @@unique([repositoryId, prNumber])
   @@index([repositoryId])
@@ -320,4 +330,62 @@ model BotConversation {
   @@index([repositoryId])
   @@index([prNumber])
   @@map("bot_conversations")
+}
+
+// Review Learning (team preferences, suppression, and auto-suggested rules)
+model ReviewLearning {
+  id                   String   @id @default(uuid()) @db.Uuid
+  repositoryId         String?  @unique @map("repository_id") @db.Uuid
+  organizationId       String?  @unique @map("organization_id") @db.Uuid
+
+  // Learned patterns
+  preferredPatterns     Json     @default("[]") @map("preferred_patterns") // [{pattern, frequency, examples}]
+  suppressedPatterns    Json     @default("[]") @map("suppressed_patterns") // [{issueType, category, pattern, reason, suppressedAt, count}]
+  customRuleSuggestions Json     @default("[]") @map("custom_rule_suggestions") // [{id, rule, source, confidence, frequency, examples, status}]
+
+  // Feedback stats
+  feedbackStats         Json     @default("{}") @map("feedback_stats") // {category: {helpful: N, notHelpful: M}}
+  adoptionRates         Json     @default("{}") @map("adoption_rates") // {issueType: adoptionRate}
+
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  repository   Repository?   @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([repositoryId])
+  @@index([organizationId])
+  @@map("review_learning")
+}
+
+// PR Review Runs (history of review generations for adoption tracking)
+model PrReviewRun {
+  id                 String   @id @default(uuid()) @db.Uuid
+  prReviewId          String   @map("pr_review_id") @db.Uuid
+  runNumber           Int      @map("run_number")
+
+  headSha             String?  @map("head_sha") @db.VarChar(40)
+  summary             String?  @db.Text
+  issues              Json     @default("[]")
+  suggestions         Json     @default("[]")
+  filesAnalyzed       Json     @default("[]") @map("files_analyzed")
+  recommendation      String?  @db.VarChar(20) // "approve" | "request_changes" | "comment"
+  riskLevel           String?  @map("risk_level") @db.VarChar(20)
+  confidenceScore     Int?     @map("confidence_score") @db.SmallInt
+  sequenceDiagram     String?  @map("sequence_diagram") @db.Text
+  docstringSuggestions Json    @default("[]") @map("docstring_suggestions")
+  blastRadius         Json     @default("{}") @map("blast_radius")
+  testCoverage        Json     @default("{}") @map("test_coverage")
+
+  processingTimeMs    Int?     @map("processing_time_ms")
+  tokensUsed          Int      @default(0) @map("tokens_used")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  // Relations
+  prReview PrReview @relation(fields: [prReviewId], references: [id], onDelete: Cascade)
+
+  @@unique([prReviewId, runNumber])
+  @@index([prReviewId])
+  @@map("pr_review_runs")
 }

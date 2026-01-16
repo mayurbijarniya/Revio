@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { logger } from "@/lib/logger";
 import { GitHubService } from "./github";
 import { createBotGitHubService } from "./github-app";
 import { retrieveMultiContext, formatContextForPrompt } from "./retriever";
@@ -10,7 +11,10 @@ import {
   formatReviewForGitHub,
   createInlineComments,
   type ReviewResult,
+  type DocstringSuggestion,
 } from "@/lib/prompts/review";
+import type { BlastRadiusData } from "@/types/blast-radius";
+import type { TestCoverageData } from "@/types/test-coverage";
 import { REVIEW_CONFIG, AI_CONFIG } from "@/lib/constants";
 import { parseReviewSettings } from "@/types/review";
 import { logActivity } from "./activity";
@@ -24,6 +28,16 @@ import { getLanguageFromPath } from "./chunker";
 import { StandardsDetector } from "./standards-detector";
 import { calculateConfidenceScore } from "./confidence-scorer";
 import { getCodeGraph, formatGraphContextForPrompt } from "./code-graph";
+import { generateSequenceDiagram } from "./sequence-diagram";
+import { generateDocstringSuggestions } from "./docstrings";
+import { generateBlastRadius } from "./blast-radius";
+import { analyzeTestCoverage } from "./test-coverage";
+import {
+  applyLearningNitpickFiltering,
+  buildLearningPromptSection,
+  getEffectiveLearningContext,
+  updateAdoptionRatesFromRuns,
+} from "./learning";
 
 /**
  * PR data for review
@@ -36,6 +50,7 @@ export interface PullRequestData {
   url: string;
   baseBranch: string;
   headBranch: string;
+  headSha?: string;
 }
 
 /**
@@ -66,6 +81,23 @@ export async function reviewPullRequest(
   }
 
   const github = new GitHubService(accessToken);
+
+  // Resolve PR head SHA (for run tracking and adoption metrics)
+  let headSha: string | null = prData.headSha || null;
+  if (!headSha) {
+    try {
+      const pr = await github.getPullRequest(owner, repo, prData.number);
+      headSha = pr.head.sha;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.warn("[Reviewer] Failed to fetch head SHA for PR", {
+        repositoryId,
+        repository: `${owner}/${repo}`,
+        prNumber: prData.number,
+        error: errorMessage,
+      });
+    }
+  }
 
   // Get PR diff
   console.warn(`[Reviewer] Fetching diff for PR #${prData.number}`);
@@ -113,6 +145,14 @@ export async function reviewPullRequest(
   // Parse review settings from repository
   const reviewSettings = parseReviewSettings(repository.reviewRules);
 
+  // Load learned team preferences (repo + org)
+  let learningContext: Awaited<ReturnType<typeof getEffectiveLearningContext>> | null = null;
+  try {
+    learningContext = await getEffectiveLearningContext(repositoryId);
+  } catch (learningError) {
+    console.warn("[Reviewer] Failed to load learning context:", learningError);
+  }
+
   // Filter out ignored paths from changed files
   const ignoredPaths = repository.ignoredPaths || [];
   const filteredFiles = changedFiles.filter((file) => {
@@ -149,11 +189,12 @@ export async function reviewPullRequest(
 
   // Get code graph for impact analysis
   let graphContext = "";
+  let codeGraphData: Awaited<ReturnType<typeof getCodeGraph>> = null;
   try {
-    const codeGraph = await getCodeGraph(repositoryId);
-    if (codeGraph) {
+    codeGraphData = await getCodeGraph(repositoryId);
+    if (codeGraphData) {
       const changedFilePaths = filteredFiles.map((f) => f.path);
-      graphContext = formatGraphContextForPrompt(codeGraph, changedFilePaths);
+      graphContext = formatGraphContextForPrompt(codeGraphData, changedFilePaths);
       console.warn(`[Reviewer] Added graph context with impact analysis`);
     }
   } catch (graphError) {
@@ -178,8 +219,9 @@ export async function reviewPullRequest(
     fullContext
   );
 
-  // Build system prompt with custom rules
-  const systemPrompt = buildReviewSystemPrompt(reviewSettings);
+  // Build system prompt with custom rules + learned preferences
+  const learningPrompt = learningContext ? buildLearningPromptSection(learningContext) : "";
+  const systemPrompt = buildReviewSystemPrompt(reviewSettings, learningPrompt);
 
   // Generate review
   console.warn(`[Reviewer] Starting AI generation using ${isComplex ? 'complex' : 'standard'} model`);
@@ -198,19 +240,77 @@ export async function reviewPullRequest(
     return null;
   }
 
+  const filteredReview = learningContext
+    ? applyLearningNitpickFiltering(review, learningContext, reviewSettings)
+    : review;
+
   const processingTime = Date.now() - startTime;
+
+  // Generate a Mermaid sequence diagram from code graph + changed files (best-effort)
+  const sequenceDiagram = generateSequenceDiagram({
+    changedFiles: filteredFiles.map((f) => f.path),
+    graphData: codeGraphData,
+  });
+
+  let blastRadius: BlastRadiusData | null = null;
+  try {
+    blastRadius = generateBlastRadius({
+      changedFiles: filteredFiles.map((f) => f.path),
+      graphData: codeGraphData,
+    });
+  } catch (blastError) {
+    const errorMessage = blastError instanceof Error ? blastError.message : String(blastError);
+    logger.warn("[Reviewer] Blast radius generation failed", {
+      repositoryId,
+      repository: `${owner}/${repo}`,
+      prNumber: prData.number,
+      error: errorMessage,
+    });
+  }
+
+  let testCoverage: TestCoverageData | null = null;
+  try {
+    testCoverage = analyzeTestCoverage({
+      changedFiles: filteredFiles.map((f) => f.path),
+      graphData: codeGraphData,
+    });
+  } catch (coverageError) {
+    const errorMessage = coverageError instanceof Error ? coverageError.message : String(coverageError);
+    logger.warn("[Reviewer] Test coverage analysis failed", {
+      repositoryId,
+      repository: `${owner}/${repo}`,
+      prNumber: prData.number,
+      error: errorMessage,
+    });
+  }
+
+  // Generate docstring suggestions (best-effort, limited)
+  let docstringSuggestions: DocstringSuggestion[] = [];
+  try {
+    const res = await generateDocstringSuggestions({
+      owner,
+      repo,
+      accessToken,
+      headSha,
+      diff,
+      maxSuggestions: 3,
+    });
+    docstringSuggestions = res.suggestions;
+  } catch (docError) {
+    console.warn("[Reviewer] Docstring generation failed:", docError);
+  }
 
   // Calculate confidence score for merge readiness
   const linesChanged = changedFiles.reduce((sum, f) => sum + f.lineCount, 0);
 
   // Count standards violations from review issues
-  const standardsViolations = (review.issues || []).filter((issue) =>
+  const standardsViolations = (filteredReview.issues || []).filter((issue) =>
     issue.description?.toLowerCase().includes("coding standard") ||
     issue.description?.toLowerCase().includes("standard violation")
   ).length;
 
   const confidenceResult = calculateConfidenceScore(
-    review,
+    filteredReview,
     securityIssues,
     changedFiles.length,
     linesChanged,
@@ -234,6 +334,8 @@ export async function reviewPullRequest(
   }));
 
   // Save review to database
+  const blastRadiusJson = JSON.parse(JSON.stringify(blastRadius || {}));
+  const testCoverageJson = JSON.parse(JSON.stringify(testCoverage || {}));
   const savedReview = await db.prReview.upsert({
     where: {
       repositoryId_prNumber: {
@@ -245,13 +347,19 @@ export async function reviewPullRequest(
       prTitle: prData.title,
       prUrl: prData.url,
       prAuthor: prData.author,
-      summary: review.summary,
-      issues: JSON.parse(JSON.stringify(review.issues)),
+      summary: filteredReview.summary,
+      issues: JSON.parse(JSON.stringify(filteredReview.issues)),
       suggestions: JSON.parse(JSON.stringify(formattedSuggestions)),
       filesAnalyzed: JSON.parse(JSON.stringify(formattedFiles)),
-      recommendation: review.recommendation,
-      riskLevel: review.riskLevel,
+      recommendation: filteredReview.recommendation,
+      riskLevel: filteredReview.riskLevel,
       confidenceScore: confidenceResult.score,
+      sequenceDiagram,
+      docstringSuggestions: JSON.parse(JSON.stringify(docstringSuggestions)),
+      blastRadius: blastRadiusJson,
+      testCoverage: testCoverageJson,
+      headSha,
+      runCount: { increment: 1 },
       status: "completed",
       processingTimeMs: processingTime,
     },
@@ -261,17 +369,51 @@ export async function reviewPullRequest(
       prTitle: prData.title,
       prUrl: prData.url,
       prAuthor: prData.author,
-      summary: review.summary,
-      issues: JSON.parse(JSON.stringify(review.issues)),
+      summary: filteredReview.summary,
+      issues: JSON.parse(JSON.stringify(filteredReview.issues)),
       suggestions: JSON.parse(JSON.stringify(formattedSuggestions)),
       filesAnalyzed: JSON.parse(JSON.stringify(formattedFiles)),
-      recommendation: review.recommendation,
-      riskLevel: review.riskLevel,
+      recommendation: filteredReview.recommendation,
+      riskLevel: filteredReview.riskLevel,
       confidenceScore: confidenceResult.score,
+      sequenceDiagram,
+      docstringSuggestions: JSON.parse(JSON.stringify(docstringSuggestions)),
+      blastRadius: blastRadiusJson,
+      testCoverage: testCoverageJson,
+      headSha,
+      runCount: 1,
       status: "completed",
       processingTimeMs: processingTime,
     },
   });
+
+  // Persist a run record for adoption tracking (runNumber aligns with pr_reviews.run_count)
+  try {
+    await db.prReviewRun.create({
+      data: {
+        prReviewId: savedReview.id,
+        runNumber: savedReview.runCount,
+        headSha,
+        summary: filteredReview.summary,
+        issues: JSON.parse(JSON.stringify(filteredReview.issues)),
+        suggestions: JSON.parse(JSON.stringify(formattedSuggestions)),
+        filesAnalyzed: JSON.parse(JSON.stringify(formattedFiles)),
+        recommendation: filteredReview.recommendation,
+        riskLevel: filteredReview.riskLevel,
+        confidenceScore: confidenceResult.score,
+        sequenceDiagram,
+        processingTimeMs: processingTime,
+        tokensUsed: 0,
+        docstringSuggestions: JSON.parse(JSON.stringify(docstringSuggestions)),
+        blastRadius: blastRadiusJson,
+        testCoverage: testCoverageJson,
+      },
+    });
+
+    await updateAdoptionRatesFromRuns({ prReviewId: savedReview.id });
+  } catch (runError) {
+    console.warn("[Reviewer] Failed to record review run history:", runError);
+  }
 
   // Log activity if repository is in an organization
   if (repository.organizationId && savedReview.requestedById) {
@@ -280,17 +422,17 @@ export async function reviewPullRequest(
       userId: savedReview.requestedById,
       type: "pr_reviewed",
       title: `Completed review for PR #${prData.number}`,
-      description: `${review.issues.length} issues found in "${prData.title}"`,
+      description: `${filteredReview.issues.length} issues found in "${prData.title}"`,
       repositoryId,
       metadata: {
         prNumber: prData.number,
-        issueCount: review.issues.length,
-        recommendation: review.recommendation,
+        issueCount: filteredReview.issues.length,
+        recommendation: filteredReview.recommendation,
       },
     });
   }
 
-  return review;
+  return filteredReview;
 }
 
 /**
@@ -321,14 +463,33 @@ export async function postReviewToGitHub(
   // Get the confidence score from the database
   const prReview = await db.prReview.findFirst({
     where: { repositoryId, prNumber },
-    select: { confidenceScore: true },
+    select: { confidenceScore: true, sequenceDiagram: true, docstringSuggestions: true, blastRadius: true, testCoverage: true },
   });
 
   // Format the main comment with confidence score
-  const commentBody = formatReviewForGitHub(review, prReview?.confidenceScore ?? undefined);
+  const commentBody = formatReviewForGitHub(review, {
+    confidenceScore: prReview?.confidenceScore ?? undefined,
+    sequenceDiagram: prReview?.sequenceDiagram ?? null,
+    docstringSuggestions:
+      (prReview?.docstringSuggestions as unknown as DocstringSuggestion[]) ?? null,
+    blastRadius: (prReview?.blastRadius as unknown as BlastRadiusData) ?? null,
+    testCoverage: (prReview?.testCoverage as unknown as TestCoverageData) ?? null,
+  });
 
-  // Create inline comments
-  const inlineComments = createInlineComments(review);
+  // Create inline comments (review issues + docstring suggestions)
+  const baseInlineComments = createInlineComments(review);
+  const docSuggestions =
+    (prReview?.docstringSuggestions as unknown as DocstringSuggestion[]) ?? [];
+  const docInlineComments = docSuggestions.slice(0, 5).map((s) => {
+    const replacement = `${s.docstring}\n${s.signatureLine}`;
+    const body =
+      `📝 **Docstring suggestion**\n\n` +
+      "```suggestion\n" +
+      replacement +
+      "\n```";
+    return { path: s.path, line: s.line, body };
+  });
+  const inlineComments = [...baseInlineComments, ...docInlineComments];
 
   // Determine review event type
   const reviewEvent =

@@ -161,6 +161,18 @@ Revio is designed to scale horizontally:
 2.  **Serverless Optimization**: On platforms like Vercel, Revio uses Next.js `after()` API to ensure long-running AI tasks complete even after HTTP response is sent.
 3.  **Vector Performance**: Qdrant's HNSW indexing provides logarithmic search time, ensuring that context retrieval remains fast even for million-line codebases.
 
+## Production Checklist
+
+1. Set production env vars (`DATABASE_URL`, `DIRECT_URL`, Redis/Qdrant keys, AI keys, `NEXT_PUBLIC_APP_URL`).
+2. Run DB migrations: `npx prisma migrate deploy --schema prisma/schema.prisma`.
+3. Webhook secret choice:
+   - GitHub App webhook mode: set `GITHUB_APP_WEBHOOK_SECRET`.
+   - Per-repo webhook mode: leave `GITHUB_APP_WEBHOOK_SECRET` unset (uses the per-repo secret stored in DB).
+4. Upgrade existing connected repos to include `issue_comment` (for `@revio-bot` + learning):
+   - UI: Repository page → **Webhook Status** → **Upgrade**
+   - API: `POST /api/repos/{id}/webhook/upgrade`
+5. Smoke test: open a PR, confirm Revio posts a review, then comment `@revio-bot explain` and confirm a reply.
+
 ## Roadmap
 
 1. [ ] **Phase 4: Intelligent Code Review** - Graph-based impact analysis and structural context.
