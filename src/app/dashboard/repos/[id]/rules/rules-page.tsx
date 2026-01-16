@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Sliders, AlertCircle } from "lucide-react";
 import { ReviewRulesEditor } from "@/components/ui/review-rules-editor";
+import { LearningPanel } from "@/components/ui/learning-panel";
 import { type ReviewSettings } from "@/types/review";
 
 interface RulesPageProps {
@@ -23,6 +24,10 @@ export function RulesPage({
     useState<ReviewSettings>(initialSettings);
   const [isUpdating, setIsUpdating] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setReviewSettings(initialSettings);
+  }, [initialSettings]);
 
   const handleSaveReviewRules = async (settings: ReviewSettings) => {
     setIsUpdating(true);
@@ -129,6 +134,10 @@ export function RulesPage({
       </div>
 
       {/* Rules Editor Card */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
+        <LearningPanel repositoryId={repositoryId} />
+      </div>
+
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Review Configuration</h2>
         <ReviewRulesEditor

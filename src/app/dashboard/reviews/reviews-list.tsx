@@ -15,6 +15,7 @@ import {
   ThumbsDown,
   Loader2,
   RefreshCw,
+  Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +34,7 @@ interface Review {
   status: "completed" | "failed" | "pending";
   summary: string | null;
   feedback: "helpful" | "not_helpful" | null;
+  confidenceScore: number | null;
   createdAt: Date;
   repository: Repository;
 }
@@ -432,6 +434,23 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                      {/* Confidence Score - only show for completed reviews */}
+                      {review.status === "completed" && review.confidenceScore && (
+                        <div className="flex items-center gap-0.5 mr-2">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              className={cn(
+                                "w-4 h-4",
+                                star <= review.confidenceScore!
+                                  ? "text-amber-500 fill-amber-500"
+                                  : "text-gray-300 dark:text-gray-600"
+                              )}
+                            />
+                          ))}
+                        </div>
+                      )}
+
                       {/* Feedback buttons - only show for completed reviews */}
                       {review.status === "completed" && (
                         <div className="flex items-center gap-1 mr-2">

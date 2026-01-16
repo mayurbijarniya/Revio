@@ -1,8 +1,9 @@
-import { NextRequest } from "next/server";
+import { NextRequest, after } from "next/server";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { jsonSuccess, jsonError } from "@/lib/api-utils";
 import { z } from "zod";
+import { recordReviewFeedbackChange } from "@/lib/services/learning";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -52,6 +53,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return jsonError("AUTH_003", "Not authorized to provide feedback", 403);
     }
 
+    const previousFeedback = review.feedback as "helpful" | "not_helpful" | null;
+
     // Update the review with feedback
     const updated = await db.prReview.update({
       where: { id },
@@ -60,6 +63,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         feedbackComment: parsed.data.comment || null,
         feedbackAt: new Date(),
       },
+    });
+
+    after(async () => {
+      try {
+        await recordReviewFeedbackChange({
+          reviewId: updated.id,
+          previousFeedback,
+          nextFeedback: parsed.data.feedback,
+        });
+      } catch (error) {
+        console.error("[Learning] Failed to record feedback change:", error);
+      }
     });
 
     return jsonSuccess({
@@ -107,6 +122,8 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       return jsonError("AUTH_003", "Not authorized", 403);
     }
 
+    const previousFeedback = review.feedback as "helpful" | "not_helpful" | null;
+
     // Remove the feedback
     const updated = await db.prReview.update({
       where: { id },
@@ -115,6 +132,18 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
         feedbackComment: null,
         feedbackAt: null,
       },
+    });
+
+    after(async () => {
+      try {
+        await recordReviewFeedbackChange({
+          reviewId: updated.id,
+          previousFeedback,
+          nextFeedback: null,
+        });
+      } catch (error) {
+        console.error("[Learning] Failed to record feedback change:", error);
+      }
     });
 
     return jsonSuccess({

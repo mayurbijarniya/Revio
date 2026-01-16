@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import {
   BarChart3,
   GitPullRequest,
@@ -8,6 +9,7 @@ import {
   MessageSquare,
   FileCode,
   TrendingUp,
+  TrendingDown,
   CheckCircle,
   XCircle,
   Clock,
@@ -62,6 +64,15 @@ interface AnalyticsData {
     bySeverity: Array<{ severity: string; count: number }>;
     byCategory: Array<{ category: string; count: number }>;
     topFilesWithIssues: Array<{ file: string; count: number }>;
+    decliningRepositories: Array<{
+      repositoryId: string;
+      name: string;
+      fullName: string;
+      reviewCount: number;
+      fromQuality: number;
+      toQuality: number;
+      deltaQuality: number;
+    }>;
     avgIssuesPerReview: number;
   };
   period: {
@@ -642,6 +653,46 @@ export default function AnalyticsDashboard() {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Declining Repositories */}
+      {data.codeQuality.decliningRepositories.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <TrendingDown className="w-5 h-5 text-[#EF4444]" />
+            Declining Repositories
+          </h3>
+          <div className="space-y-3">
+            {data.codeQuality.decliningRepositories.map((repo) => (
+              <div
+                key={repo.repositoryId}
+                className="flex items-center justify-between gap-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30"
+              >
+                <div className="min-w-0">
+                  <Link
+                    href={`/dashboard/repos/${repo.repositoryId}/insights`}
+                    className="font-medium text-gray-900 dark:text-white hover:underline truncate block"
+                    title={repo.fullName}
+                  >
+                    {repo.fullName}
+                  </Link>
+                  <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    {repo.reviewCount} reviews · {repo.fromQuality} → {repo.toQuality}
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <div className="text-sm font-semibold text-[#EF4444]">
+                    {repo.deltaQuality}
+                  </div>
+                  <div className="text-xs text-gray-500">quality</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-xs text-gray-500">
+            Based on first-half vs second-half quality score within the selected period.
+          </p>
         </div>
       )}
 

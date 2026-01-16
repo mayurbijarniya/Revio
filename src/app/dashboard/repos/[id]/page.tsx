@@ -46,6 +46,18 @@ export default async function RepoDetailPage({ params }: PageProps) {
         orderBy: { createdAt: "desc" },
         take: 10,
       },
+      codingStandards: {
+        select: {
+          id: true,
+          source: true,
+          filePath: true,
+          parsedRules: true,
+          enabled: true,
+          detectedAt: true,
+          updatedAt: true,
+        },
+        orderBy: { detectedAt: "desc" },
+      },
       _count: {
         select: {
           indexedFiles: true,
@@ -83,6 +95,20 @@ export default async function RepoDetailPage({ params }: PageProps) {
       }}
       indexedFiles={repository.indexedFiles}
       prReviews={repository.prReviews}
+      codingStandards={repository.codingStandards.map((s) => ({
+        id: s.id,
+        source: s.source,
+        filePath: s.filePath,
+        rulesCount: Array.isArray(s.parsedRules) ? s.parsedRules.length : 0,
+        enabled: s.enabled,
+        detectedAt: s.detectedAt.toISOString(),
+        updatedAt: s.updatedAt.toISOString(),
+        parsedRules: s.parsedRules as Array<{
+          category: string;
+          rule: string;
+          severity?: "critical" | "warning" | "suggestion";
+        }>,
+      }))}
       counts={repository._count}
     />
   );

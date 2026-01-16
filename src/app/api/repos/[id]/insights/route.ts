@@ -237,7 +237,7 @@ function calculateTrends(reviews: ReviewData[], days: number) {
   > = {};
 
   // Initialize days
-  for (let i = 0; i < Math.min(days, 30); i++) {
+  for (let i = 0; i < days; i++) {
     const date = new Date();
     date.setDate(date.getDate() - i);
     const dateStr = date.toISOString().split("T")[0] || "";

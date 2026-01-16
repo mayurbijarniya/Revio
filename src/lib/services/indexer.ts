@@ -15,6 +15,8 @@ import {
   deleteChunksByFile,
 } from "./qdrant";
 import { GitHubService } from "./github";
+import { StandardsDetector } from "./standards-detector";
+import { buildCodeGraph, saveCodeGraph } from "./code-graph";
 
 interface IndexingResult {
   fileCount: number;
@@ -217,6 +219,42 @@ export async function indexRepository(
         chunkCount: existingChunkCount + totalChunks,
       },
     });
+
+    // Auto-detect coding standards after indexing
+    try {
+      console.warn(`[Indexer] Auto-detecting coding standards for ${fullName}`);
+      const detector = new StandardsDetector(accessToken);
+      const standards = await detector.detectStandards(owner, repo, repositoryId);
+      if (standards.length > 0) {
+        await detector.saveStandards(repositoryId, standards);
+        console.warn(
+          `[Indexer] Detected ${standards.length} coding standards files for ${fullName}`
+        );
+      }
+    } catch (standardsError) {
+      // Don't fail indexing if standards detection fails
+      console.error("[Indexer] Failed to detect coding standards:", standardsError);
+    }
+
+    // Build code graph for function relationships
+    try {
+      console.warn(`[Indexer] Building code graph for ${fullName}`);
+      const filesForGraph = currentFileInfos.map((f) => ({
+        path: f.path,
+        content: f.content,
+        language: f.language,
+      }));
+
+      const graphData = await buildCodeGraph(repositoryId, filesForGraph);
+      await saveCodeGraph(repositoryId, graphData);
+
+      console.warn(
+        `[Indexer] Code graph built: ${graphData.nodes.length} nodes, ${graphData.edges.length} edges`
+      );
+    } catch (graphError) {
+      // Don't fail indexing if graph building fails
+      console.error("[Indexer] Failed to build code graph:", graphError);
+    }
 
     return {
       fileCount: currentFileInfos.length,

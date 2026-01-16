@@ -170,6 +170,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             url: prDetails.html_url,
             baseBranch: prDetails.base.ref,
             headBranch: prDetails.head.ref,
+            headSha: prDetails.head.sha,
           },
           accessToken // Pass the working token (App or User)
         );

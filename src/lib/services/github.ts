@@ -35,6 +35,31 @@ export interface ChangedFile {
   patch?: string;
 }
 
+export interface IssueComment {
+  id: number;
+  body: string;
+  user: { login: string; type?: string };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReviewComment {
+  id: number;
+  body: string;
+  user: { login: string; type?: string };
+  path: string;
+  line: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RepoWebhook {
+  id: number;
+  active: boolean;
+  events: string[];
+  url: string | null;
+}
+
 /**
  * GitHub Service for API interactions
  */
@@ -126,11 +151,54 @@ export class GitHubService {
         secret,
         insecure_ssl: "0",
       },
-      events: ["pull_request", "push"],
+      events: ["pull_request", "push", "issue_comment"],
       active: true,
     });
 
     return data.id;
+  }
+
+  /**
+   * Fetch an existing webhook configuration
+   */
+  async getWebhook(owner: string, repo: string, hookId: number): Promise<RepoWebhook> {
+    const { data } = await this.octokit.rest.repos.getWebhook({
+      owner,
+      repo,
+      hook_id: hookId,
+    });
+
+    return {
+      id: data.id,
+      active: data.active,
+      events: data.events || [],
+      url: typeof data.config?.url === "string" ? data.config.url : null,
+    };
+  }
+
+  /**
+   * Update webhook events (replaces the full event list)
+   */
+  async updateWebhookEvents(
+    owner: string,
+    repo: string,
+    hookId: number,
+    events: string[]
+  ): Promise<RepoWebhook> {
+    const { data } = await this.octokit.rest.repos.updateWebhook({
+      owner,
+      repo,
+      hook_id: hookId,
+      active: true,
+      events,
+    });
+
+    return {
+      id: data.id,
+      active: data.active,
+      events: data.events || [],
+      url: typeof data.config?.url === "string" ? data.config.url : null,
+    };
   }
 
   /**
@@ -319,6 +387,86 @@ export class GitHubService {
   }
 
   /**
+   * List PR issue comments (non-inline conversation comments)
+   */
+  async listIssueComments(
+    owner: string,
+    repo: string,
+    prNumber: number,
+    options: { perPage?: number } = {}
+  ): Promise<IssueComment[]> {
+    const comments: IssueComment[] = [];
+    let page = 1;
+    const perPage = options.perPage || 100;
+
+    while (true) {
+      const { data } = await this.octokit.rest.issues.listComments({
+        owner,
+        repo,
+        issue_number: prNumber,
+        per_page: perPage,
+        page,
+      });
+
+      comments.push(
+        ...data.map((c) => ({
+          id: c.id,
+          body: c.body || "",
+          user: { login: c.user?.login || "unknown", type: c.user?.type },
+          created_at: c.created_at,
+          updated_at: c.updated_at,
+        }))
+      );
+
+      if (data.length < perPage) break;
+      page += 1;
+    }
+
+    return comments;
+  }
+
+  /**
+   * List PR review comments (inline comments)
+   */
+  async listReviewComments(
+    owner: string,
+    repo: string,
+    prNumber: number,
+    options: { perPage?: number } = {}
+  ): Promise<ReviewComment[]> {
+    const comments: ReviewComment[] = [];
+    let page = 1;
+    const perPage = options.perPage || 100;
+
+    while (true) {
+      const { data } = await this.octokit.rest.pulls.listReviewComments({
+        owner,
+        repo,
+        pull_number: prNumber,
+        per_page: perPage,
+        page,
+      });
+
+      comments.push(
+        ...data.map((c) => ({
+          id: c.id,
+          body: c.body || "",
+          user: { login: c.user?.login || "unknown", type: c.user?.type },
+          path: c.path,
+          line: c.line ?? null,
+          created_at: c.created_at,
+          updated_at: c.updated_at,
+        }))
+      );
+
+      if (data.length < perPage) break;
+      page += 1;
+    }
+
+    return comments;
+  }
+
+  /**
    * Get a specific pull request
    */
   async getPullRequest(
@@ -394,6 +542,7 @@ export class GitHubService {
       created_at: pr.created_at,
     }));
   }
+
 
   /**
    * Get repository file tree (all files recursively)
