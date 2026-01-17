@@ -8,6 +8,8 @@ Engineering high-quality code through semantic codebase intelligence.
 
 Revio is actively implementing Phase 4 features. Recent updates include interactive bot conversations, learning & memory system, and improved error handling.
 
+**New:** You can now mention `@revio` in PR comments to ask questions about the review.
+
 - [x] **Phase 1**: Core Infrastructure & GitHub Integration
 - [x] **Phase 2**: Vector-Based Semantic Indexing
 - [x] **Phase 3**: Intelligent Review Engine & Team Analytics
