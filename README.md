@@ -10,6 +10,8 @@ Revio is actively implementing Phase 4 features. Recent updates include interact
 
 **New:** You can now mention `@revio` in PR comments to ask questions about the review.
 
+**Simplified:** Webhook management is now handled globally via GitHub App - no per-repo configuration needed.
+
 - [x] **Phase 1**: Core Infrastructure & GitHub Integration
 - [x] **Phase 2**: Vector-Based Semantic Indexing
 - [x] **Phase 3**: Intelligent Review Engine & Team Analytics
