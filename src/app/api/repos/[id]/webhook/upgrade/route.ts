@@ -27,7 +27,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
   try {
     const repo = await db.repository.findFirst({
       where: { id: repositoryId, userId: session.userId },
-      select: { id: true, fullName: true, webhookId: true },
+      select: { id: true, fullName: true, webhookId: true, reviewRules: true },
     });
 
     if (!repo) {
@@ -55,7 +55,36 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     }
 
     const github = new GitHubService(accessToken);
-    const current = await github.getWebhook(owner, repoName, repo.webhookId);
+    let current;
+    try {
+      current = await github.getWebhook(owner, repoName, repo.webhookId);
+    } catch (error: unknown) {
+      const err = error as { status?: number };
+      // If webhook is not found on GitHub, it's stale in our DB
+      if (err.status === 404) {
+        await db.repository.update({
+          where: { id: repositoryId },
+          data: { webhookId: null, webhookSecret: null },
+        });
+
+        return jsonError(
+          "WEBHOOK_404",
+          "The recorded webhook no longer exists on GitHub. Please disconnect and reconnect the repository to reset it.",
+          404
+        );
+      }
+
+      // Handle expired/invalid token
+      if (err.status === 401) {
+        return jsonError(
+          "AUTH_004",
+          "GitHub authentication failed. Your access token may have expired. Please log out and log back in to refresh it.",
+          401
+        );
+      }
+
+      throw error;
+    }
 
     const currentEvents = current.events || [];
     const hasWildcard = currentEvents.includes("*");
@@ -63,6 +92,17 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       hasWildcard || REQUIRED_EVENTS.every((e) => currentEvents.includes(e));
 
     if (hasAllRequired) {
+      // Mark as upgraded so we don't show the button anymore
+      await db.repository.update({
+        where: { id: repositoryId },
+        data: {
+          reviewRules: {
+            ...(repo.reviewRules as Record<string, unknown>),
+            webhookUpgraded: true,
+          },
+        },
+      });
+
       return jsonSuccess({
         upgraded: false,
         alreadyUpToDate: true,
@@ -83,6 +123,17 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       repo.webhookId,
       desiredEvents
     );
+
+    // Mark as upgraded
+    await db.repository.update({
+      where: { id: repositoryId },
+      data: {
+        reviewRules: {
+          ...(repo.reviewRules as Record<string, unknown>),
+          webhookUpgraded: true,
+        },
+      },
+    });
 
     return jsonSuccess({
       upgraded: true,

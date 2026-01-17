@@ -296,8 +296,14 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         requestedBy: reviewMap.get(pr.number)?.requestedBy || null,
       })),
     });
-  } catch (error) {
+  } catch (error: unknown) {
+    const err = error as { status?: number; message?: string };
     console.error("Failed to list PRs:", error);
+
+    if (err.status === 401) {
+      return jsonError("AUTH_004", "GitHub authentication failed. Token may be expired. Please reconnect your GitHub account.", 401);
+    }
+
     return jsonError("INTERNAL_001", "Failed to list pull requests", 500);
   }
 }

@@ -12,11 +12,9 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
-  FileCode,
   GitPullRequest,
   MessageSquare,
   Settings,
-  TrendingUp,
   ExternalLink,
   ArrowLeft,
   Trash2,
@@ -24,14 +22,12 @@ import {
   ToggleRight,
   X,
   Plus,
-  Sliders,
   GitPullRequestDraft,
   User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CodingStandardsPanel } from "@/components/ui/coding-standards-panel";
-import { type ReviewSettings, parseReviewSettings } from "@/types/review";
 
 interface Repository {
   id: string;
@@ -49,7 +45,7 @@ interface Repository {
   autoReview: boolean;
   webhookId: number | null;
   ignoredPaths: string[];
-  reviewRules: ReviewSettings | Record<string, unknown>;
+  reviewRules: Record<string, unknown>;
   createdAt: Date;
 }
 
@@ -116,6 +112,8 @@ export function RepoDetail({
   codingStandards = [],
   counts,
 }: RepoDetailProps) {
+  void indexedFiles; // Kept for future use
+  void prReviews; // Kept for future use
   const router = useRouter();
   const [isIndexing, setIsIndexing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -127,9 +125,6 @@ export function RepoDetail({
   const [ignoredPaths, setIgnoredPaths] = useState<string[]>(repository.ignoredPaths || []);
   const [newIgnoredPath, setNewIgnoredPath] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [reviewSettings] = useState<ReviewSettings>(
-    parseReviewSettings(repository.reviewRules)
-  );
   const [openPRs, setOpenPRs] = useState<OpenPR[]>([]);
   const [isLoadingPRs, setIsLoadingPRs] = useState(false);
   const [reviewingPR, setReviewingPR] = useState<number | null>(null);
@@ -278,8 +273,14 @@ export function RepoDetail({
       const data = await res.json();
       if (data.success) {
         setMessage(data.data?.message || "Webhook upgrade complete.");
+        router.refresh();
       } else {
-        setError(data.error?.message || "Failed to upgrade webhook");
+        if (data.error?.code === "WEBHOOK_404") {
+          setError("The recorded webhook no longer exists on GitHub. Please disconnect and reconnect the repository to reset it.");
+          router.refresh();
+        } else {
+          setError(data.error?.message || "Failed to upgrade webhook");
+        }
       }
     } catch {
       setError("Failed to upgrade webhook");
@@ -347,7 +348,7 @@ export function RepoDetail({
       {/* Back button */}
       <Link
         href="/dashboard/repos"
-        className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-6"
+        className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 mb-6 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to repositories
@@ -436,7 +437,7 @@ export function RepoDetail({
             <button
               onClick={() => setDeleteDialogOpen(true)}
               disabled={isDeleting}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-[#EF4444] border border-[#FEF2F2] hover:bg-[#FEF2F2] disabled:opacity-50 transition-colors flex-1 md:flex-none justify-center"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 disabled:opacity-50 flex-1 md:flex-none justify-center"
             >
               {isDeleting ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -608,59 +609,65 @@ export function RepoDetail({
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="w-full">
         {/* Settings */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 h-[500px] flex flex-col">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 flex-shrink-0">
             <Settings className="w-5 h-5" />
             Review Settings
           </h2>
 
-          <div className="space-y-4 flex-1 overflow-y-auto pr-1">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-medium">Auto Review PRs</div>
-                <div className="text-sm text-gray-500">
-                  Automatically review new pull requests
+          {/* Quick Settings Row - 4 columns */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {/* Auto Review */}
+            <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800">
+              <div className="flex items-center justify-between mb-2">
+                <div className="font-medium text-sm text-gray-700 dark:text-gray-300">
+                  Auto Review
                 </div>
+                <button
+                  onClick={handleToggleAutoReview}
+                  disabled={isUpdating}
+                  className="text-[#4F46E5] focus:outline-none"
+                >
+                  {autoReview ? (
+                    <ToggleRight className="w-7 h-7" />
+                  ) : (
+                    <ToggleLeft className="w-7 h-7 text-gray-300 dark:text-gray-600" />
+                  )}
+                </button>
               </div>
-              <button
-                onClick={handleToggleAutoReview}
-                disabled={isUpdating}
-                className="text-[#4F46E5]"
-              >
-                {autoReview ? (
-                  <ToggleRight className="w-8 h-8" />
-                ) : (
-                  <ToggleLeft className="w-8 h-8 text-gray-400" />
-                )}
-              </button>
+              <div className="text-xs text-gray-500">
+                Auto review new PRs
+              </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-medium">Webhook Status</div>
-                <div className="text-sm text-gray-500">
-                  {repository.webhookId ? "Active" : "Not configured"}
+            {/* Webhook Status */}
+            <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800">
+              <div className="flex items-center justify-between mb-2">
+                <div className="font-medium text-sm text-gray-700 dark:text-gray-300">
+                  Webhook
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
                 <span
                   className={cn(
-                    "px-2 py-1 rounded text-xs",
+                    "px-2 py-0.5 rounded text-[10px] font-medium uppercase",
                     repository.webhookId
                       ? "bg-[#ECFDF5] text-[#10B981]"
-                      : "status-disconnected"
+                      : "bg-gray-100 text-gray-500"
                   )}
                 >
-                  {repository.webhookId ? "Connected" : "Disconnected"}
+                  {repository.webhookId ? "Active" : "Off"}
                 </span>
-                {repository.webhookId && (
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-gray-500">
+                  {repository.webhookId ? "Connected" : "Not set"}
+                </div>
+                {repository.webhookId && !repository.reviewRules?.webhookUpgraded && (
                   <button
                     onClick={handleUpgradeWebhook}
                     disabled={isUpgradingWebhook}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
-                    title="Upgrade webhook to include issue_comment events"
+                    className="text-xs text-[#4F46E5] hover:text-[#4338CA] font-medium flex items-center gap-1"
                   >
                     <RefreshCw className={cn("w-3 h-3", isUpgradingWebhook && "animate-spin")} />
                     Upgrade
@@ -669,19 +676,54 @@ export function RepoDetail({
               </div>
             </div>
 
-            {/* Ignored Paths */}
-            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-              <div className="font-medium mb-2">Ignored Paths</div>
-              <div className="text-sm text-gray-500 mb-3">
-                Files matching these patterns will be skipped during review
+            {/* Custom Rules */}
+            <Link
+              href={`/dashboard/repos/${repository.id}/rules`}
+              className="block p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all group"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="font-medium text-sm text-gray-700 dark:text-gray-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                  Custom Rules
+                </div>
+                <ExternalLink className="w-3.5 h-3.5 text-gray-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
               </div>
-              <div className="flex gap-2 mb-2">
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                Rules & AI learning
+              </div>
+            </Link>
+
+            {/* Insights */}
+            <Link
+              href={`/dashboard/repos/${repository.id}/insights`}
+              className="block p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all group"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="font-medium text-sm text-gray-700 dark:text-gray-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                  Insights
+                </div>
+                <ExternalLink className="w-3.5 h-3.5 text-gray-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                Quality & trends
+              </div>
+            </Link>
+          </div>
+
+          {/* Bottom Row - Ignored Paths + Coding Standards */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Ignored Paths */}
+            <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800">
+              <div className="font-medium text-sm text-gray-700 dark:text-gray-300 mb-2">Ignored Paths</div>
+              <div className="text-xs text-gray-500 mb-3">
+                Files matching these patterns will be skipped
+              </div>
+              <div className="flex gap-2 mb-3">
                 <input
                   type="text"
                   value={newIgnoredPath}
                   onChange={(e) => setNewIgnoredPath(e.target.value)}
                   placeholder="e.g., *.test.ts, docs/*"
-                  className="flex-1 px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+                  className="flex-1 px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
@@ -697,12 +739,12 @@ export function RepoDetail({
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
-              {ignoredPaths.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {ignoredPaths.map((path) => (
+              <div className="flex flex-wrap gap-2 min-h-[24px]">
+                {ignoredPaths.length > 0 ? (
+                  ignoredPaths.map((path) => (
                     <span
                       key={path}
-                      className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs"
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs"
                     >
                       {path}
                       <button
@@ -713,60 +755,15 @@ export function RepoDetail({
                         <X className="w-3 h-3" />
                       </button>
                     </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Custom Review Rules */}
-            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-              <Link
-                href={`/dashboard/repos/${repository.id}/rules`}
-                className="block p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all group"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Sliders className="w-4 h-4 text-gray-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
-                    <span className="font-medium group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
-                      Custom Review Rules
-                    </span>
-                    {reviewSettings.customRules.length > 0 && (
-                      <span className="px-1.5 py-0.5 bg-[#4F46E5] text-white text-xs rounded-full">
-                        {reviewSettings.customRules.filter((r) => r.enabled).length}
-                      </span>
-                    )}
-                  </div>
-                  <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
-                </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Configure custom rules, severity thresholds, and focus areas
-                </p>
-              </Link>
-            </div>
-
-            {/* Insights */}
-            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-              <Link
-                href={`/dashboard/repos/${repository.id}/insights`}
-                className="block p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all group"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-gray-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
-                    <span className="font-medium group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
-                      Repository Insights
-                    </span>
-                  </div>
-                  <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
-                </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  View code quality trends, security score, and issue hotspots
-                </p>
-              </Link>
+                  ))
+                ) : (
+                  <span className="text-xs text-gray-400 italic">No paths ignored</span>
+                )}
+              </div>
             </div>
 
             {/* Coding Standards */}
-            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div>
               <CodingStandardsPanel
                 repositoryId={repository.id}
                 initialStandards={codingStandards}
@@ -783,97 +780,6 @@ export function RepoDetail({
               Chat with this codebase
             </Link>
           </div>
-        </div>
-
-        {/* Recent PR Reviews */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 h-[500px] flex flex-col">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 flex-shrink-0">
-            <GitPullRequest className="w-5 h-5" />
-            Recent PR Reviews
-          </h2>
-
-          {prReviews.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 flex-1 flex flex-col items-center justify-center">
-              <GitPullRequest className="w-8 h-8 mb-2 opacity-50" />
-              <p className="text-sm">No PR reviews yet</p>
-            </div>
-          ) : (
-            <div className="space-y-3 flex-1 overflow-y-auto pr-1">
-              {prReviews.map((pr) => (
-                <Link
-                  key={pr.id}
-                  href={`/dashboard/reviews/${pr.id}`}
-                  className="block p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-sm">#{pr.prNumber}</span>
-                    <span
-                      className={cn(
-                        "px-2 py-0.5 rounded text-xs",
-                        pr.status === "completed"
-                          ? "bg-[#ECFDF5] text-[#10B981]"
-                          : pr.status === "failed"
-                            ? "bg-[#FEF2F2] text-[#EF4444]"
-                            : "bg-gray-100 text-gray-500 dark:bg-gray-700"
-                      )}
-                    >
-                      {pr.status}
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-600 truncate mt-1">
-                    {pr.prTitle}
-                  </div>
-                  {pr.prAuthor && (
-                    <div className="text-xs text-gray-400 mt-1">
-                      by {pr.prAuthor}
-                    </div>
-                  )}
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Indexed Files */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 h-[500px] flex flex-col">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 flex-shrink-0">
-            <FileCode className="w-5 h-5" />
-            Indexed Files
-            <span className="text-sm font-normal text-gray-500">
-              ({counts.indexedFiles})
-            </span>
-          </h2>
-
-          {indexedFiles.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 flex-1 flex flex-col items-center justify-center">
-              <FileCode className="w-8 h-8 mb-2 opacity-50" />
-              <p className="text-sm">No files indexed yet</p>
-            </div>
-          ) : (
-            <div className="space-y-1 flex-1 overflow-y-auto pr-1">
-              {indexedFiles.map((file) => (
-                <div
-                  key={file.id}
-                  className="file-list-item"
-                >
-                  <FileCode className="file-icon flex-shrink-0" />
-                  <span className="truncate" title={file.filePath}>
-                    {file.filePath}
-                  </span>
-                  {file.language && (
-                    <span className="file-extension flex-shrink-0">
-                      {file.language}
-                    </span>
-                  )}
-                </div>
-              ))}
-              {counts.indexedFiles > 50 && (
-                <div className="text-center text-sm text-gray-500 py-2 flex-shrink-0">
-                  +{counts.indexedFiles - 50} more files
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
 

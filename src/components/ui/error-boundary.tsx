@@ -55,41 +55,44 @@ export class ErrorBoundary extends Component<Props, State> {
         return this.props.fallback;
       }
 
-      // Default error UI
+      // Default error UI - Matches app design system
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
-          <div className="max-w-md w-full text-center">
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 py-8">
+          <div className="max-w-lg w-full text-center">
+            {/* Icon */}
             <div className="mb-6">
               <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
                 <AlertTriangle className="w-8 h-8 text-red-600 dark:text-red-400" />
               </div>
             </div>
 
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            {/* Text */}
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
               Something went wrong
             </h1>
-
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              We&apos;re sorry, but something unexpected happened. Please try refreshing the page.
+            <p className="text-gray-600 dark:text-gray-400 mb-8">
+              We hit an unexpected error. Don&apos;t worry — your data is safe.
             </p>
 
+            {/* Error details in dev mode */}
             {process.env.NODE_ENV === "development" && this.state.error && (
-              <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg text-left">
-                <p className="text-sm font-mono text-red-800 dark:text-red-200 mb-2">
+              <div className="mb-8 p-4 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg text-left overflow-hidden">
+                <p className="text-sm font-mono text-red-800 dark:text-red-200 mb-2 font-medium break-words">
                   {this.state.error.message}
                 </p>
                 {this.state.error.stack && (
-                  <pre className="text-xs text-red-600 dark:text-red-400 overflow-auto max-h-40">
+                  <pre className="text-xs text-red-600 dark:text-red-400 overflow-x-auto max-h-32 whitespace-pre-wrap break-all">
                     {this.state.error.stack}
                   </pre>
                 )}
               </div>
             )}
 
-            <div className="flex gap-3 justify-center">
+            {/* Action buttons */}
+            <div className="flex gap-3 justify-center flex-wrap">
               <button
                 onClick={this.handleReset}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors whitespace-nowrap"
               >
                 <RefreshCw className="w-4 h-4" />
                 Try Again
@@ -97,7 +100,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
               <button
                 onClick={this.handleReload}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] transition-colors"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] transition-colors whitespace-nowrap"
               >
                 <RefreshCw className="w-4 h-4" />
                 Reload Page
@@ -105,12 +108,17 @@ export class ErrorBoundary extends Component<Props, State> {
 
               <Link
                 href="/dashboard"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors whitespace-nowrap"
               >
                 <Home className="w-4 h-4" />
-                Go Home
+                Dashboard
               </Link>
             </div>
+
+            {/* Support message */}
+            <p className="text-gray-500 dark:text-gray-600 text-sm mt-8">
+              If this keeps happening, please contact support.
+            </p>
           </div>
         </div>
       );
