@@ -2,12 +2,12 @@ import { NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { getUserAccessToken } from "@/lib/auth";
-import { GitHubService } from "@/lib/services/github";
 import { jsonSuccess, jsonError } from "@/lib/api-utils";
 import { ConnectRepoSchema } from "@/types/repository";
 import { PLAN_LIMITS } from "@/lib/constants";
-import { generateSecret } from "@/lib/encryption";
 import { addIndexingJob } from "@/lib/queue";
+
+// GitHub App handles webhooks globally - no per-repo webhooks needed
 
 /**
  * POST /api/repos/connect
@@ -65,39 +65,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Get access token for webhook creation
+    // Verify user has valid GitHub token
     const accessToken = await getUserAccessToken(session.userId);
     if (!accessToken) {
       return jsonError("AUTH_001", "Invalid GitHub token", 401);
     }
 
-    // Create webhook secret
-    const webhookSecret = generateSecret(32);
-    const parts = fullName.split("/");
-    const owner = parts[0];
-    const repoName = parts[1];
-
-    let webhookId: number | null = null;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
-    const isLocalhost = appUrl.includes("localhost") || appUrl.includes("127.0.0.1");
-
-    // Try to create webhook (may fail if user doesn't have admin access)
-    // Skip webhook creation for localhost since GitHub can't deliver webhooks to local URLs
-    if (owner && repoName && !isLocalhost) {
-      try {
-        const github = new GitHubService(accessToken);
-        const webhookUrl = `${appUrl}/api/webhooks/github`;
-        webhookId = await github.createWebhook(owner, repoName, webhookUrl, webhookSecret);
-      } catch (webhookError) {
-        // Webhook creation failed - continue without webhook
-        // User can still use chat and manual reviews
-        console.warn("Webhook creation failed:", webhookError);
-      }
-    } else if (isLocalhost) {
-      console.warn("Skipping webhook creation for localhost. Use manual PR review instead.");
-    }
-
     // Create repository record
+    // Note: Webhooks are handled by the GitHub App globally, not per-repo
     const repo = await db.repository.create({
       data: {
         userId: session.userId,
@@ -107,12 +82,10 @@ export async function POST(request: NextRequest) {
         private: isPrivate,
         defaultBranch,
         language,
-        webhookId,
-        webhookSecret: webhookId ? webhookSecret : null,
+        // webhookId and webhookSecret are deprecated - GitHub App handles webhooks
+        webhookId: null,
+        webhookSecret: null,
         indexStatus: "pending",
-        reviewRules: {
-          webhookUpgraded: true,
-        },
       },
     });
 
