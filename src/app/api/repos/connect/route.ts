@@ -123,13 +123,9 @@ export async function POST(request: NextRequest) {
           language: repo.language,
           indexStatus: repo.indexStatus,
           autoReview: repo.autoReview,
-          webhookActive: !!webhookId,
+          webhookActive: true, // GitHub App handles webhooks globally
         },
-        message: isLocalhost
-          ? "Repository connected. Webhooks are not available on localhost - use manual PR reviews instead."
-          : webhookId
-            ? "Repository connected with automatic PR reviews enabled."
-            : "Repository connected. Webhook creation failed - use manual PR reviews instead.",
+        message: "Repository connected with automatic PR reviews enabled via GitHub App.",
       },
       201
     );
