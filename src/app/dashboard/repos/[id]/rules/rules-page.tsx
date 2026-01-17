@@ -68,7 +68,7 @@ export function RulesPage({
       {/* Back button */}
       <Link
         href={`/dashboard/repos/${repositoryId}`}
-        className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 mb-6"
+        className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 mb-6 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to repository
@@ -77,18 +77,16 @@ export function RulesPage({
       {/* Save Message */}
       {saveMessage && (
         <div
-          className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
-            saveMessage.includes("success")
+          className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${saveMessage.includes("success")
               ? "bg-[#ECFDF5] dark:bg-[#064E3B] border border-[#10B981] dark:border-[#059669]"
               : "bg-[#FEF2F2] dark:bg-[#7F1D1D] border border-[#FECACA] dark:border-[#991B1B]"
-          }`}
+            }`}
         >
           <AlertCircle
-            className={`w-5 h-5 ${
-              saveMessage.includes("success")
+            className={`w-5 h-5 ${saveMessage.includes("success")
                 ? "text-[#10B981]"
                 : "text-[#EF4444]"
-            }`}
+              }`}
           />
           <span
             className={

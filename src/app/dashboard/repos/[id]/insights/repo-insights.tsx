@@ -116,7 +116,10 @@ export default function RepoInsights({
           {error || "No insights available"}
         </div>
         <div className="mt-4">
-          <Link href={`/dashboard/repos/${repoId}`} className="inline-flex items-center gap-2 text-[#4F46E5] hover:underline">
+          <Link
+            href={`/dashboard/repos/${repoId}`}
+            className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+          >
             <ArrowLeft className="h-4 w-4" />
             Back to Repository
           </Link>
@@ -129,6 +132,15 @@ export default function RepoInsights({
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6 md:space-y-8">
+      {/* Back button */}
+      <Link
+        href={`/dashboard/repos/${repoId}`}
+        className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back to Repository
+      </Link>
+
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 md:p-6">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -162,11 +174,6 @@ export default function RepoInsights({
                 {repoName} · <span className="font-mono text-xs">{repoFullName}</span>
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-500">
-                <Link href={`/dashboard/repos/${repoId}`} className="inline-flex items-center gap-1 text-[#4F46E5] hover:underline">
-                  <ArrowLeft className="h-3 w-3" />
-                  Back to Repository
-                </Link>
-                <span className="text-gray-300">•</span>
                 <span>Index: {data.repository.indexStatus}</span>
                 <span className="text-gray-300">•</span>
                 <span>{data.repository.fileCount} files</span>

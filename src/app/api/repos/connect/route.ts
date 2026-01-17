@@ -110,6 +110,9 @@ export async function POST(request: NextRequest) {
         webhookId,
         webhookSecret: webhookId ? webhookSecret : null,
         indexStatus: "pending",
+        reviewRules: {
+          webhookUpgraded: true,
+        },
       },
     });
 
