@@ -38,6 +38,7 @@ import { BlastRadiusPanel } from "@/components/ui/blast-radius-panel";
 import type { BlastRadiusData } from "@/types/blast-radius";
 import { TestCoveragePanel } from "@/components/ui/test-coverage-panel";
 import type { TestCoverageData } from "@/types/test-coverage";
+import { MermaidDiagram } from "@/components/ui/mermaid-diagram";
 
 interface ReviewIssue {
   file?: string;
@@ -539,18 +540,8 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Sequence Diagram
             </h2>
-            <span className="text-xs text-gray-500">
-              Mermaid syntax
-            </span>
           </div>
-          <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 overflow-x-auto">
-            <pre className="text-xs font-mono text-gray-800 dark:text-gray-200 whitespace-pre">
-              {review.sequenceDiagram}
-            </pre>
-          </div>
-          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            Paste this into a Mermaid renderer (e.g. Mermaid Live Editor) to visualize the flow.
-          </p>
+          <MermaidDiagram chart={review.sequenceDiagram} />
         </div>
       )}
 

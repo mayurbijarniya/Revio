@@ -2,6 +2,7 @@
 
 import type { BlastRadiusData, BlastRadiusRiskLevel } from "@/types/blast-radius";
 import { cn } from "@/lib/utils";
+import { MermaidDiagram } from "./mermaid-diagram";
 
 function getRiskStyles(risk: BlastRadiusRiskLevel) {
   switch (risk) {
@@ -210,16 +211,8 @@ export function BlastRadiusPanel({ blastRadius }: { blastRadius: BlastRadiusData
           <div className="text-sm font-medium text-gray-900 dark:text-white">
             Impact Diagram
           </div>
-          <span className="text-xs text-gray-500">Mermaid syntax</span>
         </div>
-        <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 overflow-x-auto">
-          <pre className="text-xs font-mono text-gray-800 dark:text-gray-200 whitespace-pre">
-            {blastRadius.mermaid}
-          </pre>
-        </div>
-        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          This Mermaid diagram is included in the GitHub review comment and can be pasted into any Mermaid renderer.
-        </p>
+        <MermaidDiagram chart={blastRadius.mermaid} />
       </div>
     </div>
   );
