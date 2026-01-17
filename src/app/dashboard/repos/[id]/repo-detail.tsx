@@ -118,7 +118,6 @@ export function RepoDetail({
   const [isIndexing, setIsIndexing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [isUpgradingWebhook, setIsUpgradingWebhook] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [autoReview, setAutoReview] = useState(repository.autoReview);
@@ -259,33 +258,6 @@ export function RepoDetail({
       setError("Failed to update settings");
     } finally {
       setIsUpdating(false);
-    }
-  }
-
-  async function handleUpgradeWebhook() {
-    setIsUpgradingWebhook(true);
-    setError(null);
-    setMessage(null);
-    try {
-      const res = await fetch(`/api/repos/${repository.id}/webhook/upgrade`, {
-        method: "POST",
-      });
-      const data = await res.json();
-      if (data.success) {
-        setMessage(data.data?.message || "Webhook upgrade complete.");
-        router.refresh();
-      } else {
-        if (data.error?.code === "WEBHOOK_404") {
-          setError("The recorded webhook no longer exists on GitHub. Please disconnect and reconnect the repository to reset it.");
-          router.refresh();
-        } else {
-          setError(data.error?.message || "Failed to upgrade webhook");
-        }
-      }
-    } catch {
-      setError("Failed to upgrade webhook");
-    } finally {
-      setIsUpgradingWebhook(false);
     }
   }
 
@@ -642,37 +614,18 @@ export function RepoDetail({
               </div>
             </div>
 
-            {/* Webhook Status */}
+            {/* Webhook Status - Managed by GitHub App */}
             <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800">
               <div className="flex items-center justify-between mb-2">
                 <div className="font-medium text-sm text-gray-700 dark:text-gray-300">
                   Webhook
                 </div>
-                <span
-                  className={cn(
-                    "px-2 py-0.5 rounded text-[10px] font-medium uppercase",
-                    repository.webhookId
-                      ? "bg-[#ECFDF5] text-[#10B981]"
-                      : "bg-gray-100 text-gray-500"
-                  )}
-                >
-                  {repository.webhookId ? "Active" : "Off"}
+                <span className="px-2 py-0.5 rounded text-[10px] font-medium uppercase bg-[#ECFDF5] text-[#10B981]">
+                  Active
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="text-xs text-gray-500">
-                  {repository.webhookId ? "Connected" : "Not set"}
-                </div>
-                {repository.webhookId && !repository.reviewRules?.webhookUpgraded && (
-                  <button
-                    onClick={handleUpgradeWebhook}
-                    disabled={isUpgradingWebhook}
-                    className="text-xs text-[#4F46E5] hover:text-[#4338CA] font-medium flex items-center gap-1"
-                  >
-                    <RefreshCw className={cn("w-3 h-3", isUpgradingWebhook && "animate-spin")} />
-                    Upgrade
-                  </button>
-                )}
+              <div className="text-xs text-gray-500">
+                Managed by GitHub App
               </div>
             </div>
 

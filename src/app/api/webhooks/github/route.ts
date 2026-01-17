@@ -13,7 +13,7 @@ import {
   type BotMessage,
 } from "@/lib/services/bot-conversation";
 
-// GitHub App webhook secret (global for all repos)
+// GitHub App webhook secret (required for all webhook events)
 const GITHUB_APP_WEBHOOK_SECRET = process.env.GITHUB_APP_WEBHOOK_SECRET;
 
 /**
@@ -85,18 +85,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Repository not found" }, { status: 404 });
   }
 
-  // Verify webhook signature using GitHub App secret (preferred) or per-repo secret (legacy)
-  const webhookSecret = GITHUB_APP_WEBHOOK_SECRET || repository.webhookSecret;
-
-  if (webhookSecret) {
-    if (!verifySignature(payload, signature, webhookSecret)) {
-      console.warn(`[Webhook] Invalid signature for ${repoFullName}. Using ${GITHUB_APP_WEBHOOK_SECRET ? 'App secret' : 'repo secret'}.`);
-      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-    }
-    console.warn(`[Webhook] Signature verified for ${repoFullName}`);
-  } else {
-    console.warn(`[Webhook] No webhook secret configured, skipping signature verification for ${repoFullName}`);
+  // Verify webhook signature using GitHub App secret
+  if (!GITHUB_APP_WEBHOOK_SECRET) {
+    console.error(`[Webhook] GITHUB_APP_WEBHOOK_SECRET not configured!`);
+    return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
   }
+
+  if (!verifySignature(payload, signature, GITHUB_APP_WEBHOOK_SECRET)) {
+    console.warn(`[Webhook] Invalid signature for ${repoFullName}`);
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+  }
+  
+  console.warn(`[Webhook] Signature verified for ${repoFullName}`);
 
   // Handle pull_request events
   if (event === "pull_request") {
