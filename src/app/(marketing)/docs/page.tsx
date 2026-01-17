@@ -326,12 +326,18 @@ export default function DocsPage() {
 
               <DocSubHeading>Key Features</DocSubHeading>
               <DocList items={[
-                "Automated PR Reviews - Get instant, AI-powered feedback on every pull request",
+                "AI-Powered PR Reviews - Instant feedback with graph-based code understanding",
+                "Confidence Scoring (1-5) - Multi-factor merge readiness assessment",
+                "Blast Radius Analysis - Visual impact analysis of changed code",
+                "Interactive @revio-bot - Natural language conversations in PR comments",
+                "Learning System - Auto-adapts to your team&apos;s feedback patterns",
+                "Auto Docstrings - AI-generated documentation with one-click apply",
                 "Codebase Indexing - Vector embeddings for semantic code search",
                 "Natural Language Chat - Ask questions about your code in plain English",
                 "Custom Review Rules - Define your own patterns and standards",
+                "Security Scanner - 40+ vulnerability pattern detection",
                 "Team Collaboration - Organizations with role-based access control",
-                "Security Scanning - Detect vulnerabilities and security issues",
+                "Coding Standards Auto-Detection - Reads .claude.md, .cursorrules, and more",
               ]} />
 
               <DocNote type="info">

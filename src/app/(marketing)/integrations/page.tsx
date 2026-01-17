@@ -1,4 +1,4 @@
-import { Github } from "lucide-react";
+import { Github, Brain, MessageSquare, Target, Zap } from "lucide-react";
 
 // Standard Brand SVGs (Colored)
 const GitlabIcon = () => (
@@ -28,30 +28,97 @@ export default function IntegrationsPage() {
                 <h1 className="text-4xl sm:text-5xl font-bold mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">INTEGRATIONS</h1>
                 <div className="max-w-4xl">
                     <p className="text-xl text-[var(--foreground)]/80 leading-relaxed mb-12">
-                        Revio connects seamlessly with your existing workflow tools.
+                        Revio connects seamlessly with your existing workflow tools. Our AI Code Intelligence integrates natively with GitHub for powerful code review automation.
                     </p>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
                         <div className="border border-[var(--code-border)] p-8 hover:border-[var(--primary)] transition-colors cursor-pointer group bg-[var(--background)]">
                             <div className="w-16 h-16 bg-[var(--code-bg)] rounded-lg mb-6 flex items-center justify-center border border-[var(--code-border)]">
                                 <Github className="w-8 h-8 text-[var(--foreground)]" />
                             </div>
                             <h3 className="font-bold mb-2 group-hover:text-[var(--primary)] text-lg">GitHub</h3>
-                            <p className="text-sm opacity-70">Native integration for PR comments and checks.</p>
+                            <p className="text-sm opacity-70">Native integration for PR comments, checks, and @revio-bot conversations.</p>
                         </div>
                         <div className="border border-[var(--code-border)] p-8 hover:border-[var(--primary)] transition-colors cursor-pointer group bg-[var(--background)]">
                             <div className="w-16 h-16 bg-[var(--code-bg)] rounded-lg mb-6 flex items-center justify-center border border-[var(--code-border)]">
                                 <GitlabIcon />
                             </div>
                             <h3 className="font-bold mb-2 group-hover:text-[var(--primary)] text-lg">GitLab</h3>
-                            <p className="text-sm opacity-70">Support for CI pipelines and merge requests.</p>
+                            <p className="text-sm opacity-70">Support for CI pipelines and merge request comments.</p>
                         </div>
                         <div className="border border-[var(--code-border)] p-8 hover:border-[var(--primary)] transition-colors cursor-pointer group bg-[var(--background)]">
                             <div className="w-16 h-16 bg-[var(--code-bg)] rounded-lg mb-6 flex items-center justify-center border border-[var(--code-border)]">
                                 <SlackIcon />
                             </div>
                             <h3 className="font-bold mb-2 group-hover:text-[var(--primary)] text-lg">Slack</h3>
-                            <p className="text-sm opacity-70">Real-time notifications for critical issues.</p>
+                            <p className="text-sm opacity-70">Real-time notifications for critical issues and review completed.</p>
+                        </div>
+                    </div>
+
+                    <h2 className="text-2xl font-bold mb-6 mt-16">[ AI_CODE_INTELLIGENCE ]</h2>
+                    <p className="text-lg text-[var(--foreground)]/70 mb-8">
+                        Revio v3.0 brings intelligent code understanding directly into your review workflow.
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="border border-[var(--code-border)] p-6 bg-[var(--code-bg)] hover:border-[var(--primary)]/50 transition-colors">
+                            <div className="flex items-center gap-3 mb-4">
+                                <Brain className="w-6 h-6 text-[var(--primary)]" />
+                                <h3 className="font-bold text-lg">Graph-Based Analysis</h3>
+                            </div>
+                            <p className="text-sm opacity-70 mb-3">
+                                AST-powered code understanding that maps function relationships, call paths, and dependencies across your entire codebase.
+                            </p>
+                            <ul className="text-xs font-mono opacity-60 space-y-1">
+                                <li>- Function call mapping</li>
+                                <li>- Impact analysis</li>
+                                <li>- Entry point detection</li>
+                            </ul>
+                        </div>
+
+                        <div className="border border-[var(--code-border)] p-6 bg-[var(--code-bg)] hover:border-[var(--primary)]/50 transition-colors">
+                            <div className="flex items-center gap-3 mb-4">
+                                <Target className="w-6 h-6 text-[var(--primary)]" />
+                                <h3 className="font-bold text-lg">Confidence Scoring</h3>
+                            </div>
+                            <p className="text-sm opacity-70 mb-3">
+                                1-5 star merge readiness scores with multi-factor analysis including issues, security, and complexity impact.
+                            </p>
+                            <ul className="text-xs font-mono opacity-60 space-y-1">
+                                <li>- Risk level assessment</li>
+                                <li>- Security score (0-100)</li>
+                                <li>- Quality metrics</li>
+                            </ul>
+                        </div>
+
+                        <div className="border border-[var(--code-border)] p-6 bg-[var(--code-bg)] hover:border-[var(--primary)]/50 transition-colors">
+                            <div className="flex items-center gap-3 mb-4">
+                                <MessageSquare className="w-6 h-6 text-[var(--primary)]" />
+                                <h3 className="font-bold text-lg">Interactive Bot</h3>
+                            </div>
+                            <p className="text-sm opacity-70 mb-3">
+                                @revio-bot conversations in PR comments. Ask questions, get explanations, or trigger re-reviews naturally.
+                            </p>
+                            <ul className="text-xs font-mono opacity-60 space-y-1">
+                                <li>- &quot;Explain this&quot;</li>
+                                <li>- &quot;Why did you suggest X?&quot;</li>
+                                <li>- &quot;Re-review&quot;</li>
+                            </ul>
+                        </div>
+
+                        <div className="border border-[var(--code-border)] p-6 bg-[var(--code-bg)] hover:border-[var(--primary)]/50 transition-colors">
+                            <div className="flex items-center gap-3 mb-4">
+                                <Zap className="w-6 h-6 text-[var(--primary)]" />
+                                <h3 className="font-bold text-lg">Learning System</h3>
+                            </div>
+                            <p className="text-sm opacity-70 mb-3">
+                                Adapts to your team&apos;s feedback. Auto-suppresses low-value noise and learns from accepted/rejected suggestions.
+                            </p>
+                            <ul className="text-xs font-mono opacity-60 space-y-1">
+                                <li>- Feedback-driven suppression</li>
+                                <li>- Team preference profiles</li>
+                                <li>- Adoption tracking</li>
+                            </ul>
                         </div>
                     </div>
                 </div>

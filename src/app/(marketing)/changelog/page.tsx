@@ -13,6 +13,7 @@ import {
   Sparkles,
   Rocket,
   Database,
+  Brain,
   ChevronDown,
 } from "lucide-react";
 
@@ -31,28 +32,44 @@ interface Release {
 
 const releases: Release[] = [
   {
-    version: "2.2.0",
-    date: "January 14, 2026",
-    title: "Team Intelligence & Advanced Security",
-    description: "Launch of Team Analytics, enhanced Security Scanner, and Organization activity feeds.",
-    type: "minor",
-    icon: BarChart3,
+    version: "3.0.0",
+    date: "January 17, 2026",
+    title: "AI Code Intelligence",
+    description: "Major release with graph-based code understanding, confidence scoring, interactive bot, and learning system.",
+    type: "major",
+    icon: Brain,
     changes: [
       {
         category: "added",
         items: [
-          "Team Analytics Dashboard - Insights into PR velocity and code quality",
-          "Advanced Security Scanner - Detection for SSRF, SQLi, XSS, and more",
-          "Organization Activity Feed - Real-time stream of team events",
-          "Usage Tracking & Plan Limits - Granular control for enterprise customers",
+          "Graph-Based Code Analysis - AST parsing with function relationships and call path mapping",
+          "Confidence Scoring (1-5) - Multi-factor merge readiness with issues, security, and complexity analysis",
+          "Interactive @revio-bot - Natural language conversations in PR comments with explain/why/ignore/review commands",
+          "Learning & Memory System - Auto-suppresses low-value noise based on team feedback patterns",
+          "Blast Radius Visualization - Visual impact analysis showing affected functions and entry points",
+          "Sequence Diagrams - Mermaid.js call flow visualizations for PR changes",
+          "Auto Docstring Generation - AI-generated JSDoc with one-click GitHub suggestion apply",
+          "Coding Standards Auto-Detection - Reads .claude.md, .cursorrules, agents.md for custom rules",
+          "Test Coverage Analysis - Detects missing tests for changed files with suggested paths",
+          "Mermaid Diagram Rendering - Reusable React component for visual diagrams",
+          "Quality Trend Charts - Historical quality metrics over time in repository insights",
         ],
       },
       {
         category: "improved",
         items: [
-          "Hero Animation - Optimized for mobile/desktop split paths",
-          "Prompt Engineering - Refined Gemini models for lower hallucination",
-          "Vercel after() API integration - 100% reliability for long reviews",
+          "Codebase Context Retrieval - Hybrid search with vector + keyword + graph traversal",
+          "Impact Analysis - Direct callers, indirect callers, and entry point tracking",
+          "Reviewer Service - Integrated learning context, blast radius, and sequence diagrams",
+          "Dashboard Reviews - Filter by status/repository with confidence score badges",
+          "Repository Insights - Quality scores, security scores, hotspots, and trends",
+        ],
+      },
+      {
+        category: "security",
+        items: [
+          "Standards Compliance Checking - Validates code against team coding standards",
+          "Enhanced Security Patterns - 40+ vulnerability patterns with CWE/OWASP references",
         ],
       },
     ],

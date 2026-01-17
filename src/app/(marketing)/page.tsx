@@ -3,11 +3,14 @@
 import Link from "next/link";
 import {
   Github,
-  GitPullRequest,
   MessageSquare,
   Shield,
   Users,
   CheckCircle2,
+  Target,
+  Zap,
+  Cpu,
+  Eye,
   Brain,
   FileCode,
 } from "lucide-react";
@@ -21,7 +24,7 @@ export default function Home() {
       <Link href="/changelog" className="block border-b border-[var(--code-border)] py-2 px-4 sm:px-6 bg-[var(--code-bg)] hover:bg-[var(--code-bg)]/80 transition-colors">
         <p className="font-mono text-[10px] sm:text-xs font-medium text-[var(--foreground)]/60 uppercase tracking-wide flex items-center gap-2">
           <span className="w-2 h-2 bg-[var(--primary)] inline-block flex-shrink-0"></span>
-          <span className="truncate">[ ANNOUNCEMENT ] : REVIO V2.2.0 IS NOW LIVE WITH TEAM ANALYTICS & ADVANCED SECURITY</span>
+          <span className="truncate">[ ANNOUNCEMENT ] : REVIO V3.0 IS NOW LIVE WITH AI CODE INTELLIGENCE</span>
         </p>
       </Link>
 
@@ -106,7 +109,7 @@ export default function Home() {
               COMPLETE VISIBILITY INTO YOUR CODEBASE HEALTH
             </h2>
             <span className="font-mono text-[10px] sm:text-xs text-[var(--foreground)]/50">
-              [ INTERFACE_PREVIEW_V2.2.0 ]
+              [ INTERFACE_PREVIEW_V3.0.0 ]
             </span>
           </div>
 
@@ -122,16 +125,19 @@ export default function Home() {
       <section id="features" className="border-b border-[var(--code-border)] scroll-mt-24">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {[
-            { icon: GitPullRequest, title: "AUTO_PR_REVIEW", desc: "Instant feedback on every pull request. Catch logical bugs and architectural flaws before they merge." },
-            { icon: MessageSquare, title: "CONTEXT_CHAT", desc: "Chat with your codebase using semantic search. Ask complex questions and get cited answers." },
-            { icon: Shield, title: "SECURITY_SCANNER", desc: "Pattern-based detection for SSRF, SQLi, XSS, and hardcoded secrets. Integrated directly into the review loop." },
-            { icon: Brain, title: "SEMANTIC_INDEXING", desc: "Vector-based indexing using Qdrant allows the AI to understand dependencies across files." },
-            { icon: FileCode, title: "MULTI_LANGUAGE", desc: "Native support for TS, Go, Python, Rust, Java, C++, PHP, and more. Optimized for modern stacks." },
+            { icon: Target, title: "SMART_CODE_REVIEW", desc: "AI that understands your codebase context. Detects bugs, logic errors, and architectural issues before they merge." },
+            { icon: Cpu, title: "GRAPH_BASED_ANALYSIS", desc: "AST-powered code understanding with function relationships, call paths, and dependency mapping for deeper insights." },
+            { icon: Brain, title: "CONFIDENCE_SCORING", desc: "1-5 star merge readiness scores with multi-factor analysis including issues, security, and complexity impact." },
+            { icon: MessageSquare, title: "INTERACTIVE_BOT", desc: "@revio-bot conversations in PR comments. Explain changes, justify suggestions, or trigger re-reviews naturally." },
+            { icon: Eye, title: "BLAST_RADIUS", desc: "Visual impact analysis showing which files and functions are affected by your changes with risk-based visualization." },
+            { icon: Zap, title: "LEARNING_SYSTEM", desc: "Adapts to your team's feedback. Auto-suppresses low-value noise and learns from accepted/rejected suggestions." },
+            { icon: Shield, title: "SECURITY_SCANNER", desc: "40+ pattern-based detection for SSRF, SQLi, XSS, hardcoded secrets, and vulnerable dependencies." },
+            { icon: FileCode, title: "AUTO_DOCSTRINGS", desc: "AI-generated JSDoc and docstring suggestions with one-click apply directly in GitHub PR comments." },
             { icon: Users, title: "TEAM_ANALYTICS", desc: "Track code quality trends, PR velocity, and security debt across your entire organization." }
           ].map((feature, i) => (
             <div key={i} className={`group p-6 sm:p-8 lg:p-10 border-b border-[var(--code-border)] hover:bg-[var(--code-bg)] transition-colors relative overflow-hidden ${i % 2 === 0 ? 'sm:border-r' : ''} ${i % 3 !== 2 ? 'lg:border-r' : 'lg:border-r-0'}`}>
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[var(--background)] border border-[var(--code-border)] flex items-center justify-center mb-4 sm:mb-6 group-hover:scale-110 transition-transform">
-                <feature.icon className="w-5 h-5 sm:w-6 sm:h-6 text-[var(--foreground)]" />
+                <feature.icon className="w-5 h-5 sm:w-6 sm:h-6 text-[var(--primary)]" />
               </div>
               <span className="font-mono text-[10px] sm:text-xs font-medium text-[var(--primary)] mb-2 sm:mb-3 block">[ FEATURE_0{i + 1} ]</span>
               <h3 className="text-lg sm:text-xl font-bold mb-2 sm:mb-3">{feature.title}</h3>
@@ -207,9 +213,9 @@ export default function Home() {
                 <li className="flex items-center gap-2 sm:gap-3"><CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--primary)] flex-shrink-0" /> 10 Context Chunks</li>
                 <li className="flex items-center gap-2 sm:gap-3"><CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--primary)] flex-shrink-0" /> Community Support</li>
               </ul>
-              <button className="w-full py-2.5 sm:py-3 border border-[var(--code-border)] font-mono text-xs sm:text-sm font-bold hover:bg-[var(--foreground)] hover:text-[var(--background)] transition-colors uppercase whitespace-nowrap mt-auto">
+              <Link href="/login" className="w-full py-2.5 sm:py-3 border border-[var(--code-border)] font-mono text-xs sm:text-sm font-bold hover:bg-[var(--foreground)] hover:text-[var(--background)] transition-colors uppercase whitespace-nowrap mt-auto text-center block">
                 Start_Free
-              </button>
+              </Link>
             </div>
 
             {/* Pro */}
@@ -225,9 +231,9 @@ export default function Home() {
                 <li className="flex items-center gap-2 sm:gap-3"><CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--primary)] flex-shrink-0" /> 15 Context Chunks</li>
                 <li className="flex items-center gap-2 sm:gap-3"><CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--primary)] flex-shrink-0" /> Custom Review Rules</li>
               </ul>
-              <button className="w-full py-2.5 sm:py-3 bg-[var(--primary)] text-white font-mono text-xs sm:text-sm font-bold hover:bg-[var(--primary-hover)] transition-colors uppercase whitespace-nowrap mt-auto">
+              <Link href="/dashboard/billing" className="w-full py-2.5 sm:py-3 bg-[var(--primary)] text-white font-mono text-xs sm:text-sm font-bold hover:bg-[var(--primary-hover)] transition-colors uppercase whitespace-nowrap mt-auto text-center block">
                 Upgrade_Pro
-              </button>
+              </Link>
             </div>
 
             {/* Team */}
@@ -243,9 +249,9 @@ export default function Home() {
                 <li className="flex items-center gap-2 sm:gap-3"><CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--primary)] flex-shrink-0" /> Custom Review Rules</li>
                 <li className="flex items-center gap-2 sm:gap-3"><CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--primary)] flex-shrink-0" /> Team Management</li>
               </ul>
-              <button className="w-full py-2.5 sm:py-3 border border-[var(--code-border)] font-mono text-xs sm:text-sm font-bold hover:bg-[var(--foreground)] hover:text-[var(--background)] transition-colors uppercase whitespace-nowrap mt-auto">
+              <Link href="/dashboard/billing" className="w-full py-2.5 sm:py-3 border border-[var(--code-border)] font-mono text-xs sm:text-sm font-bold hover:bg-[var(--foreground)] hover:text-[var(--background)] transition-colors uppercase whitespace-nowrap mt-auto text-center block">
                 Contact_Sales
-              </button>
+              </Link>
             </div>
           </div>
         </div>

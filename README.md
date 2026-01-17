@@ -1,24 +1,25 @@
-# Revio: Context-Aware AI Code Reviewer (v2.3.0)
+# Revio: Context-Aware AI Code Reviewer (v3.0.0)
 
 Engineering high-quality code through semantic codebase intelligence.
 
 ---
 
-## ⚡ Development Status: Phase 4 In Progress
+## Development Status: Phase 4 Complete - Phase 5 Upcoming
 
-Revio is actively implementing Phase 4 features. Recent updates include interactive bot conversations, learning & memory system, and improved error handling.
+Revio v3.0 is NOW LIVE with AI Code Intelligence! Phase 4 brought revolutionary features including graph-based analysis, confidence scoring, and the learning system.
 
-**New:** You can now mention `@revio` in PR comments to ask questions about the review.
-
-**Simplified:** Webhook management is now handled globally via GitHub App - no per-repo configuration needed.
-
-**Clean Architecture:** Removed legacy per-repo webhook code for a streamlined GitHub App integration.
+**v3.0 Highlights:**
+- Graph-Based Analysis with AST-powered code understanding
+- 1-5 Star Confidence Scoring for merge readiness
+- Blast Radius visualization for impact analysis
+- Learning System that adapts to your team's feedback
+- Interactive @revio-bot conversations in PR comments
 
 - [x] **Phase 1**: Core Infrastructure & GitHub Integration
 - [x] **Phase 2**: Vector-Based Semantic Indexing
 - [x] **Phase 3**: Intelligent Review Engine & Team Analytics
-- [x] **Phase 4**: Interactive Bot Conversations & Learning System *(In Progress)*
-- [ ] **Phase 5**: Graph-Based Codebase Context (Upcoming)
+- [x] **Phase 4**: Interactive Bot Conversations & Learning System *(COMPLETED)*
+- [ ] **Phase 5**: Enterprise Features - SSO, Stripe Billing, Self-Hosted *(Upcoming)*
 
 ---
 
@@ -47,8 +48,8 @@ graph TD
     C --> E[Extract Semantic Anchors]
     D & E --> F[Qdrant Vector Search]
     F --> G[Retrieve Related Code Chunks]
-    G --> H[Prompt Orchestration]
-    H --> I[AI Reasoning Loop: Gemini/GPT-4o]
+    G --> H[Code Graph Analysis]
+    H --> I[AI Reasoning: Gemini 2.5 Flash]
     I --> J[Review Generation]
     J --> K[GitHub Reflection: Inline Comments]
     K --> L[Database Sync]
@@ -56,13 +57,15 @@ graph TD
 
 ### Core Components
 
-1.  **Ingestion Engine**: Extracts code from GitHub, chunks it using AST-aware dividers, and generates vector embeddings via text-embedding-3-small (or Gemini equivalent).
-2.  **Vector Store (Qdrant)**: Stores high-dimensional code representations for sub-millisecond similarity searches.
-3.  **Review Orchestrator**:
+1.  **Ingestion Engine**: Extracts code from GitHub, chunks it using AST-aware dividers, and generates vector embeddings via text-embedding-3-small.
+2.  **Code Graph Engine**: Builds AST-based code understanding with function relationships, call paths, and dependency mapping.
+3.  **Vector Store (Qdrant)**: Stores high-dimensional code representations for sub-millisecond similarity searches.
+4.  **Review Orchestrator**:
     - Triggered by GitHub pull_request webhooks.
     - Performs Context Retrieval: Identifies modified files and fetches semantically related code from vector store.
-    - Reasoning Loop: Feeds diff + retrieved context into a high-reasoning LLM with a specialized system prompt.
-4.  **Feedback Loop**: Posts results as high-fidelity GitHub inline comments or summary reviews.
+    - Builds Code Graph: Maps function relationships and calculates impact radius.
+    - Reasoning Loop: Feeds diff + retrieved context + graph analysis into Gemini 2.5 Flash.
+5.  **Feedback Loop**: Posts results as high-fidelity GitHub inline comments or summary reviews.
 
 ## Business Value and Impact
 
@@ -83,7 +86,15 @@ Equipped with a high-fidelity pattern engine, Revio automatically detects:
 - **Weak Cryptography**: Obsolete hashing (MD5/SHA1) and insecure random number generation.
 - **Configuration Risks**: Insecure CORS policies and debug mode exposure.
 
-### 3. Organization & Team Intelligence
+### 3. AI Code Intelligence (v3.0)
+- **Graph-Based Analysis**: AST-powered code understanding with function relationships and call paths
+- **Confidence Scoring**: 1-5 star merge readiness with multi-factor analysis (issues, security, complexity)
+- **Blast Radius**: Visual impact analysis showing affected files and functions with risk-based visualization
+- **Learning System**: Adapts to your team's feedback, auto-suppresses low-value noise
+- **Interactive Bot**: @revio-bot conversations in PR comments for clarifications and re-reviews
+- **Docstring Generation**: AI-generated JSDoc suggestions with one-click apply
+
+### 4. Organization & Team Intelligence
 - **Team Velocity**: Monitor review turnaround times and throughput across repositories.
 - **Quality Hotspots**: Identify specific files or modules that frequently introduce technical debt.
 - **Activity Feed**: Real-time audit log of all repository events and review findings for organization admins.
@@ -95,8 +106,8 @@ Equipped with a high-fidelity pattern engine, Revio automatically detects:
 3.  Database: PostgreSQL (Prisma ORM)
 4.  Vector Intelligence: Qdrant
 5.  Message Queue: BullMQ (Redis)
-6.  AI Models: Google Gemini 1.5 Pro / Flash, OpenAI GPT-4o
-7.  Auth and API: Octokit (GitHub App Architecture)
+6.  AI Models: Google Gemini 2.5 Flash / Flash-Lite, OpenAI text-embedding-3-small
+7.  Auth and API: GitHub App Architecture (Octokit)
 
 ## Security and Privacy
 
@@ -112,10 +123,13 @@ Revio is built with an "Enterprise-First" mindset:
 When a pull request is detected, Revio executes the following sequence:
 
 1.  **Context Construction**: The system identifies changed files and extracts semantic anchors (function signatures, class names, etc.).
-2.  **Semantic Retrieval**: It queries Qdrant vector store to find top relevant code snippets across the entire repository.
-3.  **Prompt Orchestration**: A multi-turn prompt is constructed including PR Diff, retrieved semantic context, and repository-specific review rules.
-4.  **AI Inference**: The orchestrated prompt is processed by the configured LLM.
-5.  **GitHub Reflection**: Feedback is mapped back to specific line numbers in the PR using a fuzzy-match coordinate system.
+2.  **Code Graph Analysis**: Builds AST-based graph of function relationships, calls, and dependencies.
+3.  **Semantic Retrieval**: It queries Qdrant vector store to find top relevant code snippets across the entire repository.
+4.  **Impact Analysis**: Calculates blast radius - which functions and files are affected by the changes.
+5.  **Prompt Orchestration**: A multi-turn prompt is constructed including PR Diff, retrieved semantic context, code graph, and repository-specific review rules.
+6.  **AI Inference**: The orchestrated prompt is processed by Gemini 2.5 Flash with specialized system prompts.
+7.  **Review Generation**: Generates structured review with confidence score, issues, and suggestions.
+8.  **GitHub Reflection**: Feedback is mapped back to specific line numbers in the PR using a fuzzy-match coordinate system.
 
 ## Getting Started
 
@@ -155,8 +169,9 @@ DIRECT_URL="postgresql://..."
 GITHUB_APP_ID="your_github_app_id"
 GITHUB_APP_CLIENT_ID="your_github_app_client_id"
 GITHUB_APP_CLIENT_SECRET="your_github_app_client_secret"
-GITHUB_WEBHOOK_SECRET="your_webhook_secret"
+GITHUB_APP_WEBHOOK_SECRET="your_webhook_secret"
 GOOGLE_AI_API_KEY="..."
+OPENAI_API_KEY="..."
 QDRANT_URL="..."
 QDRANT_API_KEY="..."
 ```
@@ -173,19 +188,17 @@ Revio is designed to scale horizontally:
 
 1. Set production env vars (`DATABASE_URL`, `DIRECT_URL`, Redis/Qdrant keys, AI keys, `NEXT_PUBLIC_APP_URL`).
 2. Run DB migrations: `npx prisma migrate deploy --schema prisma/schema.prisma`.
-3. Webhook secret choice:
-   - GitHub App webhook mode: set `GITHUB_APP_WEBHOOK_SECRET`.
-   - Per-repo webhook mode: leave `GITHUB_APP_WEBHOOK_SECRET` unset (uses the per-repo secret stored in DB).
-4. Upgrade existing connected repos to include `issue_comment` (for `@revio-bot` + learning):
-   - UI: Repository page → **Webhook Status** → **Upgrade**
-   - API: `POST /api/repos/{id}/webhook/upgrade`
+3. Create GitHub App at https://github.com/organizations/Reviooo/settings/apps/revio-bot with:
+   - Repository permissions: pull_requests, issue_comments, contents
+   - Webhook URL: https://your-domain.com/api/webhooks/github
+4. Configure `GITHUB_APP_WEBHOOK_SECRET` in environment.
 5. Smoke test: open a PR, confirm Revio posts a review, then comment `@revio-bot explain` and confirm a reply.
 
 ## Roadmap
 
-1. [ ] **Phase 4: Intelligent Code Review** - Graph-based impact analysis and structural context.
-2. [ ] **Phase 5: Enterprise Scaling** - Support for multi-repository context and direct IDE integration.
-3. [ ] **Auto-Fix Integration** - One-click PR updates for common issues.
+1. [ ] **Phase 5: Enterprise Features** - Stripe billing, SSO/SAML, self-hosted Docker/K8s
+2. [ ] **Auto-Fix Integration** - One-click PR updates for common issues
+3. [ ] **IDE Integration** - VS Code extension and JetBrains plugin
 
 ## License
 

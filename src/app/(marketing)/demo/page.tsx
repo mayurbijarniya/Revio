@@ -14,6 +14,11 @@ import {
   ArrowRight,
   Play,
   Pause,
+  Brain,
+  Target,
+  Eye,
+  Zap,
+  Star,
 } from "lucide-react";
 
 // macOS Window Chrome Component
@@ -168,16 +173,46 @@ function PRReviewDemo() {
             <div className="text-xs text-[#808080]">#42 by @developer</div>
           </div>
         </div>
-        <span className="text-xs px-2 py-1 rounded bg-green-500/20 text-green-400">
-          Ready to Merge
-        </span>
+        <div className="flex items-center gap-3">
+          {/* Confidence Score */}
+          <div className="flex items-center gap-1 bg-green-500/10 border border-green-500/30 rounded px-2 py-1">
+            <Star className="w-3 h-3 text-green-400 fill-green-400" />
+            <Star className="w-3 h-3 text-green-400 fill-green-400" />
+            <Star className="w-3 h-3 text-green-400 fill-green-400" />
+            <Star className="w-3 h-3 text-green-400 fill-green-400" />
+            <Star className="w-3 h-3 text-green-400" />
+            <span className="text-[10px] text-green-400 ml-1">4/5</span>
+          </div>
+          <span className="text-xs px-2 py-1 rounded bg-green-500/20 text-green-400">
+            Ready to Merge
+          </span>
+        </div>
+      </div>
+
+      {/* Blast Radius */}
+      <div className="bg-[#1e3a5f] border border-[#2d5a87] rounded-lg p-3 mb-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Eye className="w-4 h-4 text-blue-400" />
+          <span className="text-xs font-bold text-blue-400 uppercase">[ BLAST_RADIUS ]</span>
+        </div>
+        <div className="text-xs text-[#cccccc]">
+          <span className="text-amber-400 font-bold">3 functions</span> directly affected,{" "}
+          <span className="text-amber-400 font-bold">12 indirect</span> callers traced.{" "}
+          <span className="text-green-400 font-bold">Low impact</span> - changes are isolated.
+        </div>
       </div>
 
       {/* Summary */}
       <div className="bg-[#252525] rounded-lg p-3 mb-4">
-        <div className="text-xs text-[#808080] mb-2">AI Summary</div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs text-[#808080]">AI Summary</div>
+          <div className="flex items-center gap-1">
+            <Brain className="w-3 h-3 text-[var(--primary)]" />
+            <span className="text-[10px] text-[var(--primary)]">Graph Analysis</span>
+          </div>
+        </div>
         <div className="text-sm text-[#cccccc] leading-relaxed">
-          <TypingText text="Well-structured authentication implementation using JWT tokens. Added proper password hashing and session management. Minor improvements suggested for error handling." />
+          <TypingText text="Well-structured authentication using JWT tokens. Function relationships mapped: auth.ts:42 calls validateToken() which depends on cryptoUtils.ts:15. Minor improvements suggested for error handling." />
         </div>
       </div>
 
@@ -476,24 +511,44 @@ export default function DemoPage() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-8 sm:mt-12">
             {[
               {
-                icon: GitPullRequest,
-                title: "Instant Reviews",
-                description: "AI analyzes every PR in seconds",
+                icon: Brain,
+                title: "Graph Analysis",
+                description: "AST-powered code understanding",
+              },
+              {
+                icon: Target,
+                title: "Confidence Score",
+                description: "1-5 star merge readiness",
+              },
+              {
+                icon: Zap,
+                title: "Learning System",
+                description: "Adapts to your team's feedback",
+              },
+              {
+                icon: Eye,
+                title: "Blast Radius",
+                description: "Visual impact analysis",
               },
               {
                 icon: MessageSquare,
-                title: "Code Chat",
-                description: "Ask questions in natural language",
+                title: "Interactive Bot",
+                description: "@revio-bot in PR comments",
               },
               {
                 icon: Shield,
                 title: "Security Scan",
-                description: "Detect vulnerabilities automatically",
+                description: "40+ vulnerability patterns",
+              },
+              {
+                icon: GitPullRequest,
+                title: "Auto Reviews",
+                description: "AI analyzes every PR",
               },
               {
                 icon: FolderGit2,
                 title: "Full Indexing",
-                description: "Understand your entire codebase",
+                description: "Understand entire codebase",
               },
             ].map((feature) => {
               const Icon = feature.icon;
