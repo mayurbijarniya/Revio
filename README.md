@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="public/logo.svg" alt="Revio Logo" width="120" height="auto" />
+</p>
+
 # Revio
 
 An AI-powered code review platform that provides context-aware analysis for modern engineering teams.
@@ -29,7 +33,7 @@ graph TD
     D & E --> F[Qdrant Vector Search]
     F --> G[Retrieve Related Code Chunks]
     G --> H[Code Graph Analysis]
-    H --> I[AI Reasoning: Gemini 2.5 Flash]
+    H --> I[AI Reasoning]
     I --> J[Review Generation]
     J --> K[GitHub Reflection: Inline Comments]
     K --> L[Database Sync]
@@ -75,7 +79,7 @@ Equipped with pattern recognition for detecting:
 - **Database**: PostgreSQL (Prisma ORM)
 - **Vector Intelligence**: Qdrant
 - **Message Queue**: BullMQ (Redis)
-- **AI Models**: Google Gemini 2.5 Flash, OpenAI text-embedding-3-small
+- **AI Models**: Support for leading Large Language Models (LLMs) and embeddings model
 - **Authentication**: GitHub App Architecture (Octokit)
 
 ## Security and Privacy
@@ -165,7 +169,7 @@ Revio is designed for horizontal scalability:
 
 ## Roadmap
 
-- Enterprise features (Stripe billing, SSO/SAML, self-hosted deployment)
+- Enhanced context retrieval for massive monorepos
 - Auto-fix integration with one-click PR updates
 - IDE integration (VS Code extension, JetBrains plugin)
 
