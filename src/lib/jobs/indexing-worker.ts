@@ -1,25 +1,30 @@
 import { Job } from "bullmq";
 import { createIndexingWorker, type IndexingJobData } from "@/lib/queue";
 import { indexRepository } from "@/lib/services/indexer";
+import { decrypt } from "@/lib/encryption";
+import { markIndexStarted } from "@/lib/services/background-orchestrator";
 
 /**
  * Process indexing jobs
  */
 async function processIndexingJob(job: Job<IndexingJobData>): Promise<void> {
-  const { repositoryId, userId, fullName, defaultBranch, accessToken } =
+  const { repositoryId, userId, fullName, defaultBranch, accessToken, forceFullIndex, metadata } =
     job.data;
 
   try {
+    await markIndexStarted(repositoryId, String(job.id ?? ""));
+    const decryptedToken = decrypt(accessToken);
     const result = await indexRepository(
       repositoryId,
       userId,
       fullName,
       defaultBranch,
-      accessToken
+      decryptedToken,
+      Boolean(forceFullIndex)
     );
 
     console.warn(
-      `[Indexing] Completed ${fullName}: ${result.fileCount} files, ${result.chunkCount} chunks`
+      `[Indexing] Completed ${fullName}: ${result.fileCount} files, ${result.chunkCount} chunks (trigger: ${metadata.trigger})`
     );
   } catch (error) {
     console.error(`[Indexing] Failed for ${fullName}:`, error);

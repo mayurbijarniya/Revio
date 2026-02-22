@@ -1,4 +1,5 @@
 import { Queue, Worker, Job, type ConnectionOptions } from "bullmq";
+import { requireEnv } from "@/lib/env";
 
 // Queue names
 export const QUEUE_NAMES = {
@@ -7,12 +8,22 @@ export const QUEUE_NAMES = {
 } as const;
 
 // Indexing job data
+export type QueueTrigger = "connect" | "push" | "manual" | "cron";
+
+interface QueueJobMetadata {
+  trigger: QueueTrigger;
+  deliveryId?: string;
+  headSha?: string | null;
+}
+
 export interface IndexingJobData {
   repositoryId: string;
   userId: string;
   fullName: string;
   defaultBranch: string;
   accessToken: string;
+  forceFullIndex?: boolean;
+  metadata: QueueJobMetadata;
 }
 
 // PR Review job data
@@ -22,16 +33,18 @@ export interface PrReviewJobData {
   prTitle: string;
   prAuthor: string;
   accessToken: string;
+  prBody?: string | null;
+  prUrl?: string | null;
+  baseBranch?: string | null;
+  headBranch?: string | null;
+  headSha?: string | null;
+  metadata: QueueJobMetadata;
 }
 
 // Get Redis connection options for Upstash
 function getRedisOptions(): ConnectionOptions {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-
-  if (!url || !token) {
-    throw new Error("Redis configuration missing");
-  }
+  const url = requireEnv("UPSTASH_REDIS_REST_URL");
+  const token = requireEnv("UPSTASH_REDIS_REST_TOKEN");
 
   // Parse Upstash URL for ioredis
   const host = url.replace("https://", "").replace("http://", "");
@@ -67,6 +80,40 @@ export function getPrReviewQueue(): Queue {
   return prReviewQueue;
 }
 
+function sanitizeJobSegment(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_-]/g, "_");
+}
+
+export function buildIndexJobId(data: {
+  repositoryId: string;
+  defaultBranch: string;
+  headSha?: string | null;
+}): string {
+  const branch = sanitizeJobSegment(data.defaultBranch);
+  const headMarker = data.headSha?.slice(0, 12) ?? "latest";
+  return `index:${data.repositoryId}:${branch}:${headMarker}`;
+}
+
+export function buildReviewJobId(data: {
+  repositoryId: string;
+  prNumber: number;
+  headSha?: string | null;
+}): string {
+  const headMarker = data.headSha?.slice(0, 12) ?? "latest";
+  return `review:${data.repositoryId}:${data.prNumber}:${headMarker}`;
+}
+
+function isDuplicateJobError(error: unknown): boolean {
+  const err = error as { code?: string; message?: string };
+  return (
+    err?.code === "EJOBEXISTS" ||
+    err?.code === "ERR_JOB_EXISTS" ||
+    err?.message?.toLowerCase().includes("jobid") ||
+    err?.message?.toLowerCase().includes("exists") ||
+    false
+  );
+}
+
 // Create a worker for indexing jobs
 export function createIndexingWorker(
   processor: (job: Job<IndexingJobData>) => Promise<void>
@@ -90,29 +137,59 @@ export function createPrReviewWorker(
 // Add an indexing job
 export async function addIndexingJob(data: IndexingJobData): Promise<string> {
   const queue = getIndexingQueue();
-  const job = await queue.add("index-repository", data, {
-    attempts: 3,
-    backoff: {
-      type: "exponential",
-      delay: 5000,
-    },
-    removeOnComplete: 100,
-    removeOnFail: 50,
+  const jobId = buildIndexJobId({
+    repositoryId: data.repositoryId,
+    defaultBranch: data.defaultBranch,
+    headSha: data.metadata.headSha,
   });
-  return job.id ?? "";
+
+  try {
+    const job = await queue.add("index-repository", data, {
+      jobId,
+      attempts: 5,
+      backoff: {
+        type: "exponential",
+        delay: 5000,
+      },
+      removeOnComplete: 200,
+      removeOnFail: 200,
+    });
+    return String(job.id ?? jobId);
+  } catch (error) {
+    if (!isDuplicateJobError(error)) {
+      throw error;
+    }
+    const existingJob = await queue.getJob(jobId);
+    return String(existingJob?.id ?? jobId);
+  }
 }
 
 // Add a PR review job
 export async function addPrReviewJob(data: PrReviewJobData): Promise<string> {
   const queue = getPrReviewQueue();
-  const job = await queue.add("review-pr", data, {
-    attempts: 3,
-    backoff: {
-      type: "exponential",
-      delay: 3000,
-    },
-    removeOnComplete: 100,
-    removeOnFail: 50,
+  const jobId = buildReviewJobId({
+    repositoryId: data.repositoryId,
+    prNumber: data.prNumber,
+    headSha: data.headSha ?? data.metadata.headSha,
   });
-  return job.id ?? "";
+
+  try {
+    const job = await queue.add("review-pr", data, {
+      jobId,
+      attempts: 5,
+      backoff: {
+        type: "exponential",
+        delay: 3000,
+      },
+      removeOnComplete: 200,
+      removeOnFail: 200,
+    });
+    return String(job.id ?? jobId);
+  } catch (error) {
+    if (!isDuplicateJobError(error)) {
+      throw error;
+    }
+    const existingJob = await queue.getJob(jobId);
+    return String(existingJob?.id ?? jobId);
+  }
 }

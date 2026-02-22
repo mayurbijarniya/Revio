@@ -1,12 +1,10 @@
 import OpenAI from "openai";
 import { createHash } from "crypto";
 import { AI_CONFIG } from "@/lib/constants";
+import { requireEnv } from "@/lib/env";
 
 const getOpenAIClient = () => {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY is required");
-  }
+  const apiKey = requireEnv("OPENAI_API_KEY");
   return new OpenAI({ apiKey });
 };
 

@@ -1,11 +1,8 @@
 import CryptoJS from "crypto-js";
+import { requireEnv } from "@/lib/env";
 
 function getEncryptionKey(): string {
-  const key = process.env.ENCRYPTION_KEY;
-  if (!key) {
-    throw new Error("ENCRYPTION_KEY environment variable is required");
-  }
-  return key;
+  return requireEnv("ENCRYPTION_KEY");
 }
 
 /**

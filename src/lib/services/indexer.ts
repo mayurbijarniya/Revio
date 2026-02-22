@@ -54,7 +54,13 @@ export async function indexRepository(
     // Update status to indexing
     await db.repository.update({
       where: { id: repositoryId },
-      data: { indexStatus: "indexing", indexProgress: 0, indexError: null },
+      data: {
+        indexStatus: "indexing",
+        indexProgress: 0,
+        indexError: null,
+        indexStartedAt: new Date(),
+        indexHeartbeatAt: new Date(),
+      },
     });
 
     // Initialize GitHub service
@@ -215,6 +221,10 @@ export async function indexRepository(
         indexStatus: "indexed",
         indexProgress: 100,
         indexedAt: new Date(),
+        indexQueuedAt: null,
+        indexStartedAt: null,
+        indexHeartbeatAt: null,
+        indexJobId: null,
         fileCount: currentFileInfos.length,
         chunkCount: existingChunkCount + totalChunks,
       },
@@ -270,6 +280,10 @@ export async function indexRepository(
       data: {
         indexStatus: "failed",
         indexError: error instanceof Error ? error.message : "Unknown error",
+        indexQueuedAt: null,
+        indexStartedAt: null,
+        indexHeartbeatAt: null,
+        indexJobId: null,
       },
     });
 
@@ -298,7 +312,10 @@ async function getExistingChunkCount(
 async function updateProgress(repositoryId: string, progress: number) {
   await db.repository.update({
     where: { id: repositoryId },
-    data: { indexProgress: progress },
+    data: {
+      indexProgress: progress,
+      indexHeartbeatAt: new Date(),
+    },
   });
 }
 

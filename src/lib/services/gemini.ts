@@ -1,11 +1,9 @@
 import { GoogleGenerativeAI, type GenerateContentStreamResult } from "@google/generative-ai";
 import { AI_CONFIG } from "@/lib/constants";
+import { requireEnv } from "@/lib/env";
 
 const getGeminiClient = () => {
-  const apiKey = process.env.GOOGLE_AI_API_KEY;
-  if (!apiKey) {
-    throw new Error("GOOGLE_AI_API_KEY is required");
-  }
+  const apiKey = requireEnv("GOOGLE_AI_API_KEY");
   return new GoogleGenerativeAI(apiKey);
 };
 

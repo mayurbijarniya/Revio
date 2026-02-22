@@ -9,6 +9,8 @@ import { logger } from "@/lib/logger";
 import * as parser from "@babel/parser";
 import traverse, { type NodePath } from "@babel/traverse";
 import type { File } from "@babel/types";
+import type Parser from "tree-sitter";
+import { treeSitterService } from "./tree-sitter-parser";
 
 export interface GraphNode {
   id: string;
@@ -128,6 +130,7 @@ function parseFile(
 ): { fileNodes: GraphNode[]; fileEdges: GraphEdge[] } {
   const fileNodes: GraphNode[] = [];
   const fileEdges: GraphEdge[] = [];
+  const normalizedLanguage = language.toLowerCase();
 
   // Add file node
   const fileNodeId = `file:${filePath}`;
@@ -138,15 +141,128 @@ function parseFile(
     file: filePath,
   });
 
-  // Parse based on language
-  if (language === "typescript" || language === "javascript") {
-    const ast = parseTypeScriptOrJavaScript(content, language);
-    if (ast) {
-      extractFromTypeScriptAST(ast, filePath, fileNodes, fileEdges, resolverOptions);
+  const preAstNodeCount = fileNodes.length;
+  const preAstEdgeCount = fileEdges.length;
+
+  // Primary parser path: Tree-Sitter for all supported languages.
+  const tree = treeSitterService.parseCode(content, normalizedLanguage);
+  if (tree) {
+    extractFromTreeSitterAST(tree, normalizedLanguage, filePath, fileNodes, fileEdges);
+  }
+
+  const treeSitterExtracted =
+    fileNodes.length > preAstNodeCount || fileEdges.length > preAstEdgeCount;
+
+  // Babel fallback for JS/TS edge cases Tree-Sitter could not parse/extract.
+  if (!treeSitterExtracted && isBabelLanguage(normalizedLanguage)) {
+    const babelAst = parseTypeScriptOrJavaScript(content, normalizedLanguage);
+    if (babelAst) {
+      extractFromTypeScriptAST(
+        babelAst,
+        filePath,
+        fileNodes,
+        fileEdges,
+        resolverOptions
+      );
     }
   }
 
   return { fileNodes, fileEdges };
+}
+
+/**
+ * Extract entities and relationships using Tree-Sitter AST (for Python, Go, Rust, Java, etc.)
+ */
+function extractFromTreeSitterAST(
+  ast: Parser.Tree,
+  language: string,
+  filePath: string,
+  nodes: GraphNode[],
+  edges: GraphEdge[]
+) {
+  // 1. Extract Functions
+  const functions = treeSitterService.getFunctions(ast, language);
+  for (const fn of functions) {
+    if (!fn) continue;
+    const nodeId = `function:${filePath}:${fn.name}`;
+    nodes.push({
+      id: nodeId,
+      type: "function",
+      name: fn.name,
+      file: filePath,
+      line: fn.startLine,
+      endLine: fn.endLine,
+      exported: true, // Simplified: assume exported for global functions in non-JS
+    });
+    edges.push({
+      from: `file:${filePath}`,
+      to: nodeId,
+      type: "exports",
+      file: filePath,
+      line: fn.startLine,
+    });
+  }
+
+  // 2. Extract Classes
+  const classes = treeSitterService.getClasses(ast, language);
+  for (const cls of classes) {
+    if (!cls) continue;
+    const nodeId = `class:${filePath}:${cls.name}`;
+    nodes.push({
+      id: nodeId,
+      type: "class",
+      name: cls.name,
+      file: filePath,
+      line: cls.startLine,
+      endLine: cls.endLine,
+      exported: true,
+    });
+    edges.push({
+      from: `file:${filePath}`,
+      to: nodeId,
+      type: "exports",
+      file: filePath,
+      line: cls.startLine,
+    });
+  }
+
+  // 3. Extract Imports
+  const imports = treeSitterService.getImports(ast, language);
+  for (const imp of imports) {
+    if (!imp) continue;
+    // We don't always know what's imported, but we know the source module
+    const nodeId = `import:${filePath}:${imp.source}`;
+    nodes.push({
+      id: nodeId,
+      type: "import",
+      name: imp.source,
+      file: filePath,
+      line: imp.startLine,
+    });
+    edges.push({
+      from: `file:${filePath}`,
+      to: nodeId,
+      type: "imports",
+      file: filePath,
+      line: imp.startLine,
+    });
+  }
+
+  // 4. Extract Calls
+  const calls = treeSitterService.getCalls(ast, language);
+  for (const call of calls) {
+    if (!call) continue;
+    // Simplified: attach calls to the file level since context tracking is hard cross-language
+    const callerId = `file:${filePath}`;
+    const calleeId = `function:${filePath}:${call.callee}`;
+    edges.push({
+      from: callerId,
+      to: calleeId,
+      type: "calls",
+      file: filePath,
+      line: call.startLine,
+    });
+  }
 }
 
 /**
@@ -877,15 +993,48 @@ function detectCircularDependencies(nodes: GraphNode[], edges: GraphEdge[]): str
  * Check if language is supported for AST parsing
  */
 function isSupportedLanguage(language: string): boolean {
-  const supported = [
-    "typescript",
-    "javascript",
-    "tsx",
-    "jsx",
-    "ts",
-    "js",
-  ];
-  return supported.includes(language.toLowerCase());
+  const normalized = normalizeLanguage(language);
+  if (!SUPPORTED_AST_LANGUAGES.has(normalized)) {
+    return false;
+  }
+  if (isBabelLanguage(normalized)) {
+    return true;
+  }
+  return treeSitterService.isSupported(normalized);
+}
+
+const SUPPORTED_AST_LANGUAGES = new Set([
+  "javascript",
+  "typescript",
+  "tsx",
+  "python",
+  "go",
+  "rust",
+  "java",
+  "ruby",
+  "php",
+  "csharp",
+  "cpp",
+  "swift",
+]);
+
+function isBabelLanguage(language: string): boolean {
+  return ["javascript", "typescript", "tsx"].includes(normalizeLanguage(language));
+}
+
+function normalizeLanguage(language: string): string {
+  const normalized = language.toLowerCase();
+  if (normalized === "js" || normalized === "jsx" || normalized === "mjs") {
+    return "javascript";
+  }
+  if (normalized === "ts") return "typescript";
+  if (normalized === "py") return "python";
+  if (normalized === "rb") return "ruby";
+  if (normalized === "cs" || normalized === "c#") return "csharp";
+  if (normalized === "c" || normalized === "cc" || normalized === "cxx" || normalized === "c++") {
+    return "cpp";
+  }
+  return normalized;
 }
 
 /**

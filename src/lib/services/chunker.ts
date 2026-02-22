@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { INDEXING_CONFIG } from "@/lib/constants";
 import type { CodeChunk } from "./embeddings";
+import { treeSitterService } from "./tree-sitter-parser";
 
 /**
  * Detected file info
@@ -39,11 +40,11 @@ export function shouldSkipFile(filePath: string): boolean {
     // Convert glob pattern to regex
     const regex = new RegExp(
       "^" +
-        pattern
-          .replace(/\*\*/g, ".*")
-          .replace(/\*/g, "[^/]*")
-          .replace(/\?/g, ".") +
-        "$"
+      pattern
+        .replace(/\*\*/g, ".*")
+        .replace(/\*/g, "[^/]*")
+        .replace(/\?/g, ".") +
+      "$"
     );
     return regex.test(filePath);
   });
@@ -73,7 +74,7 @@ export function generateChunkId(
 
 /**
  * Chunk code by logical blocks (functions, classes, etc.)
- * This is a simplified chunker - a full implementation would use tree-sitter
+ * Uses tree-sitter for supported languages, falls back to regex
  */
 export function chunkCode(
   repositoryId: string,
@@ -82,6 +83,52 @@ export function chunkCode(
   language: string
 ): CodeChunk[] {
   const lines = content.split("\n");
+
+  // 1. Try Tree-Sitter first
+  const ast = treeSitterService.parseCode(content, language);
+  if (ast) {
+    const chunks: CodeChunk[] = [];
+
+    // Extract functions
+    const functions = treeSitterService.getFunctions(ast, language);
+    for (const fn of functions) {
+      if (!fn) continue;
+      chunks.push({
+        id: generateChunkId(repositoryId, filePath, fn.startLine),
+        filePath,
+        content: lines.slice(fn.startLine - 1, fn.endLine).join("\n"),
+        language,
+        startLine: fn.startLine,
+        endLine: fn.endLine,
+        type: "function",
+        name: fn.name,
+      });
+    }
+
+    // Extract classes
+    const classes = treeSitterService.getClasses(ast, language);
+    for (const cls of classes) {
+      if (!cls) continue;
+      chunks.push({
+        id: generateChunkId(repositoryId, filePath, cls.startLine),
+        filePath,
+        content: lines.slice(cls.startLine - 1, cls.endLine).join("\n"),
+        language,
+        startLine: cls.startLine,
+        endLine: cls.endLine,
+        type: "class",
+        name: cls.name,
+      });
+    }
+
+    if (chunks.length > 0) {
+      // Sort chunks by line number
+      chunks.sort((a, b) => a.startLine - b.startLine);
+      return chunks;
+    }
+  }
+
+  // 2. Fallback to Regex-based chunker
   const chunks: CodeChunk[] = [];
 
   // Patterns for detecting code blocks by language
