@@ -96,12 +96,12 @@ describe("github webhook route", () => {
     mockPrReviewUpsert.mockResolvedValue({});
     mockScheduleIndexing.mockResolvedValue({
       mode: "queue",
-      jobId: "index:repo-1:main:abcdef123456",
+      jobId: "index__repo-1__main__abcdef123456",
       message: "Indexing queued in background.",
     });
     mockSchedulePrReview.mockResolvedValue({
       mode: "queue",
-      jobId: "review:repo-1:9:abcdef123456",
+      jobId: "review__repo-1__9__abcdef123456",
       message: "PR review queued in background.",
     });
   });
@@ -122,7 +122,7 @@ describe("github webhook route", () => {
 
     expect(response.status).toBe(200);
     expect(body.mode).toBe("queue");
-    expect(body.jobId).toBe("index:repo-1:main:abcdef123456");
+    expect(body.jobId).toBe("index__repo-1__main__abcdef123456");
     expect(mockScheduleIndexing).toHaveBeenCalledWith(
       expect.objectContaining({
         repositoryId: "repo-1",

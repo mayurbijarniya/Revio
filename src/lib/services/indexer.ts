@@ -234,7 +234,12 @@ export async function indexRepository(
     try {
       console.warn(`[Indexer] Auto-detecting coding standards for ${fullName}`);
       const detector = new StandardsDetector(accessToken);
-      const standards = await detector.detectStandards(owner, repo, repositoryId);
+      const standards = await detector.detectStandards(
+        owner,
+        repo,
+        repositoryId,
+        defaultBranch
+      );
       if (standards.length > 0) {
         await detector.saveStandards(repositoryId, standards);
         console.warn(

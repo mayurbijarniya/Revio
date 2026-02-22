@@ -9,7 +9,7 @@ describe("queue job id builders", () => {
       headSha: "1234567890abcdef1234567890abcdef12345678",
     });
 
-    expect(jobId).toBe("index:repo-123:feature_new-ui:1234567890ab");
+    expect(jobId).toBe("index__repo-123__feature_new-ui__1234567890ab");
   });
 
   it("uses latest marker when index head sha is absent", () => {
@@ -19,7 +19,7 @@ describe("queue job id builders", () => {
       headSha: null,
     });
 
-    expect(jobId).toBe("index:repo-123:main:latest");
+    expect(jobId).toBe("index__repo-123__main__latest");
   });
 
   it("builds deterministic review job ids", () => {
@@ -29,6 +29,6 @@ describe("queue job id builders", () => {
       headSha: "abcdefabcdefabcdefabcdefabcdefabcdefabcd",
     });
 
-    expect(jobId).toBe("review:repo-123:42:abcdefabcdef");
+    expect(jobId).toBe("review__repo-123__42__abcdefabcdef");
   });
 });

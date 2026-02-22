@@ -137,7 +137,12 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     });
 
     const detector = new StandardsDetector(accessToken);
-    const standards = await detector.detectStandards(owner, repo, id);
+    const standards = await detector.detectStandards(
+      owner,
+      repo,
+      id,
+      repository.defaultBranch
+    );
 
     // Save to database
     await detector.saveStandards(id, standards);

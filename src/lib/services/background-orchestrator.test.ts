@@ -54,7 +54,7 @@ describe("background orchestrator", () => {
   });
 
   it("queues indexing successfully when queue is available", async () => {
-    mockAddIndexingJob.mockResolvedValue("index:repo-1:main:latest");
+    mockAddIndexingJob.mockResolvedValue("index__repo-1__main__latest");
 
     const result = await scheduleIndexing({
       repositoryId: "repo-1",
@@ -67,7 +67,7 @@ describe("background orchestrator", () => {
 
     expect(result).toEqual({
       mode: "queue",
-      jobId: "index:repo-1:main:latest",
+      jobId: "index__repo-1__main__latest",
       message: "Indexing queued in background.",
     });
     expect(mockAddIndexingJob).toHaveBeenCalledOnce();
@@ -76,7 +76,7 @@ describe("background orchestrator", () => {
         where: { id: "repo-1" },
         data: expect.objectContaining({
           indexStatus: "pending",
-          indexJobId: "index:repo-1:main:latest",
+          indexJobId: "index__repo-1__main__latest",
         }),
       })
     );
@@ -116,7 +116,7 @@ describe("background orchestrator", () => {
   });
 
   it("queues PR review and records queue telemetry", async () => {
-    mockAddPrReviewJob.mockResolvedValue("review:repo-1:12:abcd1234abcd");
+    mockAddPrReviewJob.mockResolvedValue("review__repo-1__12__abcd1234abcd");
 
     const fallbackTask = vi.fn(async () => {});
     const result = await schedulePrReview({
@@ -130,7 +130,7 @@ describe("background orchestrator", () => {
     });
 
     expect(result.mode).toBe("queue");
-    expect(result.jobId).toBe("review:repo-1:12:abcd1234abcd");
+    expect(result.jobId).toBe("review__repo-1__12__abcd1234abcd");
     expect(mockPrReviewUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
