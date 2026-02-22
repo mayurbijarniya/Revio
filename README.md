@@ -162,6 +162,12 @@ BACKGROUND_MODE="hybrid"
 - `queue`: queue-only (requires always-on workers)
 - `serverless`: fallback execution only
 
+### Background Mode Guidance
+
+- Use `serverless` if you are deploying only on Vercel without persistent workers.
+- Use `hybrid` or `queue` only when BullMQ workers are running continuously (`npm run worker`).
+- If reviews remain `pending`, verify worker uptime and Redis connectivity before retriggering PR reviews.
+
 ## Scaling and Performance
 
 Revio is designed for horizontal scalability:
