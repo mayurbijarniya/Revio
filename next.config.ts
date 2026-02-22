@@ -47,6 +47,24 @@ const nextConfig: NextConfig = {
     "tree-sitter-cpp",
     "tree-sitter-swift",
   ],
+
+  // Ensure external native parser packages are included in Vercel output tracing.
+  outputFileTracingIncludes: {
+    "/*": [
+      "./node_modules/tree-sitter/**/*",
+      "./node_modules/tree-sitter-javascript/**/*",
+      "./node_modules/tree-sitter-typescript/**/*",
+      "./node_modules/tree-sitter-python/**/*",
+      "./node_modules/tree-sitter-go/**/*",
+      "./node_modules/tree-sitter-rust/**/*",
+      "./node_modules/tree-sitter-java/**/*",
+      "./node_modules/tree-sitter-ruby/**/*",
+      "./node_modules/tree-sitter-php/**/*",
+      "./node_modules/tree-sitter-c-sharp/**/*",
+      "./node_modules/tree-sitter-cpp/**/*",
+      "./node_modules/tree-sitter-swift/**/*",
+    ],
+  },
 };
 
 export default nextConfig;

@@ -2,9 +2,12 @@
 import Parser from "tree-sitter";
 import { logger } from "@/lib/logger";
 
-function safeRequireGrammar(packageName: string): unknown | null {
+function safeLoadGrammar(
+  packageName: string,
+  loader: () => unknown
+): unknown | null {
   try {
-    return require(packageName);
+    return loader();
   } catch (error) {
     logger.warn(`[TreeSitter] Failed to load grammar module ${packageName}`, {
       error,
@@ -20,17 +23,50 @@ function getModuleExport(grammarModule: unknown, key: string): unknown {
   return (grammarModule as Record<string, unknown>)[key];
 }
 
-const JavaScriptGrammarModule: unknown = safeRequireGrammar("tree-sitter-javascript");
-const TypeScriptGrammarModule: unknown = safeRequireGrammar("tree-sitter-typescript");
-const PythonGrammarModule: unknown = safeRequireGrammar("tree-sitter-python");
-const GoGrammarModule: unknown = safeRequireGrammar("tree-sitter-go");
-const RustGrammarModule: unknown = safeRequireGrammar("tree-sitter-rust");
-const JavaGrammarModule: unknown = safeRequireGrammar("tree-sitter-java");
-const RubyGrammarModule: unknown = safeRequireGrammar("tree-sitter-ruby");
-const PhpGrammarModule: unknown = safeRequireGrammar("tree-sitter-php");
-const CSharpGrammarModule: unknown = safeRequireGrammar("tree-sitter-c-sharp");
-const CppGrammarModule: unknown = safeRequireGrammar("tree-sitter-cpp");
-const SwiftGrammarModule: unknown = safeRequireGrammar("tree-sitter-swift");
+const JavaScriptGrammarModule: unknown = safeLoadGrammar(
+  "tree-sitter-javascript",
+  () => require("tree-sitter-javascript")
+);
+const TypeScriptGrammarModule: unknown = safeLoadGrammar(
+  "tree-sitter-typescript",
+  () => require("tree-sitter-typescript")
+);
+const PythonGrammarModule: unknown = safeLoadGrammar(
+  "tree-sitter-python",
+  () => require("tree-sitter-python")
+);
+const GoGrammarModule: unknown = safeLoadGrammar(
+  "tree-sitter-go",
+  () => require("tree-sitter-go")
+);
+const RustGrammarModule: unknown = safeLoadGrammar(
+  "tree-sitter-rust",
+  () => require("tree-sitter-rust")
+);
+const JavaGrammarModule: unknown = safeLoadGrammar(
+  "tree-sitter-java",
+  () => require("tree-sitter-java")
+);
+const RubyGrammarModule: unknown = safeLoadGrammar(
+  "tree-sitter-ruby",
+  () => require("tree-sitter-ruby")
+);
+const PhpGrammarModule: unknown = safeLoadGrammar(
+  "tree-sitter-php",
+  () => require("tree-sitter-php")
+);
+const CSharpGrammarModule: unknown = safeLoadGrammar(
+  "tree-sitter-c-sharp",
+  () => require("tree-sitter-c-sharp")
+);
+const CppGrammarModule: unknown = safeLoadGrammar(
+  "tree-sitter-cpp",
+  () => require("tree-sitter-cpp")
+);
+const SwiftGrammarModule: unknown = safeLoadGrammar(
+  "tree-sitter-swift",
+  () => require("tree-sitter-swift")
+);
 
 type QueryType = "function" | "class" | "import" | "call";
 
