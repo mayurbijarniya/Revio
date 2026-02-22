@@ -8,7 +8,6 @@ import {
   type PrReviewJobData,
   type QueueTrigger,
 } from "@/lib/queue";
-import { indexRepository } from "@/lib/services/indexer";
 
 export type BackgroundTaskDispatcher = (task: () => Promise<void>) => void;
 
@@ -175,6 +174,7 @@ export async function markPrReviewFailed(
 }
 
 async function runIndexingFallback(options: ScheduleIndexingOptions): Promise<void> {
+  const { indexRepository } = await import("@/lib/services/indexer");
   const fallbackToken =
     options.fallbackAccessToken ??
     (options.encryptedAccessToken ? decrypt(options.encryptedAccessToken) : null);
