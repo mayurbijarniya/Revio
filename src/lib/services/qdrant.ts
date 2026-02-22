@@ -9,6 +9,45 @@ const getQdrantClient = () => {
   return new QdrantClient({ url, apiKey });
 };
 
+type QdrantPointId = string | number;
+
+function getQdrantErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return "Unknown Qdrant error";
+  }
+}
+
+async function ensureFilePathPayloadIndex(
+  client: QdrantClient,
+  collectionName: string
+): Promise<void> {
+  try {
+    await client.createPayloadIndex(collectionName, {
+      wait: true,
+      field_name: "filePath",
+      field_schema: "keyword",
+    });
+  } catch (error) {
+    const message = getQdrantErrorMessage(error).toLowerCase();
+    if (message.includes("already") && message.includes("index")) {
+      return;
+    }
+    console.warn(
+      `Failed to ensure filePath payload index for ${collectionName}: ${getQdrantErrorMessage(
+        error
+      )}`
+    );
+  }
+}
+
 /**
  * Collection name for a repository
  */
@@ -38,6 +77,8 @@ export async function createCollection(repositoryId: string): Promise<void> {
       },
     });
   }
+
+  await ensureFilePathPayloadIndex(client, collectionName);
 }
 
 /**
@@ -148,21 +189,75 @@ export async function deleteChunksByFile(
 ): Promise<void> {
   const client = getQdrantClient();
   const collectionName = getCollectionName(repositoryId);
+  const filter = {
+    must: [
+      {
+        key: "filePath",
+        match: { value: filePath },
+      },
+    ],
+  };
 
   try {
+    await ensureFilePathPayloadIndex(client, collectionName);
     await client.delete(collectionName, {
-      filter: {
-        must: [
-          {
-            key: "filePath",
-            match: { value: filePath },
-          },
-        ],
-      },
+      wait: true,
+      filter,
     });
-  } catch (error) {
-    // Collection might not exist yet, which is fine
-    console.warn(`Failed to delete chunks for ${filePath}:`, error);
+    return;
+  } catch (filterDeleteError) {
+    console.warn(
+      `Filter delete failed for ${filePath}, falling back to id delete: ${getQdrantErrorMessage(
+        filterDeleteError
+      )}`
+    );
+  }
+
+  try {
+    const pointIds: QdrantPointId[] = [];
+    let offset: QdrantPointId | undefined;
+
+    while (true) {
+      const page = await client.scroll(collectionName, {
+        filter,
+        limit: 256,
+        offset,
+        with_payload: false,
+        with_vector: false,
+      });
+
+      for (const point of page.points ?? []) {
+        if (typeof point.id === "string" || typeof point.id === "number") {
+          pointIds.push(point.id);
+        }
+      }
+
+      const nextOffset = page.next_page_offset;
+      if (typeof nextOffset === "string" || typeof nextOffset === "number") {
+        offset = nextOffset;
+        continue;
+      }
+      break;
+    }
+
+    if (pointIds.length === 0) {
+      return;
+    }
+
+    const batchSize = 256;
+    for (let i = 0; i < pointIds.length; i += batchSize) {
+      const batch = pointIds.slice(i, i + batchSize);
+      await client.delete(collectionName, {
+        wait: true,
+        points: batch,
+      });
+    }
+  } catch (fallbackError) {
+    console.warn(
+      `Fallback delete failed for ${filePath}: ${getQdrantErrorMessage(
+        fallbackError
+      )}`
+    );
   }
 }
 
