@@ -3,18 +3,35 @@ import { createPrReviewWorker, type PrReviewJobData } from "@/lib/queue";
 import { reviewPullRequest, postReviewToGitHub } from "@/lib/services/reviewer";
 import { db } from "@/lib/db";
 import { decrypt } from "@/lib/encryption";
+import { createBotGitHubService } from "@/lib/services/github-app";
+import {
+  markPrReviewFailed,
+  markPrReviewStarted,
+} from "@/lib/services/background-orchestrator";
 
 /**
  * Process PR review jobs
  */
 async function processPrReviewJob(job: Job<PrReviewJobData>): Promise<void> {
-  const { repositoryId, prNumber, prTitle, prAuthor, accessToken } = job.data;
+  const {
+    repositoryId,
+    prNumber,
+    prTitle,
+    prAuthor,
+    accessToken,
+    prBody,
+    prUrl,
+    baseBranch,
+    headBranch,
+    headSha,
+    metadata,
+  } = job.data;
 
   console.warn(`[PR Review] Starting review for PR #${prNumber}`);
 
   try {
-    // Decrypt the access token
-    const decryptedToken = decrypt(accessToken);
+    await markPrReviewStarted(repositoryId, prNumber, String(job.id ?? ""));
+    const decryptedUserToken = decrypt(accessToken);
 
     // Get PR URL
     const repository = await db.repository.findUnique({
@@ -25,7 +42,14 @@ async function processPrReviewJob(job: Job<PrReviewJobData>): Promise<void> {
       throw new Error("Repository not found");
     }
 
-    const prUrl = `https://github.com/${repository.fullName}/pull/${prNumber}`;
+    const [owner, repo] = repository.fullName.split("/");
+    if (!owner || !repo) {
+      throw new Error("Invalid repository name");
+    }
+
+    const botService = await createBotGitHubService(owner, repo);
+    const effectiveToken = botService?.token ?? decryptedUserToken;
+    const effectivePrUrl = prUrl ?? `https://github.com/${repository.fullName}/pull/${prNumber}`;
 
     // Review the PR
     const review = await reviewPullRequest(
@@ -33,13 +57,14 @@ async function processPrReviewJob(job: Job<PrReviewJobData>): Promise<void> {
       {
         number: prNumber,
         title: prTitle,
-        body: null, // We don't have the body in the job data
+        body: prBody ?? null,
         author: prAuthor,
-        url: prUrl,
-        baseBranch: repository.defaultBranch,
-        headBranch: "", // Not needed for review
+        url: effectivePrUrl,
+        baseBranch: baseBranch ?? repository.defaultBranch,
+        headBranch: headBranch ?? "",
+        headSha: headSha ?? undefined,
       },
-      decryptedToken
+      effectiveToken
     );
 
     if (!review) {
@@ -51,34 +76,17 @@ async function processPrReviewJob(job: Job<PrReviewJobData>): Promise<void> {
       repositoryId,
       prNumber,
       review,
-      decryptedToken
+      effectiveToken
     );
 
     console.warn(
-      `[PR Review] Completed review for PR #${prNumber}, comment ID: ${commentId}`
+      `[PR Review] Completed review for PR #${prNumber}, comment ID: ${commentId} (trigger: ${metadata.trigger})`
     );
   } catch (error) {
     console.error(`[PR Review] Failed for PR #${prNumber}:`, error);
 
     // Update the PR review status to failed
-    await db.prReview.upsert({
-      where: {
-        repositoryId_prNumber: {
-          repositoryId,
-          prNumber,
-        },
-      },
-      update: {
-        status: "failed",
-      },
-      create: {
-        repositoryId,
-        prNumber,
-        prTitle,
-        prAuthor,
-        status: "failed",
-      },
-    });
+    await markPrReviewFailed(repositoryId, prNumber);
 
     throw error;
   }

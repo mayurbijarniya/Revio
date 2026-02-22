@@ -7,6 +7,7 @@ import { GitHubService } from "@/lib/services/github";
 import { createBotGitHubService } from "@/lib/services/github-app";
 import { reviewPullRequest, postReviewToGitHub } from "@/lib/services/reviewer";
 import { z } from "zod";
+import { schedulePrReview } from "@/lib/services/background-orchestrator";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -155,11 +156,25 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
     });
 
-    // Process the review using the Next.js 15 after() API
-    // This prevents Vercel timeouts by responding early and finishing the analysis in the background
-    console.warn(`[Review] Scheduling manual review for PR #${prNumber} using after()`);
-    after(async () => {
-      try {
+    const encryptedUserToken = await db.user.findUnique({
+      where: { id: session.userId },
+      select: { accessToken: true },
+    });
+
+    const scheduling = await schedulePrReview({
+      repositoryId: id,
+      prNumber,
+      prTitle: prDetails.title,
+      prAuthor: prDetails.user.login,
+      encryptedAccessToken: encryptedUserToken?.accessToken ?? null,
+      prBody: prDetails.body || "",
+      prUrl: prDetails.html_url,
+      baseBranch: prDetails.base.ref,
+      headBranch: prDetails.head.ref,
+      headSha: prDetails.head.sha,
+      trigger: "manual",
+      dispatchTask: (task) => after(task),
+      fallbackTask: async () => {
         const review = await reviewPullRequest(
           id,
           {
@@ -174,35 +189,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           },
           accessToken // Pass the working token (App or User)
         );
-        console.warn(`[Review] Manual review generated for PR #${prNumber}`);
 
         if (!review) {
           throw new Error("Failed to generate review");
         }
 
-        // Post to GitHub
-        console.warn(`[Review] Posting manual review to GitHub for PR #${prNumber}`);
         await postReviewToGitHub(id, prNumber, review, accessToken);
-      } catch (error) {
-        console.error(`[Review] Manual review failed for PR #${prNumber}:`, error);
-
-        // Update status to failed
-        await db.prReview.update({
-          where: {
-            repositoryId_prNumber: {
-              repositoryId: id,
-              prNumber,
-            },
-          },
-          data: { status: "failed" },
-        });
-      }
+      },
     });
 
     return jsonSuccess({
-      message: "PR review started",
+      message: scheduling.message,
       prNumber,
-      status: "pending"
+      status: "pending",
+      mode: scheduling.mode,
+      jobId: scheduling.jobId,
     });
   } catch (error) {
     console.error("Failed to trigger PR review:", error);

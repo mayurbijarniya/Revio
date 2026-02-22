@@ -1,10 +1,10 @@
-import { NextRequest } from "next/server";
+import { NextRequest, after } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { getUserAccessToken } from "@/lib/auth";
 import { jsonSuccess, jsonError } from "@/lib/api-utils";
-import { indexRepository } from "@/lib/services/indexer";
+import { scheduleIndexing } from "@/lib/services/background-orchestrator";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -64,24 +64,29 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return jsonError("AUTH_001", "Invalid GitHub token", 401);
     }
 
-    // Start indexing with incremental support
-    const result = await indexRepository(
-      repo.id,
-      session.userId,
-      repo.fullName,
-      repo.defaultBranch,
-      accessToken,
-      forceFullIndex
-    );
+    const encryptedUserToken = await db.user.findUnique({
+      where: { id: session.userId },
+      select: { accessToken: true },
+    });
+
+    const result = await scheduleIndexing({
+      repositoryId: repo.id,
+      userId: session.userId,
+      fullName: repo.fullName,
+      defaultBranch: repo.defaultBranch,
+      encryptedAccessToken: encryptedUserToken?.accessToken ?? null,
+      fallbackAccessToken: accessToken,
+      forceFullIndex,
+      trigger: "manual",
+      dispatchTask: (task) => after(task),
+    });
 
     return jsonSuccess({
-      message: result.isIncremental
-        ? "Incremental indexing complete"
-        : "Full indexing complete",
-      fileCount: result.fileCount,
-      chunkCount: result.chunkCount,
-      isIncremental: result.isIncremental,
-      stats: result.stats,
+      message: result.message,
+      mode: result.mode,
+      jobId: result.jobId,
+      forceFullIndex,
+      status: "pending",
     });
   } catch (error) {
     console.error("Failed to index repo:", error);

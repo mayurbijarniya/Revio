@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getUserAccessToken } from "@/lib/auth";
 import { GitHubService } from "@/lib/services/github";
 import { jsonSuccess, jsonError } from "@/lib/api-utils";
+import { deleteCollection } from "@/lib/services/qdrant";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -47,6 +48,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         indexProgress: repo.indexProgress,
         indexedAt: repo.indexedAt,
         indexError: repo.indexError,
+        indexQueuedAt: repo.indexQueuedAt,
+        indexStartedAt: repo.indexStartedAt,
+        indexHeartbeatAt: repo.indexHeartbeatAt,
+        indexJobId: repo.indexJobId,
         fileCount: repo.fileCount,
         chunkCount: repo.chunkCount,
         autoReview: repo.autoReview,
@@ -111,7 +116,12 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       where: { id },
     });
 
-    // TODO: Delete vectors from Qdrant
+    try {
+      await deleteCollection(repo.id);
+    } catch (qdrantError) {
+      // Non-blocking cleanup: repository is already disconnected from app database.
+      console.warn("Qdrant collection cleanup failed:", qdrantError);
+    }
 
     return jsonSuccess({ message: "Repository disconnected successfully" });
   } catch (error) {

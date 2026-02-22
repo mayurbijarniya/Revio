@@ -1,11 +1,11 @@
-import { NextRequest } from "next/server";
+import { NextRequest, after } from "next/server";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { getUserAccessToken } from "@/lib/auth";
 import { jsonSuccess, jsonError } from "@/lib/api-utils";
 import { ConnectRepoSchema } from "@/types/repository";
 import { PLAN_LIMITS } from "@/lib/constants";
-import { addIndexingJob } from "@/lib/queue";
+import { scheduleIndexing } from "@/lib/services/background-orchestrator";
 
 // GitHub App handles webhooks globally - no per-repo webhooks needed
 
@@ -89,43 +89,53 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Get user's encrypted access token for indexing job
-    const userToken = await db.user.findUnique({
+    // Queue-first indexing via Upstash Redis (durable retries/backoff).
+    const encryptedUserToken = await db.user.findUnique({
       where: { id: session.userId },
       select: { accessToken: true },
     });
 
-    // Queue indexing job automatically
-    if (userToken?.accessToken) {
-      try {
-        await addIndexingJob({
-          repositoryId: repo.id,
-          userId: session.userId,
-          fullName,
-          defaultBranch,
-          accessToken: userToken.accessToken,
-        });
-      } catch (indexError) {
-        // Indexing job failed to queue - log but don't fail the connect
-        console.warn("Failed to queue indexing job:", indexError);
-      }
-    }
+    const indexingResult = await scheduleIndexing({
+      repositoryId: repo.id,
+      userId: session.userId,
+      fullName,
+      defaultBranch,
+      encryptedAccessToken: encryptedUserToken?.accessToken ?? null,
+      fallbackAccessToken: accessToken,
+      forceFullIndex: false,
+      trigger: "connect",
+      dispatchTask: (task) => after(task),
+    });
+
+    const refreshedRepo = await db.repository.findUnique({
+      where: { id: repo.id },
+    });
+    const responseRepo = refreshedRepo ?? repo;
 
     return jsonSuccess(
       {
         repository: {
-          id: repo.id,
-          githubRepoId: repo.githubRepoId,
-          name: repo.name,
-          fullName: repo.fullName,
-          private: repo.private,
-          defaultBranch: repo.defaultBranch,
-          language: repo.language,
-          indexStatus: repo.indexStatus,
-          autoReview: repo.autoReview,
+          id: responseRepo.id,
+          githubRepoId: responseRepo.githubRepoId,
+          name: responseRepo.name,
+          fullName: responseRepo.fullName,
+          private: responseRepo.private,
+          defaultBranch: responseRepo.defaultBranch,
+          language: responseRepo.language,
+          indexStatus: responseRepo.indexStatus,
+          indexQueuedAt: responseRepo.indexQueuedAt,
+          indexStartedAt: responseRepo.indexStartedAt,
+          indexHeartbeatAt: responseRepo.indexHeartbeatAt,
+          indexJobId: responseRepo.indexJobId,
+          autoReview: responseRepo.autoReview,
           webhookActive: true, // GitHub App handles webhooks globally
         },
-        message: "Repository connected with automatic PR reviews enabled via GitHub App.",
+        scheduling: {
+          mode: indexingResult.mode,
+          jobId: indexingResult.jobId,
+        },
+        message:
+          `Repository connected with automatic PR reviews enabled via GitHub App. ${indexingResult.message}`,
       },
       201
     );

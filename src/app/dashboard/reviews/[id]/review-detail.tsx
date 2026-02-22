@@ -72,6 +72,9 @@ interface ReviewData {
   prUrl: string;
   prAuthor: string | null;
   status: string;
+  queuedAt: string | null;
+  startedAt: string | null;
+  jobId: string | null;
   summary: string | null;
   issues: ReviewIssue[];
   issuesByFile: Record<string, ReviewIssue[]>;

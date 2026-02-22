@@ -1,15 +1,11 @@
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { AI_CONFIG } from "@/lib/constants";
 import type { EmbeddedChunk } from "./embeddings";
+import { requireEnv } from "@/lib/env";
 
 const getQdrantClient = () => {
-  const url = process.env.QDRANT_URL;
-  const apiKey = process.env.QDRANT_API_KEY;
-
-  if (!url || !apiKey) {
-    throw new Error("Qdrant configuration missing");
-  }
-
+  const url = requireEnv("QDRANT_URL");
+  const apiKey = requireEnv("QDRANT_API_KEY");
   return new QdrantClient({ url, apiKey });
 };
 

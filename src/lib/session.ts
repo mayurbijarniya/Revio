@@ -1,15 +1,13 @@
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 import { cookies } from "next/headers";
 import type { SessionPayload, PublicUser } from "@/types/auth";
+import { env, requireEnv } from "@/lib/env";
 
 const SESSION_COOKIE_NAME = "revio_session";
 const SESSION_DURATION = 60 * 60 * 24 * 7; // 7 days in seconds
 
 function getSessionSecret(): Uint8Array {
-  const secret = process.env.SESSION_SECRET;
-  if (!secret) {
-    throw new Error("SESSION_SECRET environment variable is required");
-  }
+  const secret = requireEnv("SESSION_SECRET");
   return new TextEncoder().encode(secret);
 }
 
@@ -56,7 +54,7 @@ export async function setSessionCookie(token: string): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: SESSION_DURATION,
     path: "/",

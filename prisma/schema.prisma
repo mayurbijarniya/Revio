@@ -84,12 +84,16 @@ model Repository {
   language       String?   @db.VarChar(100)
 
   // Indexing
-  indexStatus   String   @default("pending") @map("index_status") @db.VarChar(50)
-  indexProgress Int      @default(0) @map("index_progress")
-  indexedAt     DateTime? @map("indexed_at")
-  indexError    String?  @map("index_error") @db.Text
-  fileCount     Int      @default(0) @map("file_count")
-  chunkCount    Int      @default(0) @map("chunk_count")
+  indexStatus      String    @default("pending") @map("index_status") @db.VarChar(50)
+  indexProgress    Int       @default(0) @map("index_progress")
+  indexedAt        DateTime? @map("indexed_at")
+  indexError       String?   @map("index_error") @db.Text
+  indexQueuedAt    DateTime? @map("index_queued_at")
+  indexStartedAt   DateTime? @map("index_started_at")
+  indexHeartbeatAt DateTime? @map("index_heartbeat_at")
+  indexJobId       String?   @map("index_job_id") @db.VarChar(255)
+  fileCount        Int       @default(0) @map("file_count")
+  chunkCount       Int       @default(0) @map("chunk_count")
 
   // Webhook
   webhookId     Int?    @map("webhook_id")
@@ -119,6 +123,8 @@ model Repository {
   @@unique([userId, githubRepoId])
   @@index([userId])
   @@index([indexStatus])
+  @@index([indexStatus, indexQueuedAt])
+  @@index([indexStatus, indexHeartbeatAt])
   @@map("repositories")
 }
 
@@ -205,6 +211,9 @@ model PrReview {
   testCoverage   Json     @default("{}") @map("test_coverage") // Heuristic test-coverage signals
   headSha        String?  @map("head_sha") @db.VarChar(40)
   runCount       Int      @default(0) @map("run_count")
+  queuedAt       DateTime? @map("queued_at")
+  startedAt      DateTime? @map("started_at")
+  jobId          String?   @map("job_id") @db.VarChar(255)
 
   // Status
   status          String @default("pending") @db.VarChar(50)
@@ -232,6 +241,7 @@ model PrReview {
   @@unique([repositoryId, prNumber])
   @@index([repositoryId])
   @@index([assignedToId])
+  @@index([status, queuedAt])
   @@map("pr_reviews")
 }
 

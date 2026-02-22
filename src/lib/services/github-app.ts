@@ -1,9 +1,10 @@
 import { SignJWT, importPKCS8 } from "jose";
 import { Octokit } from "@octokit/rest";
 import * as crypto from "crypto";
+import { requireEnv } from "@/lib/env";
 
-const GITHUB_APP_ID = process.env.GITHUB_APP_ID!;
-const GITHUB_APP_PRIVATE_KEY = process.env.GITHUB_APP_PRIVATE_KEY!;
+const GITHUB_APP_ID = requireEnv("GITHUB_APP_ID");
+const GITHUB_APP_PRIVATE_KEY = requireEnv("GITHUB_APP_PRIVATE_KEY");
 
 /**
  * Convert RSA private key (PKCS#1) to PKCS#8 format
@@ -47,6 +48,13 @@ async function generateAppJWT(): Promise<string> {
     .sign(privateKey);
 
   return jwt;
+}
+
+/**
+ * Health check helper to validate app JWT generation.
+ */
+export async function checkGitHubAppAuth(): Promise<void> {
+  await generateAppJWT();
 }
 
 /**

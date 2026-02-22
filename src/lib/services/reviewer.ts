@@ -361,6 +361,9 @@ export async function reviewPullRequest(
       headSha,
       runCount: { increment: 1 },
       status: "completed",
+      queuedAt: null,
+      startedAt: null,
+      jobId: null,
       processingTimeMs: processingTime,
     },
     create: {
@@ -383,6 +386,9 @@ export async function reviewPullRequest(
       headSha,
       runCount: 1,
       status: "completed",
+      queuedAt: null,
+      startedAt: null,
+      jobId: null,
       processingTimeMs: processingTime,
     },
   });

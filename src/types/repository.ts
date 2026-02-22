@@ -25,6 +25,10 @@ export interface ConnectedRepository {
   indexProgress: number;
   indexedAt: Date | null;
   indexError: string | null;
+  indexQueuedAt: Date | null;
+  indexStartedAt: Date | null;
+  indexHeartbeatAt: Date | null;
+  indexJobId: string | null;
   fileCount: number;
   chunkCount: number;
   autoReview: boolean;

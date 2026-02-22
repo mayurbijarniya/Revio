@@ -5,6 +5,12 @@ import { WEBHOOK_CONFIG } from "@/lib/constants";
 import { reviewPullRequest, postReviewToGitHub } from "@/lib/services/reviewer";
 import { decrypt } from "@/lib/encryption";
 import { createBotGitHubService } from "@/lib/services/github-app";
+import { env } from "@/lib/env";
+import {
+  markPrReviewFailed,
+  scheduleIndexing,
+  schedulePrReview,
+} from "@/lib/services/background-orchestrator";
 import {
   parseBotCommand,
   getOrCreateConversation,
@@ -14,7 +20,7 @@ import {
 } from "@/lib/services/bot-conversation";
 
 // GitHub App webhook secret (required for all webhook events)
-const GITHUB_APP_WEBHOOK_SECRET = process.env.GITHUB_APP_WEBHOOK_SECRET;
+const GITHUB_APP_WEBHOOK_SECRET = env.GITHUB_APP_WEBHOOK_SECRET;
 
 /**
  * Verify GitHub webhook signature
@@ -100,7 +106,7 @@ export async function POST(request: NextRequest) {
 
   // Handle pull_request events
   if (event === "pull_request") {
-    return handlePullRequestEvent(body, repository);
+    return handlePullRequestEvent(body, repository, delivery ?? undefined);
   }
 
   // Handle issue_comment events (for @bot conversations)
@@ -108,9 +114,9 @@ export async function POST(request: NextRequest) {
     return handleIssueCommentEvent(body, repository);
   }
 
-  // Handle push events (for re-indexing in the future)
+  // Handle push events (automatic incremental re-indexing)
   if (event === "push") {
-    return handlePushEvent(body, repository);
+    return handlePushEvent(body, repository, delivery ?? undefined);
   }
 
   return NextResponse.json({ message: "Event received" });
@@ -118,11 +124,46 @@ export async function POST(request: NextRequest) {
 
 interface RepositoryWithUser {
   id: string;
+  userId: string;
   fullName: string;
+  defaultBranch: string;
+  indexStatus: string;
   autoReview: boolean;
   user: {
     accessToken: string;
   };
+}
+
+interface RepositoryAuthContext {
+  fullName: string;
+  user: {
+    accessToken: string;
+  };
+}
+
+function parseRepositoryFullName(fullName: string): { owner: string; repo: string } | null {
+  const parts = fullName.split("/");
+  const owner = parts[0];
+  const repo = parts[1];
+  if (!owner || !repo) return null;
+  return { owner, repo };
+}
+
+async function resolveRepositoryAccessToken(
+  repository: RepositoryAuthContext,
+  owner: string,
+  repo: string
+): Promise<string> {
+  const botService = await createBotGitHubService(owner, repo);
+  if (botService) {
+    console.warn(`[Webhook] Using bot token for ${repository.fullName}`);
+    return botService.token;
+  }
+
+  console.warn(
+    `[Webhook] Bot service unavailable for ${repository.fullName}, falling back to user token`
+  );
+  return decrypt(repository.user.accessToken);
 }
 
 /**
@@ -130,7 +171,8 @@ interface RepositoryWithUser {
  */
 async function handlePullRequestEvent(
   body: Record<string, unknown>,
-  repository: RepositoryWithUser
+  repository: RepositoryWithUser,
+  deliveryId?: string
 ) {
   const action = body.action as string;
   const pr = body.pull_request as {
@@ -189,18 +231,28 @@ async function handlePullRequestEvent(
 
   // Process review using the Next.js 15 after() API
   // This ensures the background process continues after the response is sent to GitHub
-  console.warn(`[Webhook] Scheduling async review for PR #${pr.number} using after()`);
-  after(async () => {
-    try {
-      await processReviewAsync(repository, pr);
-    } catch (error) {
-      console.error(`[Webhook] Critical error in review background process for PR #${pr.number}:`, error);
-    }
+  const scheduling = await schedulePrReview({
+    repositoryId: repository.id,
+    prNumber: pr.number,
+    prTitle: pr.title,
+    prAuthor: pr.user.login,
+    encryptedAccessToken: repository.user.accessToken,
+    prBody: pr.body,
+    prUrl: pr.html_url,
+    baseBranch: pr.base.ref,
+    headBranch: pr.head.ref,
+    headSha: pr.head.sha ?? null,
+    trigger: "push",
+    deliveryId,
+    dispatchTask: (task) => after(task),
+    fallbackTask: () => processReviewAsync(repository, pr),
   });
 
   return NextResponse.json({
-    message: "PR review started",
+    message: scheduling.message,
     pr: pr.number,
+    mode: scheduling.mode,
+    jobId: scheduling.jobId,
   });
 }
 
@@ -220,26 +272,13 @@ async function processReviewAsync(
   }
 ) {
   try {
-    const parts = repository.fullName.split("/");
-    const owner = parts[0];
-    const repo = parts[1];
-
-    if (!owner || !repo) {
+    const parsedRepo = parseRepositoryFullName(repository.fullName);
+    if (!parsedRepo) {
       throw new Error("Invalid repository name");
     }
+    const { owner, repo } = parsedRepo;
 
-    // Try to get bot service first for more reliable authentication
-    const botService = await createBotGitHubService(owner, repo);
-    let accessToken: string;
-
-    if (botService) {
-      console.warn(`[Webhook] Using bot token for ${repository.fullName}`);
-      accessToken = botService.token;
-    } else {
-      console.warn(`[Webhook] Bot service unavailable for ${repository.fullName}, falling back to user token`);
-      // Decrypt the user access token as fallback
-      accessToken = decrypt(repository.user.accessToken);
-    }
+    const accessToken = await resolveRepositoryAccessToken(repository, owner, repo);
 
     // Get repository details for default branch
     const repoDetails = await db.repository.findUnique({
@@ -281,17 +320,7 @@ async function processReviewAsync(
 
     // Update the PR review status to failed
     console.warn(`[Webhook] Marking PR #${pr.number} as failed in database`);
-    await db.prReview.update({
-      where: {
-        repositoryId_prNumber: {
-          repositoryId: repository.id,
-          prNumber: pr.number,
-        },
-      },
-      data: {
-        status: "failed",
-      },
-    });
+    await markPrReviewFailed(repository.id, pr.number);
   }
 }
 
@@ -462,7 +491,20 @@ async function processBotCommentAsync(
     if (botCommand.command === "re-review") {
       try {
         const pr = await githubService.getPullRequest(owner, repo, prNumber);
-        await processReviewAsync(repository, pr);
+        await schedulePrReview({
+          repositoryId: repository.id,
+          prNumber,
+          prTitle: pr.title,
+          prAuthor: pr.user.login,
+          encryptedAccessToken: repository.user.accessToken,
+          prBody: pr.body,
+          prUrl: pr.html_url,
+          baseBranch: pr.base.ref,
+          headBranch: pr.head.ref,
+          headSha: pr.head.sha ?? null,
+          trigger: "manual",
+          fallbackTask: () => processReviewAsync(repository, pr),
+        });
       } catch (reviewError) {
         console.error(`[Webhook] Failed to re-review PR #${prNumber}:`, reviewError);
       }
@@ -474,25 +516,53 @@ async function processBotCommentAsync(
 }
 
 /**
- * Handle push events (placeholder for future re-indexing)
+ * Handle push events (queue-first incremental re-indexing)
  */
 async function handlePushEvent(
   body: Record<string, unknown>,
-  repository: RepositoryWithUser
+  repository: RepositoryWithUser,
+  deliveryId?: string
 ) {
   const ref = body.ref as string;
-  const defaultBranch = (body.repository as { default_branch?: string })?.default_branch;
+  const headSha = (body.after as string | undefined) ?? null;
+  const deleted = Boolean((body as { deleted?: boolean }).deleted);
+  const defaultBranch =
+    (body.repository as { default_branch?: string })?.default_branch ??
+    repository.defaultBranch;
 
   // Only care about pushes to default branch
   if (ref !== `refs/heads/${defaultBranch}`) {
     return NextResponse.json({ message: "Push not to default branch" });
   }
 
+  if (deleted) {
+    return NextResponse.json({ message: "Branch deletion push ignored" });
+  }
+
+  if (repository.indexStatus === "indexing") {
+    return NextResponse.json({ message: "Repository already indexing" });
+  }
+
   console.warn(
-    `[Webhook] Push to ${defaultBranch} in ${repository.fullName} - re-indexing not yet implemented`
+    `[Webhook] Push to ${defaultBranch} in ${repository.fullName} - scheduling incremental re-index`
   );
 
-  // TODO: Queue re-indexing job
+  const scheduling = await scheduleIndexing({
+    repositoryId: repository.id,
+    userId: repository.userId,
+    fullName: repository.fullName,
+    defaultBranch,
+    encryptedAccessToken: repository.user.accessToken,
+    forceFullIndex: false,
+    trigger: "push",
+    deliveryId,
+    headSha,
+    dispatchTask: (task) => after(task),
+  });
 
-  return NextResponse.json({ message: "Push event received" });
+  return NextResponse.json({
+    message: `Push event received. ${scheduling.message}`,
+    mode: scheduling.mode,
+    jobId: scheduling.jobId,
+  });
 }
