@@ -46,7 +46,8 @@ export class StandardsDetector {
   public async detectStandards(
     owner: string,
     repo: string,
-    repositoryId: string
+    repositoryId: string,
+    defaultBranch?: string
   ): Promise<StandardsFile[]> {
     const detected: StandardsFile[] = [];
 
@@ -56,24 +57,36 @@ export class StandardsDetector {
       repo,
     });
 
+    let pathLookup: Map<string, string> | null = null;
+    try {
+      pathLookup = await this.buildRepositoryPathLookup(owner, repo, defaultBranch);
+    } catch {
+      // Fall back to probing known paths directly when tree listing is unavailable.
+      pathLookup = null;
+    }
+
     for (const { source, paths } of STANDARDS_FILES) {
       for (const filePath of paths) {
-        try {
-          const content = await this.fetchFile(owner, repo, filePath);
-          if (content) {
-            const parsedRules = this.parseStandardsFile(source, content);
-            detected.push({ source, filePath, content, parsedRules });
-            logger.info(`Detected standards file: ${filePath}`, {
-              repositoryId,
-              source,
-              rulesCount: parsedRules.length,
-            });
-            break; // Found one for this source, move to next
-          }
-        } catch {
-          // File doesn't exist, continue to next
+        const candidatePath = pathLookup?.get(filePath.toLowerCase());
+        if (pathLookup && !candidatePath) {
+          // File definitely doesn't exist in repository tree.
           continue;
         }
+
+        const resolvedPath = candidatePath ?? filePath;
+        const content = await this.fetchFile(owner, repo, resolvedPath, defaultBranch);
+        if (!content) {
+          continue;
+        }
+
+        const parsedRules = this.parseStandardsFile(source, content);
+        detected.push({ source, filePath: resolvedPath, content, parsedRules });
+        logger.info(`Detected standards file: ${resolvedPath}`, {
+          repositoryId,
+          source,
+          rulesCount: parsedRules.length,
+        });
+        break; // Found one for this source, move to next
       }
     }
 
@@ -83,8 +96,35 @@ export class StandardsDetector {
   /**
    * Fetch file from GitHub repository
    */
-  private async fetchFile(owner: string, repo: string, path: string): Promise<string | null> {
-    return this.github.getFileContent(owner, repo, path);
+  private async fetchFile(
+    owner: string,
+    repo: string,
+    path: string,
+    ref?: string
+  ): Promise<string | null> {
+    try {
+      return await this.github.getFileContent(owner, repo, path, ref);
+    } catch {
+      return null;
+    }
+  }
+
+  private async buildRepositoryPathLookup(
+    owner: string,
+    repo: string,
+    defaultBranch?: string
+  ): Promise<Map<string, string>> {
+    const branch =
+      defaultBranch || (await this.github.getRepo(owner, repo)).default_branch;
+
+    const files = await this.github.getRepositoryTree(owner, repo, branch);
+    const lookup = new Map<string, string>();
+
+    for (const file of files) {
+      lookup.set(file.path.toLowerCase(), file.path);
+    }
+
+    return lookup;
   }
 
 

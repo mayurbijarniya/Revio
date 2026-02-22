@@ -84,14 +84,19 @@ function sanitizeJobSegment(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]/g, "_");
 }
 
+function joinJobId(parts: string[]): string {
+  // BullMQ custom ids cannot include ":".
+  return parts.map(sanitizeJobSegment).join("__");
+}
+
 export function buildIndexJobId(data: {
   repositoryId: string;
   defaultBranch: string;
   headSha?: string | null;
 }): string {
-  const branch = sanitizeJobSegment(data.defaultBranch);
+  const branch = data.defaultBranch;
   const headMarker = data.headSha?.slice(0, 12) ?? "latest";
-  return `index:${data.repositoryId}:${branch}:${headMarker}`;
+  return joinJobId(["index", data.repositoryId, branch, headMarker]);
 }
 
 export function buildReviewJobId(data: {
@@ -100,7 +105,12 @@ export function buildReviewJobId(data: {
   headSha?: string | null;
 }): string {
   const headMarker = data.headSha?.slice(0, 12) ?? "latest";
-  return `review:${data.repositoryId}:${data.prNumber}:${headMarker}`;
+  return joinJobId([
+    "review",
+    data.repositoryId,
+    String(data.prNumber),
+    headMarker,
+  ]);
 }
 
 function isDuplicateJobError(error: unknown): boolean {

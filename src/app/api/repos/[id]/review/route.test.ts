@@ -85,7 +85,7 @@ describe("manual PR review route", () => {
     });
     mockSchedulePrReview.mockResolvedValue({
       mode: "queue",
-      jobId: "review:repo-1:7:abcdef123456",
+      jobId: "review__repo-1__7__abcdef123456",
       message: "PR review queued in background.",
     });
   });
@@ -105,7 +105,7 @@ describe("manual PR review route", () => {
     expect(response.status).toBe(200);
     expect(body.success).toBe(true);
     expect(body.data?.mode).toBe("queue");
-    expect(body.data?.jobId).toBe("review:repo-1:7:abcdef123456");
+    expect(body.data?.jobId).toBe("review__repo-1__7__abcdef123456");
     expect(mockSchedulePrReview).toHaveBeenCalledWith(
       expect.objectContaining({
         repositoryId: "repo-1",

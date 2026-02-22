@@ -204,7 +204,8 @@ const LANGUAGE_CONFIGS: Record<string, LanguageConfig> = {
         `(trait_item name: (_) @name) @class`,
         `(enum_item name: (_) @name) @class`,
       ],
-      import: [`(use_declaration path: (_) @source) @import`],
+      // Keep this broad; tree-sitter-rust node fields vary across versions.
+      import: [`(use_declaration) @source`],
       call: [
         `(call_expression function: (identifier) @callee) @call`,
         `(call_expression function: (field_expression field: (_) @callee)) @call`,

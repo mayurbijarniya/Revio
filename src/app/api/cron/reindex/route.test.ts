@@ -44,7 +44,7 @@ describe("cron watchdog reindex route", () => {
     mockUpdateMany.mockResolvedValue({ count: 1 });
     mockScheduleIndexing.mockResolvedValue({
       mode: "queue",
-      jobId: "index:repo-1:main:latest",
+      jobId: "index__repo-1__main__latest",
       message: "queued",
     });
     mockDecrypt.mockReturnValue("token");
