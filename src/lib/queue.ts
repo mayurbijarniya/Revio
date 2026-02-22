@@ -1,13 +1,11 @@
 import { Queue, Worker, Job, type ConnectionOptions } from "bullmq";
 import { requireEnv } from "@/lib/env";
 
-// Queue names
 export const QUEUE_NAMES = {
   INDEXING: "indexing",
   PR_REVIEW: "pr-review",
 } as const;
 
-// Indexing job data
 export type QueueTrigger = "connect" | "push" | "manual" | "cron";
 
 interface QueueJobMetadata {
@@ -26,7 +24,6 @@ export interface IndexingJobData {
   metadata: QueueJobMetadata;
 }
 
-// PR Review job data
 export interface PrReviewJobData {
   repositoryId: string;
   prNumber: number;
@@ -41,12 +38,9 @@ export interface PrReviewJobData {
   metadata: QueueJobMetadata;
 }
 
-// Get Redis connection options for Upstash
 function getRedisOptions(): ConnectionOptions {
   const url = requireEnv("UPSTASH_REDIS_REST_URL");
   const token = requireEnv("UPSTASH_REDIS_REST_TOKEN");
-
-  // Parse Upstash URL for ioredis
   const host = url.replace("https://", "").replace("http://", "");
 
   return {
@@ -58,7 +52,6 @@ function getRedisOptions(): ConnectionOptions {
   };
 }
 
-// Singleton queues
 let indexingQueue: Queue | null = null;
 let prReviewQueue: Queue | null = null;
 
@@ -85,7 +78,6 @@ function sanitizeJobSegment(value: string): string {
 }
 
 function joinJobId(parts: string[]): string {
-  // BullMQ custom ids cannot include ":".
   return parts.map(sanitizeJobSegment).join("__");
 }
 
@@ -124,7 +116,6 @@ function isDuplicateJobError(error: unknown): boolean {
   );
 }
 
-// Create a worker for indexing jobs
 export function createIndexingWorker(
   processor: (job: Job<IndexingJobData>) => Promise<void>
 ): Worker {
@@ -134,7 +125,6 @@ export function createIndexingWorker(
   });
 }
 
-// Create a worker for PR review jobs
 export function createPrReviewWorker(
   processor: (job: Job<PrReviewJobData>) => Promise<void>
 ): Worker {
@@ -144,7 +134,6 @@ export function createPrReviewWorker(
   });
 }
 
-// Add an indexing job
 export async function addIndexingJob(data: IndexingJobData): Promise<string> {
   const queue = getIndexingQueue();
   const jobId = buildIndexJobId({
@@ -174,7 +163,6 @@ export async function addIndexingJob(data: IndexingJobData): Promise<string> {
   }
 }
 
-// Add a PR review job
 export async function addPrReviewJob(data: PrReviewJobData): Promise<string> {
   const queue = getPrReviewQueue();
   const jobId = buildReviewJobId({
