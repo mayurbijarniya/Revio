@@ -1,9 +1,3 @@
-/**
- * Coding Standards Auto-Detection Service
- * Scans repositories for coding standards files (.claude.md, .cursorrules, agents.md, etc.)
- * Parses them and extracts rules to enhance PR reviews
- */
-
 import { GitHubService } from "./github";
 import { db } from "../db";
 import { logger } from "../logger";
@@ -22,7 +16,6 @@ export interface StandardsFile {
   parsedRules: ParsedRule[];
 }
 
-// Known coding standards files to detect
 const STANDARDS_FILES = [
   { source: "claude_md", paths: [".claude/CLAUDE.md", ".claude.md", "CLAUDE.md"] },
   { source: "cursorrules", paths: [".cursorrules", ".cursor/rules", ".cursor/settings.json"] },
@@ -40,9 +33,6 @@ export class StandardsDetector {
     this.github = new GitHubService(accessToken);
   }
 
-  /**
-   * Scan repository for coding standards files
-   */
   public async detectStandards(
     owner: string,
     repo: string,
@@ -61,7 +51,6 @@ export class StandardsDetector {
     try {
       pathLookup = await this.buildRepositoryPathLookup(owner, repo, defaultBranch);
     } catch {
-      // Fall back to probing known paths directly when tree listing is unavailable.
       pathLookup = null;
     }
 
@@ -69,7 +58,6 @@ export class StandardsDetector {
       for (const filePath of paths) {
         const candidatePath = pathLookup?.get(filePath.toLowerCase());
         if (pathLookup && !candidatePath) {
-          // File definitely doesn't exist in repository tree.
           continue;
         }
 
@@ -86,16 +74,13 @@ export class StandardsDetector {
           source,
           rulesCount: parsedRules.length,
         });
-        break; // Found one for this source, move to next
+        break;
       }
     }
 
     return detected;
   }
 
-  /**
-   * Fetch file from GitHub repository
-   */
   private async fetchFile(
     owner: string,
     repo: string,
@@ -127,10 +112,6 @@ export class StandardsDetector {
     return lookup;
   }
 
-
-  /**
-   * Parse standards file based on its source type
-   */
   private parseStandardsFile(source: string, content: string): ParsedRule[] {
     switch (source) {
       case "claude_md":
@@ -145,25 +126,19 @@ export class StandardsDetector {
     }
   }
 
-  /**
-   * Parse .claude.md / CLAUDE.md files
-   */
   private parseClaudeMd(content: string): ParsedRule[] {
     const rules: ParsedRule[] = [];
     const lines = content.split("\n");
 
     let currentCategory = "General";
     for (const line of lines) {
-      // Detect category headers
       if (line.startsWith("##")) {
         currentCategory = line.replace(/^##\s*/, "").trim();
       }
 
-      // Detect rules (bullets or numbered lists)
       if (line.match(/^[\s]*[-*]\s+/) || line.match(/^\d+\.\s+/)) {
         const rule = line.replace(/^[\s]*[-*\d.]\s+/, "").trim();
         if (rule.length > 10) {
-          // Filter out very short lines
           rules.push({
             category: currentCategory,
             rule,
@@ -172,7 +147,6 @@ export class StandardsDetector {
         }
       }
 
-      // Detect IMPORTANT/CRITICAL markers
       if (line.includes("IMPORTANT:") || line.includes("CRITICAL:")) {
         rules.push({
           category: currentCategory,
@@ -185,14 +159,10 @@ export class StandardsDetector {
     return rules;
   }
 
-  /**
-   * Parse .cursorrules files (JSON or plain text)
-   */
   private parseCursorRules(content: string): ParsedRule[] {
     const rules: ParsedRule[] = [];
 
     try {
-      // Try parsing as JSON first
       const json = JSON.parse(content);
       if (json.rules && Array.isArray(json.rules)) {
         for (const rule of json.rules) {
@@ -205,35 +175,26 @@ export class StandardsDetector {
         }
       }
     } catch {
-      // Not JSON, parse as plain text
       return this.parseGenericMarkdown(content);
     }
 
     return rules;
   }
 
-  /**
-   * Parse agents.md or similar markdown instruction files
-   */
   private parseMarkdownInstructions(content: string): ParsedRule[] {
     return this.parseGenericMarkdown(content);
   }
 
-  /**
-   * Generic markdown parser for instruction files
-   */
   private parseGenericMarkdown(content: string): ParsedRule[] {
     const rules: ParsedRule[] = [];
     const lines = content.split("\n");
 
     let currentCategory = "General";
     for (const line of lines) {
-      // Detect headers as categories
       if (line.startsWith("#")) {
         currentCategory = line.replace(/^#+\s*/, "").trim();
       }
 
-      // Detect rule lines (bullets, numbers, or imperative sentences)
       if (
         line.match(/^[\s]*[-*]\s+/) ||
         line.match(/^\d+\.\s+/) ||
@@ -253,13 +214,9 @@ export class StandardsDetector {
     return rules;
   }
 
-  /**
-   * Detect rule severity from text
-   */
   private detectSeverity(text: string): "critical" | "warning" | "suggestion" {
     const lower = text.toLowerCase();
 
-    // Critical keywords
     if (
       lower.includes("never") ||
       lower.includes("must not") ||
@@ -270,7 +227,6 @@ export class StandardsDetector {
       return "critical";
     }
 
-    // Warning keywords
     if (
       lower.includes("should not") ||
       lower.includes("avoid") ||
@@ -280,13 +236,9 @@ export class StandardsDetector {
       return "warning";
     }
 
-    // Default to suggestion
     return "suggestion";
   }
 
-  /**
-   * Save detected standards to database
-   */
   public async saveStandards(
     repositoryId: string,
     standards: StandardsFile[]
@@ -321,9 +273,6 @@ export class StandardsDetector {
     });
   }
 
-  /**
-   * Get all enabled standards for a repository
-   */
   public static async getRepositoryStandards(
     repositoryId: string
   ): Promise<StandardsFile[]> {
@@ -345,9 +294,6 @@ export class StandardsDetector {
     }));
   }
 
-  /**
-   * Format standards for PR review prompt
-   */
   public static formatStandardsForPrompt(standards: StandardsFile[]): string {
     if (standards.length === 0) {
       return "";
@@ -362,7 +308,6 @@ export class StandardsDetector {
     for (const standard of standards) {
       prompt += `### ${standard.source} (${standard.filePath})\n\n`;
 
-      // Group rules by category
       const rulesByCategory = new Map<string, ParsedRule[]>();
       for (const rule of standard.parsedRules) {
         const category = rule.category || "General";

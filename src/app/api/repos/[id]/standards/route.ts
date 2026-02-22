@@ -9,10 +9,6 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-/**
- * GET /api/repos/[id]/standards
- * Get detected coding standards for a repository
- */
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   const session = await getSession();
   if (!session) {
@@ -24,8 +20,6 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
   try {
     const { id } = await params;
-
-    // Get repository
     const repository = await db.repository.findFirst({
       where: {
         id,
@@ -73,10 +67,6 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   }
 }
 
-/**
- * POST /api/repos/[id]/standards
- * Trigger coding standards detection for a repository
- */
 export async function POST(_request: NextRequest, { params }: RouteParams) {
   const session = await getSession();
   if (!session) {
@@ -88,8 +78,6 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
 
   try {
     const { id } = await params;
-
-    // Get repository and user token
     const repository = await db.repository.findFirst({
       where: {
         id,
@@ -104,7 +92,6 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Get user's access token
     const userRecord = await db.user.findUnique({
       where: { id: session.userId },
       select: { accessToken: true },
@@ -129,7 +116,6 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Detect standards
     logger.info("Starting coding standards detection", {
       repositoryId: id,
       owner,
@@ -144,7 +130,6 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       repository.defaultBranch
     );
 
-    // Save to database
     await detector.saveStandards(id, standards);
 
     logger.info("Coding standards detection completed", {
@@ -174,10 +159,6 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
   }
 }
 
-/**
- * PATCH /api/repos/[id]/standards
- * Enable/disable a coding standard
- */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const session = await getSession();
   if (!session) {
@@ -199,7 +180,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Verify repository ownership
     const repository = await db.repository.findFirst({
       where: {
         id,
@@ -214,7 +194,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Update standard scoped to repository ownership
     const updateResult = await db.codingStandards.updateMany({
       where: {
         id: standardId,
