@@ -446,12 +446,12 @@ export default function DocsPage() {
                 "Go to Dashboard → Repositories → Select Repository",
                 "Click the 'Disconnect' button",
                 "Confirm the action",
-                "All indexed data and reviews will be deleted",
+                "Repository-scoped data is deleted (vectors, indexed files, chats, reviews, code graph)",
               ]} />
 
               <DocNote type="warning">
-                Disconnecting a repository permanently deletes all indexed files, embeddings,
-                and PR reviews. This action cannot be undone.
+                Disconnecting a repository permanently deletes repository-scoped data from the app database
+                and vector index. This action cannot be undone.
               </DocNote>
             </div>
           )}
@@ -483,12 +483,22 @@ export default function DocsPage() {
                 "Python",
                 "Go",
                 "Rust",
-                "Java / Kotlin",
-                "C / C++",
+                "Java",
+                "C++",
+                "C#",
                 "Ruby",
                 "PHP",
                 "Swift",
-                "And many more...",
+              ]} />
+
+              <DocSubHeading>Indexing Runtime Modes</DocSubHeading>
+              <DocParagraph>
+                Indexing can run in queue, serverless, or hybrid mode depending on your deployment.
+              </DocParagraph>
+              <DocList items={[
+                "hybrid (recommended): queue-first with serverless fallback",
+                "queue: queue-only, requires always-on workers",
+                "serverless: direct execution without workers",
               ]} />
 
               <DocSubHeading>Index Status</DocSubHeading>
@@ -515,7 +525,8 @@ export default function DocsPage() {
               />
 
               <DocNote type="info">
-                Incremental indexing only processes changed files, making subsequent indexes much faster.
+                Incremental indexing only processes changed files, and the dashboard now updates index progress
+                live without requiring a page refresh.
               </DocNote>
             </div>
           )}
@@ -537,7 +548,7 @@ export default function DocsPage() {
                 "Fetches the PR diff from GitHub",
                 "Retrieves relevant codebase context from vector DB",
                 "Runs security scanning on changed files",
-                "Generates a comprehensive review using Gemini AI",
+                "Generates a comprehensive review using the configured AI model",
                 "Posts the review as a GitHub comment",
               ]} />
 

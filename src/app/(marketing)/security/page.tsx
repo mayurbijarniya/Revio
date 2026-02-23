@@ -95,7 +95,7 @@ export default function SecurityPage() {
                             </p>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="text-center px-4 py-3 border border-[var(--code-border)] font-mono text-[10px] font-bold">SOC2_COMPLIANT</div>
+                            <div className="text-center px-4 py-3 border border-[var(--code-border)] font-mono text-[10px] font-bold">SOC2_READY</div>
                             <div className="text-center px-4 py-3 border border-[var(--code-border)] font-mono text-[10px] font-bold">GDPR_READY</div>
                         </div>
                     </div>

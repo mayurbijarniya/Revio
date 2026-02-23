@@ -32,6 +32,34 @@ interface Release {
 
 const releases: Release[] = [
   {
+    version: "3.0.1",
+    date: "February 23, 2026",
+    title: "Indexing Reliability & Runtime Stability",
+    description: "Reliability patch focused on indexing consistency, queue safety, and front-end status accuracy.",
+    type: "patch",
+    icon: Database,
+    changes: [
+      {
+        category: "fixed",
+        items: [
+          "Queue job IDs are now sanitized to prevent invalid custom IDs during indexing/review dispatch",
+          "Qdrant cleanup hardened with filePath payload index creation and fallback delete-by-IDs strategy",
+          "Repository list and repository detail pages now auto-refresh indexing status without manual reload",
+          "Improved disconnect + reconnect behavior for full collection reset and re-index visibility",
+          "Reduced noisy standards detection logs for missing optional standards files",
+        ],
+      },
+      {
+        category: "improved",
+        items: [
+          "Tree-sitter import-query handling simplified for broader parser compatibility",
+          "Background execution guidance clarified for `hybrid`, `queue`, and `serverless` modes",
+          "Indexing progress UX now reflects pending/indexing transitions more reliably in dashboard views",
+        ],
+      },
+    ],
+  },
+  {
     version: "3.0.0",
     date: "January 17, 2026",
     title: "AI Code Intelligence",

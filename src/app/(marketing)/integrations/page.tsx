@@ -43,21 +43,27 @@ export default function IntegrationsPage() {
                             <div className="w-16 h-16 bg-[var(--code-bg)] rounded-lg mb-6 flex items-center justify-center border border-[var(--code-border)]">
                                 <GitlabIcon />
                             </div>
-                            <h3 className="font-bold mb-2 group-hover:text-[var(--primary)] text-lg">GitLab</h3>
-                            <p className="text-sm opacity-70">Support for CI pipelines and merge request comments.</p>
+                            <h3 className="font-bold mb-2 group-hover:text-[var(--primary)] text-lg">GitLab (Planned)</h3>
+                            <p className="text-sm opacity-70">On roadmap. Core product support today is GitHub-first.</p>
                         </div>
                         <div className="border border-[var(--code-border)] p-8 hover:border-[var(--primary)] transition-colors cursor-pointer group bg-[var(--background)]">
                             <div className="w-16 h-16 bg-[var(--code-bg)] rounded-lg mb-6 flex items-center justify-center border border-[var(--code-border)]">
                                 <SlackIcon />
                             </div>
-                            <h3 className="font-bold mb-2 group-hover:text-[var(--primary)] text-lg">Slack</h3>
-                            <p className="text-sm opacity-70">Real-time notifications for critical issues and review completed.</p>
+                            <h3 className="font-bold mb-2 group-hover:text-[var(--primary)] text-lg">Slack (Planned)</h3>
+                            <p className="text-sm opacity-70">Planned notifications workflow for review completion and critical findings.</p>
                         </div>
                     </div>
 
                     <h2 className="text-2xl font-bold mb-6 mt-16">[ AI_CODE_INTELLIGENCE ]</h2>
                     <p className="text-lg text-[var(--foreground)]/70 mb-8">
                         Revio v3.0 brings intelligent code understanding directly into your review workflow.
+                    </p>
+
+                    <h2 className="text-2xl font-bold mb-6 mt-12">[ RELIABILITY_UPDATES ]</h2>
+                    <p className="text-lg text-[var(--foreground)]/70 mb-8">
+                        v3.0.1 improved runtime reliability with stronger indexing cleanup, safer queue dispatch IDs,
+                        and live indexing progress updates in dashboard views.
                     </p>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

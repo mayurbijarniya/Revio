@@ -27,6 +27,7 @@ export function Footer() {
                     <div>
                         <h4 className="font-mono text-[10px] sm:text-xs font-medium text-[var(--foreground)]/40 mb-3 sm:mb-4">[ RESOURCES ]</h4>
                         <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-[var(--foreground)]/70">
+                            <li><Link href="/about" className="hover:text-[var(--primary)]">About</Link></li>
                             <li><Link href="/docs" className="hover:text-[var(--primary)]">Documentation</Link></li>
                             <li><Link href="/community" className="hover:text-[var(--primary)]">Community</Link></li>
                             <li><Link href="/demo" className="hover:text-[var(--primary)]">Live Demo</Link></li>
