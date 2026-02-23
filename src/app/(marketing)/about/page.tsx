@@ -27,6 +27,11 @@ export default function AboutPage() {
                         <li><strong>Auto Docstrings</strong> - AI-generated documentation with one-click apply</li>
                     </ul>
 
+                    <p className="mt-6">
+                        In v3.0.1, we focused on reliability: stronger indexing cleanup in Qdrant,
+                        safer queue job dispatch IDs, and live indexing status updates in the dashboard.
+                    </p>
+
                     <h2 className="text-2xl font-bold mt-12 mb-6 text-[var(--foreground)]">Enterprise Ready</h2>
                     <p>
                         Revio supports organizations with role-based access control, team analytics,

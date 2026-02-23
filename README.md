@@ -4,226 +4,225 @@
 
 # Revio
 
-An AI-powered code review platform that provides context-aware analysis for modern engineering teams.
+AI-powered code review platform for GitHub repositories.  
+Revio indexes your codebase, understands structural context, and posts actionable PR feedback with risk and confidence scoring.
 
-## Overview
+## Why Revio
 
-Revio is a context-aware code review agent designed to enhance code quality and accelerate development workflows. It leverages semantic codebase intelligence to provide comprehensive code analysis, security scanning, and automated feedback on pull requests.
+Manual code review is slow, inconsistent, and easy to miss at scale. Revio is built to:
+- catch bugs and security flaws early,
+- keep review quality consistent across teams,
+- reduce reviewer toil with context-aware automation,
+- provide clear merge guidance (`approve` / `comment` / `request changes`).
 
-## Problem Statement
+## What You Get
 
-Code review processes often create bottlenecks in software development. Manual reviews can result in:
-- Critical bugs overlooked due to reviewer fatigue
-- Inconsistent quality standards across different reviewers
-- Delayed shipping cycles as code awaits feedback
-- Accumulated technical debt from changes that break architectural patterns
+- Repository indexing with semantic retrieval (vector + code graph context)
+- Automated PR review on webhook events
+- Manual review/re-review from dashboard
+- Risk level + confidence scoring
+- Security scanner integrated into review flow
+- Coding standards auto-detection from repo instruction files
+- Interactive review assistant (`@revio-bot`)
+- Team analytics and historical trend views
 
-Revio addresses these challenges by providing automated, consistent code review with complete repository context.
+## Product Surfaces
 
-## Technical Architecture
+From the UI, users can:
+1. Connect/disconnect GitHub repositories
+2. Track indexing progress in real time (pending -> indexing -> indexed)
+3. View PR review summaries and deep-dive findings
+4. Trigger manual reviews and re-reviews
+5. Chat with repository context
+6. Configure repository review rules and ignored paths
+7. Inspect organization-level analytics and activity
 
-Revio operates as a modular, event-driven system using a Retrieval-Augmented Generation (RAG) pipeline:
+## High-Level Architecture
 
 ```mermaid
 graph TD
-    A[GitHub Event: Push/PR] --> B[Webhook Ingestion]
-    B --> C{Context Construction}
-    C --> D[Identify Changed Files]
-    C --> E[Extract Semantic Anchors]
-    D & E --> F[Qdrant Vector Search]
-    F --> G[Retrieve Related Code Chunks]
-    G --> H[Code Graph Analysis]
-    H --> I[AI Reasoning]
-    I --> J[Review Generation]
-    J --> K[GitHub Reflection: Inline Comments]
-    K --> L[Database Sync]
+    A["GitHub Event (PR/Push)"] --> B["Webhook/API Trigger"]
+    B --> C["Background Orchestrator"]
+    C --> D["Indexing + Embeddings"]
+    C --> E["PR Review Job"]
+    D --> F["Qdrant Vector Store"]
+    D --> G["Code Graph Builder"]
+    E --> F
+    E --> G
+    E --> H["AI Reasoning"]
+    H --> I["Review Output + GitHub Comment"]
+    I --> J["Dashboard + Database"]
 ```
 
-### Core Components
+## Core Components
 
-1. **Ingestion Engine**: Extracts code from GitHub, chunks it using AST-aware parsing, and generates vector embeddings.
-2. **Code Graph Engine**: Builds AST-based code understanding with function relationships and dependency mapping.
-3. **Vector Store (Qdrant)**: Stores high-dimensional code representations for fast similarity searches.
-4. **Review Orchestrator**: Triggered by GitHub webhooks to perform context retrieval, build code graphs, and execute reasoning loops.
-5. **Feedback System**: Posts results as GitHub inline comments or summary reviews.
+1. **Indexer**
+   - Fetches repository tree/content through GitHub API
+   - Chunks code logically and generates embeddings
+   - Supports full and incremental indexing
+2. **Vector Layer (Qdrant)**
+   - Stores embedding chunks for semantic retrieval
+   - Repository-isolated collections
+3. **Code Graph Engine**
+   - Builds structural graph (functions/dependencies/impact)
+   - Used for blast radius and contextual reasoning
+4. **Review Pipeline**
+   - Combines PR diff + semantic context + graph context + security findings
+   - Produces issues, suggestions, recommendation, confidence, risk
+5. **Background Runtime**
+   - Queue-first with worker support
+   - Serverless fallback in hybrid mode
 
-## Key Features
+## Supported Languages (Indexing/Analysis)
 
-### Autonomous Code Review
-Revio analyzes code beyond syntax by understanding architectural intent. It indexes entire codebases to identify violations of design patterns, logic duplication, and subtle regressions that standard linters miss.
+- TypeScript / JavaScript
+- Python
+- Go
+- Rust
+- Java
+- C++
+- C#
+- Ruby
+- PHP
+- Swift
 
-### Security Analysis
-Equipped with pattern recognition for detecting:
-- Injection vulnerabilities (SQL, NoSQL, Command Injection)
-- Data exposure risks (XSS, hardcoded secrets, PII leakage)
-- Weak cryptography (obsolete hashing algorithms, insecure random generation)
-- Configuration issues (insecure CORS policies, debug mode exposure)
+## Review Flow
 
-### AI Code Intelligence
-- **Graph-Based Analysis**: AST-powered code understanding with function relationships and call paths
-- **Confidence Scoring**: Merge readiness assessment based on issues, security, and complexity analysis
-- **Impact Analysis**: Visual representation of affected files and functions
-- **Adaptive Learning**: System learns from team feedback to reduce false positives
-- **Interactive Bot**: Conversational interface via PR comments for clarifications and re-reviews
-- **Documentation Suggestions**: AI-generated JSDoc recommendations
+For each PR, Revio performs:
+1. Diff ingestion from GitHub
+2. Semantic context retrieval from vector store
+3. Code graph impact analysis
+4. Security scan on changed areas
+5. AI review generation
+6. GitHub comment/review posting
+7. Dashboard persistence for tracking and analytics
 
-### Team Analytics
-- Monitor review turnaround times and throughput across repositories
-- Identify code quality hotspots and recurring technical debt patterns
-- Real-time activity feed for repository events and review findings
+## Data Lifecycle and Deletion
 
-## Technology Stack
+On repository disconnect:
+- Repository-scoped records are removed from app DB (indexed files, chats, PR reviews, code graph, standards, review-learning links)
+- Qdrant collection for that repository is deleted
 
-- **Frontend/API**: Next.js 15 (App Router, Server Actions)
+Operational telemetry/history may remain (for platform observability), but repository content/context is removed.
+
+## Security Posture
+
+- GitHub auth via GitHub App/OAuth flow
+- Encrypted token handling at rest (AES-256-GCM in app logic)
+- Signed webhook verification
+- Stateless processing-oriented architecture
+- Security scanning integrated into review generation
+
+## Tech Stack
+
+- **Frontend/API**: Next.js 15 (App Router)
 - **Runtime**: Node.js 24.x
-- **Database**: PostgreSQL (Prisma ORM)
-- **Vector Intelligence**: Qdrant
-- **Message Queue**: BullMQ (Redis)
-- **AI Models**: Support for leading Large Language Models (LLMs) and embeddings model
-- **Authentication**: GitHub App Architecture (Octokit)
-
-## Security and Privacy
-
-Revio implements enterprise-grade security measures:
-
-- **Data Encryption**: Access tokens and sensitive configurations encrypted at rest using AES-256-GCM
-- **Stateless Processing**: Code diffs processed in temporary contexts without long-term storage
-- **Isolated Vector Index**: Each repository maintains an isolated namespace in the vector database
-- **Row Level Security**: Database tables protected with RLS to prevent unauthorized access
-
-## Review Workflow
-
-When a pull request is detected, Revio executes the following sequence:
-
-1. **Context Construction**: Identifies changed files and extracts semantic anchors
-2. **Code Graph Analysis**: Builds AST-based graph of function relationships and dependencies
-3. **Semantic Retrieval**: Queries vector store for relevant code snippets across the repository
-4. **Impact Analysis**: Calculates affected functions and files
-5. **Prompt Orchestration**: Constructs multi-turn prompt with PR diff, context, and review rules
-6. **AI Inference**: Processes orchestrated prompt using specialized AI models
-7. **Review Generation**: Generates structured review with confidence scores and suggestions
-8. **GitHub Integration**: Maps feedback to specific line numbers in the PR
+- **Database**: PostgreSQL + Prisma
+- **Vector DB**: Qdrant
+- **Queue**: BullMQ + Redis
+- **Integrations**: GitHub App / Octokit
+- **AI Providers**: Configurable (OpenAI/Gemini usage paths in codebase)
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 24.x (run `nvm use` if you use nvm; `.nvmrc` is included)
-- PostgreSQL database (local or cloud-hosted)
-- Redis instance (required for BullMQ)
-- Qdrant (Docker instance or Qdrant Cloud)
+- Node.js 24.x (`nvm use` supported via `.nvmrc`)
+- PostgreSQL
+- Redis
+- Qdrant
 
-### Installation
+### Install
 
 ```bash
-# 1. Clone & Install
-git clone https://github.com/mayurbijarniya/Revio.git && cd Revio
+git clone https://github.com/mayurbijarniya/Revio.git
+cd Revio
 npm install
-
-# 2. Infrastructure Setup
 cp .env.example .env
-# Edit .env with your credentials
+```
 
-# 3. Database & Indexing
+### Database Setup
+
+```bash
 npx prisma db push
 npx prisma generate
+```
 
-# 4. Run Development
+### Run App
+
+```bash
 npm run dev
 ```
 
-### Environment Variables
+## Environment Configuration
 
-Configure the following keys in your .env file:
+Use `.env.example` as source-of-truth.
 
-```env
-DATABASE_URL="postgresql://..."
-DIRECT_URL="postgresql://..."
-SESSION_SECRET="..."
-ENCRYPTION_KEY="..."
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
-GITHUB_APP_ID="your_github_app_id"
-GITHUB_APP_CLIENT_ID="your_github_app_client_id"
-GITHUB_APP_CLIENT_SECRET="your_github_app_client_secret"
-GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
-GITHUB_APP_WEBHOOK_SECRET="your_webhook_secret"
-GOOGLE_AI_API_KEY="..."
-OPENAI_API_KEY="..."
-QDRANT_URL="..."
-QDRANT_API_KEY="..."
-UPSTASH_REDIS_REST_URL="..."
-UPSTASH_REDIS_REST_TOKEN="..."
-CRON_SECRET="..."
-BACKGROUND_MODE="hybrid"
-```
+Important groups:
+- App/Auth: `NEXT_PUBLIC_APP_URL`, `SESSION_SECRET`, `ENCRYPTION_KEY`
+- DB: `DATABASE_URL` (and `DIRECT_URL` if needed)
+- GitHub: `GITHUB_APP_ID`, `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_WEBHOOK_SECRET`
+- AI: `GOOGLE_AI_API_KEY`, `OPENAI_API_KEY`
+- Infra: `QDRANT_URL`, `QDRANT_API_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`
+- Ops: `CRON_SECRET`, `BACKGROUND_MODE`
 
-`BACKGROUND_MODE` options:
-- `hybrid` (recommended): queue-first with serverless fallback
-- `queue`: queue-only (requires always-on workers)
-- `serverless`: fallback execution only
+### `BACKGROUND_MODE`
 
-### Background Mode Guidance
+- `hybrid` (recommended): queue-first + serverless fallback
+- `queue`: queue-only, requires persistent workers
+- `serverless`: no queue workers required
 
-- Use `serverless` if you are deploying only on Vercel without persistent workers.
-- Use `hybrid` or `queue` only when BullMQ workers are running continuously (`npm run worker`).
-- If reviews remain `pending`, verify worker uptime and Redis connectivity before retriggering PR reviews.
+## Worker Runtime
 
-## Scaling and Performance
-
-Revio is designed for horizontal scalability:
-
-- **Background Workers**: BullMQ and Redis manage indexing and review jobs asynchronously
-- **Serverless Optimization**: Utilizes Next.js `after()` API as fallback for long-running tasks
-- **Vector Performance**: Qdrant's HNSW indexing ensures fast context retrieval for large codebases
-
-### Worker Runtime
-
-Run queue workers in a separate always-on service:
+When using queue mode (`hybrid`/`queue`), run workers continuously:
 
 ```bash
 npm run worker
 ```
 
-Or run dedicated workers:
+Or split workers:
 
 ```bash
 npm run worker:indexing
 npm run worker:review
 ```
 
-Deployment guide: `docs/worker-deployment.md`
+See: `docs/worker-deployment.md`
 
-Health endpoints:
+## Health Endpoints
+
 - `GET /api/health/live`
 - `GET /api/health/ready`
 - `GET /api/health/deps`
 
-## Reliability Testing
+## Test and Validation
 
 ```bash
+npm run type-check
+npm run lint
 npm run test
 ```
 
-## Production Deployment
+## Production Checklist
 
-1. Configure production environment variables (`DATABASE_URL`, Redis/Qdrant credentials, AI API keys, `NEXT_PUBLIC_APP_URL`)
-2. Run database migrations: `npx prisma migrate deploy --schema prisma/schema.prisma`
-3. Create GitHub App with required permissions:
-   - Repository permissions: pull_requests, issue_comments, contents
-   - Webhook URL: `https://your-domain.com/api/webhooks/github`
-4. Configure `GITHUB_APP_WEBHOOK_SECRET` in environment
-5. Test by opening a PR and verifying review posting, then test bot interaction with `@revio-bot explain`
+1. Set production env vars
+2. Run migrations:
+   - `npx prisma migrate deploy --schema prisma/schema.prisma`
+3. Configure GitHub App permissions (`pull_requests`, `issue_comments`, `contents`)
+4. Set webhook URL:
+   - `https://<your-domain>/api/webhooks/github`
+5. Verify PR review flow end-to-end
 
 ## Roadmap
 
-- Enhanced context retrieval for massive monorepos
-- Auto-fix integration with one-click PR updates
-- IDE integration (VS Code extension, JetBrains plugin)
+- Better monorepo scale and retrieval efficiency
+- Auto-fix workflow support
+- IDE integrations
 
 ## Contributing
 
-Contributions are welcome. Please open an issue or submit a pull request for any improvements or bug fixes.
+Issues and PRs are welcome.
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
+MIT. See [LICENSE](./LICENSE).

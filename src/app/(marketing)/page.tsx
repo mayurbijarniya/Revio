@@ -24,7 +24,7 @@ export default function Home() {
       <Link href="/changelog" className="block border-b border-[var(--code-border)] py-2 px-4 sm:px-6 bg-[var(--code-bg)] hover:bg-[var(--code-bg)]/80 transition-colors">
         <p className="font-mono text-[10px] sm:text-xs font-medium text-[var(--foreground)]/60 uppercase tracking-wide flex items-center gap-2">
           <span className="w-2 h-2 bg-[var(--primary)] inline-block flex-shrink-0"></span>
-          <span className="truncate">[ ANNOUNCEMENT ] : REVIO V3.0 IS NOW LIVE WITH AI CODE INTELLIGENCE</span>
+          <span className="truncate">[ ANNOUNCEMENT ] : V3.0.1 INDEXING RELIABILITY + LIVE PROGRESS UPDATES</span>
         </p>
       </Link>
 
@@ -84,7 +84,7 @@ export default function Home() {
         <div className="grid grid-cols-2 md:grid-cols-4">
           <div className="p-4 sm:p-6 lg:p-8 border-r border-b md:border-b-0 border-[var(--code-border)]">
             <div className="font-mono text-[10px] sm:text-xs text-[var(--foreground)]/40 mb-1 sm:mb-2">[ LANGUAGES ]</div>
-            <div className="text-2xl sm:text-3xl lg:text-4xl font-bold">14+</div>
+            <div className="text-2xl sm:text-3xl lg:text-4xl font-bold">10+</div>
           </div>
           <div className="p-4 sm:p-6 lg:p-8 border-b md:border-b-0 md:border-r border-[var(--code-border)]">
             <div className="font-mono text-[10px] sm:text-xs text-[var(--foreground)]/40 mb-1 sm:mb-2">[ AVG_REVIEW_TIME ]</div>
@@ -109,7 +109,7 @@ export default function Home() {
               COMPLETE VISIBILITY INTO YOUR CODEBASE HEALTH
             </h2>
             <span className="font-mono text-[10px] sm:text-xs text-[var(--foreground)]/50">
-              [ INTERFACE_PREVIEW_V3.0.0 ]
+              [ INTERFACE_PREVIEW_V3.0.1 ]
             </span>
           </div>
 
