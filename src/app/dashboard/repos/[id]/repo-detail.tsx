@@ -167,6 +167,21 @@ export function RepoDetail({
     fetchOpenPRs();
   }, [fetchOpenPRs]);
 
+  useEffect(() => {
+    if (
+      repository.indexStatus !== "pending" &&
+      repository.indexStatus !== "indexing"
+    ) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      router.refresh();
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [repository.indexStatus, router]);
+
   // Trigger manual PR review
   async function handleReviewPR(prNumber: number) {
     setReviewingPR(prNumber);

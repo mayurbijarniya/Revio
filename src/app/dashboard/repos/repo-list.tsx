@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   FolderGit2,
   Lock,
@@ -31,42 +31,31 @@ export function RepoList() {
   const [repoToDelete, setRepoToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  async function handleRefresh() {
-    setRefreshing(true);
-    setError(null);
-    if (activeTab === "connected") {
-      await fetchConnectedRepos();
-    } else {
-      await fetchAvailableRepos();
+  const fetchConnectedRepos = useCallback(async (silent: boolean = false) => {
+    if (!silent) {
+      setLoading(true);
+      setError(null);
     }
-    setRefreshing(false);
-  }
-
-  useEffect(() => {
-    if (activeTab === "connected") {
-      fetchConnectedRepos();
-    } else {
-      fetchAvailableRepos();
-    }
-  }, [activeTab]);
-
-  async function fetchConnectedRepos() {
-    setLoading(true);
-    setError(null);
     try {
       const res = await fetch("/api/repos/connected");
       const data = await res.json();
       if (data.success) {
         setConnectedRepos(data.data.repositories);
       } else {
-        setError(data.error?.message || "Failed to fetch repositories");
+        if (!silent) {
+          setError(data.error?.message || "Failed to fetch repositories");
+        }
       }
     } catch {
-      setError("Failed to fetch repositories");
+      if (!silent) {
+        setError("Failed to fetch repositories");
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
-  }
+  }, []);
 
   async function fetchAvailableRepos() {
     setLoading(true);
@@ -85,6 +74,39 @@ export function RepoList() {
       setLoading(false);
     }
   }
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    setError(null);
+    if (activeTab === "connected") {
+      await fetchConnectedRepos();
+    } else {
+      await fetchAvailableRepos();
+    }
+    setRefreshing(false);
+  }
+
+  useEffect(() => {
+    if (activeTab === "connected") {
+      void fetchConnectedRepos();
+    } else {
+      void fetchAvailableRepos();
+    }
+  }, [activeTab, fetchConnectedRepos]);
+
+  useEffect(() => {
+    if (activeTab !== "connected") return;
+    const hasActiveIndexing = connectedRepos.some(
+      (repo) => repo.indexStatus === "pending" || repo.indexStatus === "indexing"
+    );
+    if (!hasActiveIndexing) return;
+
+    const interval = setInterval(() => {
+      void fetchConnectedRepos(true);
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [activeTab, connectedRepos, fetchConnectedRepos]);
 
   async function connectRepo(repo: AvailableRepository) {
     setConnecting(repo.id);
