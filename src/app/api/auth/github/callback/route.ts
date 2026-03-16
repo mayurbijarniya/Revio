@@ -7,6 +7,11 @@ import {
 } from "@/types/auth";
 import { upsertUser } from "@/lib/auth";
 import { createSession } from "@/lib/session";
+import {
+  buildGitHubAppInstallUrl,
+  syncUserInstallations,
+  userHasActiveInstallation,
+} from "@/lib/services/github-installations";
 
 /**
  * GET /api/auth/github/callback
@@ -120,11 +125,22 @@ export async function GET(request: NextRequest) {
         : undefined,
     });
 
+    let hasActiveInstallation = false;
+    try {
+      const installations = await syncUserInstallations(user.id, parsedToken.access_token);
+      hasActiveInstallation = installations.some((installation) => !installation.suspendedAt);
+    } catch (syncError) {
+      console.error("GitHub installation sync failed during OAuth callback:", syncError);
+      hasActiveInstallation = await userHasActiveInstallation(user.id);
+    }
+
     // Create session token
     const sessionToken = await createSession(user);
 
-    // Set session cookie and redirect to dashboard
-    const response = NextResponse.redirect(`${appUrl}/dashboard`);
+    // New users without an installation are sent straight into the install flow.
+    const response = NextResponse.redirect(
+      hasActiveInstallation ? `${appUrl}/dashboard` : buildGitHubAppInstallUrl()
+    );
 
     // Clear OAuth state cookie
     response.cookies.delete("oauth_state");

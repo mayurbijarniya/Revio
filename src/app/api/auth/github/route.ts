@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { buildGitHubAppInstallUrl } from "@/lib/services/github-installations";
 
 /**
  * GET /api/auth/github
@@ -8,7 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
  * - install=true: Force GitHub App installation flow (for reinstalling or first-time setup)
  *
  * Flow:
- * - Default: Use standard OAuth flow (all users)
+ * - Default: Use standard OAuth flow
  * - With ?install=true: Redirect to GitHub App installation page
  */
 export async function GET(request: NextRequest) {
@@ -32,12 +33,10 @@ export async function GET(request: NextRequest) {
   let authUrl: string;
 
   if (forceInstall) {
-    // Explicit install request: Use GitHub App installation URL
-    // This will prompt user to install the app AND authorize OAuth in one flow
-    authUrl = `https://github.com/apps/revio-bot/installations/new?state=${state}`;
+    authUrl = buildGitHubAppInstallUrl(state);
   } else {
-    // Default: Use standard OAuth flow
-    // If user hasn't installed the app, the callback will handle it
+    // Default: Use standard OAuth flow first. The callback decides whether to
+    // continue to the dashboard or send the user to the GitHub App install flow.
     const scopes = ["read:user", "user:email", "repo"];
     authUrl = `https://github.com/login/oauth/authorize?client_id=${appClientId}&redirect_uri=${encodeURIComponent(`${appUrl}/api/auth/github/callback`)}&scope=${scopes.join(" ")}&state=${state}`;
   }

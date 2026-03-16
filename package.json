@@ -12,6 +12,7 @@
     "worker:indexing": "tsx src/workers/indexing.ts",
     "worker:review": "tsx src/workers/review.ts",
     "verify:ast": "node scripts/tree-sitter-smoke-check.js",
+    "backfill:github-installations": "tsx scripts/backfill-github-installations.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "prisma generate",
