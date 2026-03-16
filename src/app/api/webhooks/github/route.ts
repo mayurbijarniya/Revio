@@ -5,6 +5,10 @@ import { WEBHOOK_CONFIG } from "@/lib/constants";
 import { reviewPullRequest, postReviewToGitHub } from "@/lib/services/reviewer";
 import { decrypt } from "@/lib/encryption";
 import { createBotGitHubService } from "@/lib/services/github-app";
+import {
+  markInstallationDeleted,
+  upsertInstallationFromWebhook,
+} from "@/lib/services/github-installations";
 import { env } from "@/lib/env";
 import {
   markPrReviewFailed,
@@ -64,14 +68,38 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
 
+  // Verify webhook signature using GitHub App secret
+  if (!GITHUB_APP_WEBHOOK_SECRET) {
+    console.error(`[Webhook] GITHUB_APP_WEBHOOK_SECRET not configured!`);
+    return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
+  }
+
+  if (!verifySignature(payload, signature, GITHUB_APP_WEBHOOK_SECRET)) {
+    console.warn(`[Webhook] Invalid signature for event ${event ?? "unknown"}`);
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+  }
+
   // Check for ignored events
   if (event && (WEBHOOK_CONFIG.ignoredEvents as readonly string[]).includes(event)) {
     return NextResponse.json({ message: "Event ignored" });
   }
 
-  // Get repository info to find webhook secret
-  const repoFullName = (body.repository as { full_name?: string })?.full_name;
+  if (event === "installation") {
+    return handleInstallationEvent(body);
+  }
 
+  if (event === "installation_repositories") {
+    const installation = body.installation as InstallationWebhookPayload | undefined;
+    if (installation) {
+      await upsertInstallationFromWebhook(installation, {
+        suspendedAt: installation.suspended_at ? new Date(installation.suspended_at) : null,
+        uninstalledAt: null,
+      });
+    }
+    return NextResponse.json({ message: "Installation repositories synced" });
+  }
+
+  const repoFullName = (body.repository as { full_name?: string })?.full_name;
   if (!repoFullName) {
     return NextResponse.json({ error: "Missing repository info" }, { status: 400 });
   }
@@ -91,17 +119,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Repository not found" }, { status: 404 });
   }
 
-  // Verify webhook signature using GitHub App secret
-  if (!GITHUB_APP_WEBHOOK_SECRET) {
-    console.error(`[Webhook] GITHUB_APP_WEBHOOK_SECRET not configured!`);
-    return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
-  }
-
-  if (!verifySignature(payload, signature, GITHUB_APP_WEBHOOK_SECRET)) {
-    console.warn(`[Webhook] Invalid signature for ${repoFullName}`);
-    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-  }
-  
   console.warn(`[Webhook] Signature verified for ${repoFullName}`);
 
   // Handle pull_request events
@@ -141,6 +158,17 @@ interface RepositoryAuthContext {
   };
 }
 
+interface InstallationWebhookPayload {
+  id: number;
+  repository_selection?: string;
+  suspended_at?: string | null;
+  account: {
+    id: number;
+    login: string;
+    type: string;
+  } | null;
+}
+
 function parseRepositoryFullName(fullName: string): { owner: string; repo: string } | null {
   const parts = fullName.split("/");
   const owner = parts[0];
@@ -164,6 +192,37 @@ async function resolveRepositoryAccessToken(
     `[Webhook] Bot service unavailable for ${repository.fullName}, falling back to user token`
   );
   return decrypt(repository.user.accessToken);
+}
+
+async function handleInstallationEvent(body: Record<string, unknown>) {
+  const action = body.action as string;
+  const installation = body.installation as InstallationWebhookPayload | undefined;
+
+  if (!installation) {
+    return NextResponse.json({ error: "Missing installation payload" }, { status: 400 });
+  }
+
+  if (action === "deleted") {
+    await markInstallationDeleted(installation);
+    return NextResponse.json({ message: "Installation marked deleted" });
+  }
+
+  if (action === "suspend") {
+    await upsertInstallationFromWebhook(installation, {
+      suspendedAt: new Date(),
+    });
+    return NextResponse.json({ message: "Installation suspended" });
+  }
+
+  if (action === "unsuspend" || action === "created" || action === "new_permissions_accepted") {
+    await upsertInstallationFromWebhook(installation, {
+      suspendedAt: null,
+      uninstalledAt: null,
+    });
+    return NextResponse.json({ message: "Installation synced" });
+  }
+
+  return NextResponse.json({ message: "Installation action ignored" });
 }
 
 /**

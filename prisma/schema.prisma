@@ -31,8 +31,30 @@ model User {
   activities            Activity[]
   reviewsRequested      PrReview[]            @relation("ReviewsRequested")
   reviewsAssigned       PrReview[]            @relation("ReviewsAssigned")
+  githubInstallations   GitHubInstallation[]
 
   @@map("users")
+}
+
+model GitHubInstallation {
+  id                  String    @id @default(uuid()) @db.Uuid
+  userId              String?   @map("user_id") @db.Uuid
+  installationId      Int       @unique @map("installation_id")
+  accountId           Int       @map("account_id")
+  accountLogin        String    @map("account_login") @db.VarChar(255)
+  accountType         String    @map("account_type") @db.VarChar(50)
+  repositorySelection String    @map("repository_selection") @db.VarChar(50)
+  suspendedAt         DateTime? @map("suspended_at")
+  uninstalledAt       DateTime? @map("uninstalled_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([accountId, accountType])
+  @@index([userId, uninstalledAt, suspendedAt])
+  @@map("github_installations")
 }
 
 // Organizations (for team features)
