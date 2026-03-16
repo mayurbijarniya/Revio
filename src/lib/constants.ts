@@ -65,8 +65,8 @@ export const AI_CONFIG = {
     temperature: 0.7,
   },
   review: {
-    model: "gemini-2.5-flash-lite",
-    complexModel: "gemini-2.5-flash-lite",
+    model: "gemini-3.1-flash-lite-preview",
+    complexModel: "gemini-3.1-flash-lite-preview",
     maxOutputTokens: 4096,
     temperature: 0.2,
     // Thresholds for upgrading to complex model
