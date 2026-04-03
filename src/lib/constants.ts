@@ -57,10 +57,12 @@ export const AI_CONFIG = {
     model: "text-embedding-3-small",
     dimensions: 1536,
     maxTokens: 30000,
+    /** OpenAI cap is 8192 tokens/input; minified JS can be ~1 char/token → use 6k chars to be safe across all file types */
+    maxInputChars: 6_000,
   },
   chat: {
-    model: "gemini-2.5-flash-lite",
-    fallbackModel: "gemini-2.5-flash-lite",
+    model: "gemini-3.1-flash-lite-preview",
+    fallbackModel: "gemini-3.1-flash-lite-preview",
     maxOutputTokens: 4096,
     temperature: 0.7,
   },

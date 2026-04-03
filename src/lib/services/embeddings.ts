@@ -94,6 +94,11 @@ class EmbeddingCache {
 // Global embedding cache instance
 const embeddingCache = new EmbeddingCache(10000);
 
+function truncateForEmbedding(text: string): string {
+  const max = AI_CONFIG.embedding.maxInputChars;
+  return text.length > max ? text.slice(0, max) : text;
+}
+
 /**
  * Get embedding cache statistics
  */
@@ -135,8 +140,7 @@ export interface EmbeddedChunk extends CodeChunk {
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
   const client = getOpenAIClient();
-  const MAX_CHARS = 24000;
-  const safeText = text.length > MAX_CHARS ? text.slice(0, MAX_CHARS) : text;
+  const safeText = truncateForEmbedding(text);
 
   const response = await client.embeddings.create({
     model: AI_CONFIG.embedding.model,
@@ -186,12 +190,7 @@ export async function generateEmbeddings(
 
   // Generate embeddings for uncached texts
   if (uncachedTexts.length > 0) {
-    // text-embedding-3-small hard limit is 8192 tokens (~4 chars/token)
-    // Truncate to 24,000 chars (~6,000 tokens) for a safe buffer
-    const MAX_CHARS = 24000;
-    const safeTexts = uncachedTexts.map((t) =>
-      t.length > MAX_CHARS ? t.slice(0, MAX_CHARS) : t
-    );
+    const safeTexts = uncachedTexts.map(truncateForEmbedding);
 
     const batchSize = 100;
     const newEmbeddings: number[][] = [];
