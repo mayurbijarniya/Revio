@@ -66,7 +66,7 @@ export function MermaidDiagram({ chart, className }: MermaidDiagramProps) {
     if (error) {
         return (
             <div className={cn("bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4", className)}>
-                <div className="text-xs text-red-500 mb-2">Failed to render diagram:</div>
+                <div className="text-xs text-red-500 dark:text-red-400 mb-2">Failed to render diagram:</div>
                 <pre className="text-xs font-mono text-gray-800 dark:text-gray-200 whitespace-pre overflow-x-auto">
                     {chart}
                 </pre>
@@ -78,7 +78,7 @@ export function MermaidDiagram({ chart, className }: MermaidDiagramProps) {
         <div className={cn("relative", className)}>
             {isRendering && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-50 dark:bg-gray-900 rounded-lg">
-                    <div className="text-sm text-gray-500">Rendering diagram...</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Rendering diagram...</div>
                 </div>
             )}
             <div

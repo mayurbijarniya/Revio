@@ -121,7 +121,7 @@ export function ConfirmDialog({
           </div>
 
           {/* Title */}
-          <h3 className="text-lg font-semibold text-center mb-2">{title}</h3>
+          <h3 className="text-lg font-semibold text-center mb-2 dark:text-white">{title}</h3>
 
           {/* Message */}
           <p className="text-gray-500 dark:text-gray-400 text-center text-sm mb-6">

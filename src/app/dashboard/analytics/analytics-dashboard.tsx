@@ -218,9 +218,9 @@ export default function AnalyticsDashboard() {
               <BarChart3 className="w-6 h-6 text-[#4F46E5] dark:text-[#818CF8]" />
             </div>
             <div>
-              <h1 className="text-xl md:text-2xl font-bold">Analytics Dashboard</h1>
-              <p className="text-sm md:text-base text-gray-500">Overview of repository methods and code quality insights</p>
-              <div className="flex items-center gap-4 mt-2 text-xs md:text-sm text-gray-500">
+              <h1 className="text-xl md:text-2xl font-bold dark:text-white">Analytics Dashboard</h1>
+              <p className="text-sm md:text-base text-gray-500 dark:text-gray-400">Overview of repository methods and code quality insights</p>
+              <div className="flex items-center gap-4 mt-2 text-xs md:text-sm text-gray-500 dark:text-gray-400">
                 <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3 md:w-4 md:h-4" />
                   Last updated: {new Date().toLocaleTimeString()}
@@ -248,7 +248,7 @@ export default function AnalyticsDashboard() {
             <button
               onClick={fetchAnalytics}
               disabled={loading}
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 border border-gray-200 dark:border-gray-700"
+              className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 border border-gray-200 dark:border-gray-700"
               title="Refresh data"
             >
               <RefreshCw className={cn("w-5 h-5", loading && "animate-spin")} />
@@ -270,86 +270,86 @@ export default function AnalyticsDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
           <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 bg-[#EEF2FF] rounded-lg">
-              <FolderGit2 className="w-5 h-5 text-[#4F46E5]" />
+            <div className="p-2 bg-[#EEF2FF] dark:bg-indigo-900/30 rounded-lg">
+              <FolderGit2 className="w-5 h-5 text-[#4F46E5] dark:text-indigo-400" />
             </div>
-            <span className="text-sm text-gray-500">Repositories</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">Repositories</span>
           </div>
-          <div className="text-3xl font-bold">{data.overview.totalRepositories}</div>
+          <div className="text-3xl font-bold dark:text-white">{data.overview.totalRepositories}</div>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
           <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 bg-[#ECFDF5] rounded-lg">
-              <FileCode className="w-5 h-5 text-[#10B981]" />
+            <div className="p-2 bg-[#ECFDF5] dark:bg-green-900/30 rounded-lg">
+              <FileCode className="w-5 h-5 text-[#10B981] dark:text-green-400" />
             </div>
-            <span className="text-sm text-gray-500">Files Indexed</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">Files Indexed</span>
           </div>
-          <div className="text-3xl font-bold">{data.overview.totalIndexedFiles.toLocaleString()}</div>
+          <div className="text-3xl font-bold dark:text-white">{data.overview.totalIndexedFiles.toLocaleString()}</div>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
           <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 bg-[#FEF3C7] rounded-lg">
-              <GitPullRequest className="w-5 h-5 text-[#F59E0B]" />
+            <div className="p-2 bg-[#FEF3C7] dark:bg-amber-900/30 rounded-lg">
+              <GitPullRequest className="w-5 h-5 text-[#F59E0B] dark:text-amber-400" />
             </div>
-            <span className="text-sm text-gray-500">PR Reviews</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">PR Reviews</span>
           </div>
-          <div className="text-3xl font-bold">{data.overview.totalReviews}</div>
+          <div className="text-3xl font-bold dark:text-white">{data.overview.totalReviews}</div>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
           <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 bg-[#F3E8FF] rounded-lg">
-              <MessageSquare className="w-5 h-5 text-[#9333EA]" />
+            <div className="p-2 bg-[#F3E8FF] dark:bg-purple-900/30 rounded-lg">
+              <MessageSquare className="w-5 h-5 text-[#9333EA] dark:text-purple-400" />
             </div>
-            <span className="text-sm text-gray-500">Conversations</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">Conversations</span>
           </div>
-          <div className="text-3xl font-bold">{data.overview.totalConversations}</div>
+          <div className="text-3xl font-bold dark:text-white">{data.overview.totalConversations}</div>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
           <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 bg-[#FEE2E2] rounded-lg">
-              <TrendingUp className="w-5 h-5 text-[#EF4444]" />
+            <div className="p-2 bg-[#FEE2E2] dark:bg-red-900/30 rounded-lg">
+              <TrendingUp className="w-5 h-5 text-[#EF4444] dark:text-red-400" />
             </div>
-            <span className="text-sm text-gray-500">Messages</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">Messages</span>
           </div>
-          <div className="text-3xl font-bold">{data.overview.totalMessages}</div>
+          <div className="text-3xl font-bold dark:text-white">{data.overview.totalMessages}</div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Reviews by Status */}
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold mb-4">Review Status</h3>
+          <h3 className="text-lg font-semibold mb-4 dark:text-white">Review Status</h3>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-5 h-5 text-[#10B981]" />
-                <span>Completed</span>
+                <span className="dark:text-gray-300">Completed</span>
               </div>
               <span className="text-2xl font-bold text-[#10B981]">{completedReviews}</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-[#F59E0B]" />
-                <span>Pending</span>
+                <span className="dark:text-gray-300">Pending</span>
               </div>
               <span className="text-2xl font-bold text-[#F59E0B]">{pendingReviews}</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <XCircle className="w-5 h-5 text-[#EF4444]" />
-                <span>Failed</span>
+                <span className="dark:text-gray-300">Failed</span>
               </div>
               <span className="text-2xl font-bold text-[#EF4444]">{failedReviews}</span>
             </div>
           </div>
           {data.overview.totalReviews > 0 && (
             <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <div className="text-sm text-gray-500 mb-2">Success Rate</div>
-              <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+              <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">Success Rate</div>
+              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-[#10B981] transition-all"
                   style={{ width: `${(completedReviews / data.overview.totalReviews) * 100}%` }}
@@ -364,9 +364,9 @@ export default function AnalyticsDashboard() {
 
         {/* Review Feedback */}
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold mb-4">Review Feedback</h3>
+          <h3 className="text-lg font-semibold mb-4 dark:text-white">Review Feedback</h3>
           {totalFeedback === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               <ThumbsUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
               <p className="text-sm">No feedback yet</p>
             </div>
@@ -376,21 +376,21 @@ export default function AnalyticsDashboard() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <ThumbsUp className="w-5 h-5 text-[#10B981]" />
-                    <span>Helpful</span>
+                    <span className="dark:text-gray-300">Helpful</span>
                   </div>
                   <span className="text-2xl font-bold text-[#10B981]">{helpfulFeedback}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <ThumbsDown className="w-5 h-5 text-[#EF4444]" />
-                    <span>Not Helpful</span>
+                    <span className="dark:text-gray-300">Not Helpful</span>
                   </div>
                   <span className="text-2xl font-bold text-[#EF4444]">{notHelpfulFeedback}</span>
                 </div>
               </div>
               <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <div className="text-sm text-gray-500 mb-2">Satisfaction Rate</div>
-                <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">Satisfaction Rate</div>
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-[#10B981] transition-all"
                     style={{ width: `${helpfulRate}%` }}
@@ -406,7 +406,7 @@ export default function AnalyticsDashboard() {
 
         {/* Repository Index Status */}
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold mb-4">Index Status</h3>
+          <h3 className="text-lg font-semibold mb-4 dark:text-white">Index Status</h3>
           <div className="space-y-3">
             {data.repositories.byIndexStatus.map((status) => {
               const color = status.status === "indexed" ? "#10B981"
@@ -420,9 +420,9 @@ export default function AnalyticsDashboard() {
                       className="w-3 h-3 rounded-full"
                       style={{ backgroundColor: color }}
                     />
-                    <span className="capitalize">{status.status}</span>
+                    <span className="capitalize dark:text-gray-300">{status.status}</span>
                   </div>
-                  <span className="font-semibold">{status.count}</span>
+                  <span className="font-semibold dark:text-white">{status.count}</span>
                 </div>
               );
             })}
@@ -540,22 +540,22 @@ export default function AnalyticsDashboard() {
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h3 className="text-lg font-semibold flex items-center gap-2">
+            <h3 className="text-lg font-semibold flex items-center gap-2 dark:text-white">
               <Bug className="w-5 h-5 text-[#EF4444]" />
               Code Quality Metrics
             </h3>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               {data.codeQuality.totalIssues} issues found across {completedReviews} reviews
             </p>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold">{data.codeQuality.avgIssuesPerReview}</div>
-            <div className="text-sm text-gray-500">avg per review</div>
+            <div className="text-2xl font-bold dark:text-white">{data.codeQuality.avgIssuesPerReview}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">avg per review</div>
           </div>
         </div>
 
         {data.codeQuality.totalIssues === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
             <CheckCircle className="w-8 h-8 mx-auto mb-2 text-[#10B981] opacity-70" />
             <p className="text-sm">No issues found in this period</p>
           </div>
@@ -563,7 +563,7 @@ export default function AnalyticsDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Issue Severity Distribution */}
             <div>
-              <h4 className="text-sm font-medium text-gray-500 mb-3">By Severity</h4>
+              <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">By Severity</h4>
               <div className="space-y-2">
                 {data.codeQuality.bySeverity.map((item) => {
                   const color = item.severity === "critical" ? "#EF4444"
@@ -573,8 +573,8 @@ export default function AnalyticsDashboard() {
                   const maxCount = Math.max(...data.codeQuality.bySeverity.map(s => s.count), 1);
                   return (
                     <div key={item.severity} className="flex items-center gap-3">
-                      <div className="w-20 text-sm capitalize">{item.severity}</div>
-                      <div className="flex-1 h-4 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="w-20 text-sm capitalize dark:text-gray-300">{item.severity}</div>
+                      <div className="flex-1 h-4 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all"
                           style={{
@@ -583,7 +583,7 @@ export default function AnalyticsDashboard() {
                           }}
                         />
                       </div>
-                      <div className="w-8 text-sm text-right font-medium">{item.count}</div>
+                      <div className="w-8 text-sm text-right font-medium dark:text-gray-300">{item.count}</div>
                     </div>
                   );
                 })}
@@ -592,7 +592,7 @@ export default function AnalyticsDashboard() {
 
             {/* Issue Category Distribution */}
             <div>
-              <h4 className="text-sm font-medium text-gray-500 mb-3">By Category</h4>
+              <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">By Category</h4>
               <div className="space-y-2">
                 {data.codeQuality.byCategory.slice(0, 5).map((item) => {
                   const icon = item.category === "bug" ? <Bug className="w-4 h-4" />
@@ -602,17 +602,17 @@ export default function AnalyticsDashboard() {
                   const maxCount = Math.max(...data.codeQuality.byCategory.map(c => c.count), 1);
                   return (
                     <div key={item.category} className="flex items-center gap-3">
-                      <div className="w-28 text-sm capitalize flex items-center gap-1.5">
-                        <span className="text-gray-400">{icon}</span>
+                      <div className="w-28 text-sm capitalize flex items-center gap-1.5 dark:text-gray-300">
+                        <span className="text-gray-400 dark:text-gray-500">{icon}</span>
                         {item.category.replace("_", " ")}
                       </div>
-                      <div className="flex-1 h-4 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="flex-1 h-4 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-[#4F46E5] rounded-full transition-all"
                           style={{ width: `${(item.count / maxCount) * 100}%` }}
                         />
                       </div>
-                      <div className="w-8 text-sm text-right font-medium">{item.count}</div>
+                      <div className="w-8 text-sm text-right font-medium dark:text-gray-300">{item.count}</div>
                     </div>
                   );
                 })}
@@ -625,7 +625,7 @@ export default function AnalyticsDashboard() {
       {/* Top Files with Issues */}
       {data.codeQuality.topFilesWithIssues.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 dark:text-white">
             <FileWarning className="w-5 h-5 text-[#F59E0B]" />
             Files with Most Issues
           </h3>
@@ -634,21 +634,21 @@ export default function AnalyticsDashboard() {
               const maxCount = data.codeQuality.topFilesWithIssues[0]?.count || 1;
               return (
                 <div key={item.file} className="flex items-center gap-3">
-                  <div className="w-6 h-6 flex items-center justify-center text-sm font-medium text-gray-400">
+                  <div className="w-6 h-6 flex items-center justify-center text-sm font-medium text-gray-400 dark:text-gray-500">
                     {i + 1}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-mono truncate" title={item.file}>
+                    <div className="text-sm font-mono truncate dark:text-gray-300" title={item.file}>
                       {item.file}
                     </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mt-1">
+                    <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden mt-1">
                       <div
                         className="h-full bg-[#F59E0B] rounded-full"
                         style={{ width: `${(item.count / maxCount) * 100}%` }}
                       />
                     </div>
                   </div>
-                  <div className="text-sm text-gray-500">{item.count} issues</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">{item.count} issues</div>
                 </div>
               );
             })}
@@ -659,7 +659,7 @@ export default function AnalyticsDashboard() {
       {/* Declining Repositories */}
       {data.codeQuality.decliningRepositories.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 dark:text-white">
             <TrendingDown className="w-5 h-5 text-[#EF4444]" />
             Declining Repositories
           </h3>
@@ -677,7 +677,7 @@ export default function AnalyticsDashboard() {
                   >
                     {repo.fullName}
                   </Link>
-                  <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {repo.reviewCount} reviews · {repo.fromQuality} → {repo.toQuality}
                   </div>
                 </div>
@@ -685,12 +685,12 @@ export default function AnalyticsDashboard() {
                   <div className="text-sm font-semibold text-[#EF4444]">
                     {repo.deltaQuality}
                   </div>
-                  <div className="text-xs text-gray-500">quality</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">quality</div>
                 </div>
               </div>
             ))}
           </div>
-          <p className="mt-3 text-xs text-gray-500">
+          <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
             Based on first-half vs second-half quality score within the selected period.
           </p>
         </div>
@@ -698,9 +698,9 @@ export default function AnalyticsDashboard() {
 
       {/* Top Repositories */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-        <h3 className="text-lg font-semibold mb-4">Top Repositories by Reviews</h3>
+        <h3 className="text-lg font-semibold mb-4 dark:text-white">Top Repositories by Reviews</h3>
         {data.reviews.topRepositories.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
             <FolderGit2 className="w-8 h-8 mx-auto mb-2 opacity-50" />
             <p className="text-sm">No reviews yet</p>
           </div>
@@ -710,15 +710,15 @@ export default function AnalyticsDashboard() {
               const maxCount = data.reviews.topRepositories[0]?.reviewCount || 1;
               return (
                 <div key={repo.fullName} className="flex items-center gap-4">
-                  <div className="w-6 h-6 flex items-center justify-center text-sm font-medium text-gray-500">
+                  <div className="w-6 h-6 flex items-center justify-center text-sm font-medium text-gray-500 dark:text-gray-400">
                     #{i + 1}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium">{repo.fullName}</span>
-                      <span className="text-sm text-gray-500">{repo.reviewCount} reviews</span>
+                      <span className="font-medium dark:text-gray-200">{repo.fullName}</span>
+                      <span className="text-sm text-gray-500 dark:text-gray-400">{repo.reviewCount} reviews</span>
                     </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-[#4F46E5] rounded-full"
                         style={{ width: `${(repo.reviewCount / maxCount) * 100}%` }}

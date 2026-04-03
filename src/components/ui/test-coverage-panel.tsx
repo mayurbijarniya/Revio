@@ -43,15 +43,15 @@ export function TestCoveragePanel({ testCoverage }: { testCoverage: TestCoverage
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900">
-          <div className="text-xs text-gray-500">Non-test files changed</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">Non-test files changed</div>
           <div className="text-2xl font-bold text-gray-900 dark:text-white">{nonTestChanged.length}</div>
         </div>
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900">
-          <div className="text-xs text-gray-500">Test files changed</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">Test files changed</div>
           <div className="text-2xl font-bold text-gray-900 dark:text-white">{testChanged.length}</div>
         </div>
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900">
-          <div className="text-xs text-gray-500">Potential gaps</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">Potential gaps</div>
           <div className={cn("text-2xl font-bold", missing.length > 0 ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white")}>
             {missing.length}
           </div>
@@ -83,7 +83,7 @@ export function TestCoveragePanel({ testCoverage }: { testCoverage: TestCoverage
                   {m.file}
                 </div>
                 {m.suggestedTestFiles?.length > 0 && (
-                  <div className="mt-1 text-xs text-gray-500">
+                  <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                     Suggested:{" "}
                     <span className="font-mono">{m.suggestedTestFiles[0]}</span>
                   </div>
@@ -92,7 +92,7 @@ export function TestCoveragePanel({ testCoverage }: { testCoverage: TestCoverage
             ))}
           </div>
           {missing.length > 10 && (
-            <div className="mt-2 text-xs text-gray-500">
+            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
               … +{missing.length - 10} more
             </div>
           )}

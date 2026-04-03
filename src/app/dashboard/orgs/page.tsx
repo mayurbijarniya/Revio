@@ -35,7 +35,6 @@ export default function OrganizationsPage() {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
 
-  // Fetch organizations from API
   useEffect(() => {
     const fetchOrganizations = async () => {
       try {
@@ -71,7 +70,6 @@ export default function OrganizationsPage() {
         setShowCreateModal(false);
         setOrgName("");
         setOrgSlug("");
-        // Add new org to list
         setOrganizations((prev) => [data.data.organization, ...prev]);
         router.push(`/dashboard/orgs/${data.data.organization.slug}`);
       } else {
@@ -99,8 +97,8 @@ export default function OrganizationsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Organizations</h1>
-          <p className="text-gray-500 mt-2">
+          <h1 className="text-3xl font-bold dark:text-white">Organizations</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-2">
             Manage your teams and shared repositories
           </p>
         </div>
@@ -126,13 +124,13 @@ export default function OrganizationsPage() {
                 <div className="w-12 h-12 bg-[#4F46E5] rounded-xl flex items-center justify-center">
                   <Building2 className="w-6 h-6 text-white" />
                 </div>
-                <span className="px-2 py-1 text-xs font-medium bg-[#EEF2FF] text-[#4F46E5] rounded-full">
+                <span className="px-2 py-1 text-xs font-medium bg-[#EEF2FF] dark:bg-indigo-900/30 text-[#4F46E5] dark:text-indigo-400 rounded-full">
                   {org.plan.toUpperCase()}
                 </span>
               </div>
-              <h3 className="text-lg font-semibold mb-1">{org.name}</h3>
-              <p className="text-sm text-gray-500 mb-4">@{org.slug}</p>
-              <div className="flex items-center gap-4 text-sm text-gray-500">
+              <h3 className="text-lg font-semibold mb-1 dark:text-white">{org.name}</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">@{org.slug}</p>
+              <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                 <div className="flex items-center gap-1">
                   <Users className="w-4 h-4" />
                   {org._count.members}
@@ -168,10 +166,10 @@ export default function OrganizationsPage() {
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Create Organization</h2>
+            <h2 className="text-xl font-bold mb-4 dark:text-white">Create Organization</h2>
             <form onSubmit={handleCreateOrg} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label className="block text-sm font-medium mb-1 dark:text-gray-300">
                   Organization Name
                 </label>
                 <input
@@ -179,24 +177,24 @@ export default function OrganizationsPage() {
                   value={orgName}
                   onChange={(e) => setOrgName(e.target.value)}
                   placeholder="Acme Corporation"
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#4F46E5]"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-[#4F46E5]"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label className="block text-sm font-medium mb-1 dark:text-gray-300">
                   URL Slug
                 </label>
-                <div className="flex flex-col sm:flex-row sm:items-center">
-                  <span className="px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-b-0 sm:border-b sm:border-r-0 rounded-t-lg sm:rounded-l-lg sm:rounded-tr-none text-gray-500 text-sm">
-                    revio.com/org/
+                <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-[#4F46E5]">
+                  <span className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-sm border-r border-gray-300 dark:border-gray-600 whitespace-nowrap">
+                    revio.mayur.app/org/
                   </span>
                   <input
                     type="text"
                     value={orgSlug}
                     onChange={(e) => setOrgSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
                     placeholder="acme-corp"
-                    className="flex-1 px-4 py-2 border rounded-b-lg sm:rounded-r-lg sm:rounded-bl-none focus:ring-2 focus:ring-[#4F46E5]"
+                    className="flex-1 px-4 py-2 bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 focus:outline-none"
                     required
                   />
                 </div>

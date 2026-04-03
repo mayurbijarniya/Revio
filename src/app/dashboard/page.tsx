@@ -117,7 +117,7 @@ export default async function DashboardPage() {
       {/* Recent Activity */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col h-[500px]">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-          <h2 className="text-lg font-semibold">Recent PR Reviews</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Recent PR Reviews</h2>
         </div>
 
         {recentReviews.length === 0 ? (
@@ -155,9 +155,9 @@ export default async function DashboardPage() {
                 </div>
                 <span
                   className={`px-2 py-1 text-xs font-medium rounded flex-shrink-0 ${review.status === "completed"
-                    ? "bg-[#ECFDF5] text-[#10B981]"
+                    ? "bg-[#ECFDF5] dark:bg-green-900/30 text-[#10B981] dark:text-green-400"
                     : review.status === "failed"
-                      ? "bg-[#FEF2F2] text-[#EF4444]"
+                      ? "bg-[#FEF2F2] dark:bg-red-900/30 text-[#EF4444] dark:text-red-400"
                       : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
                     }`}
                 >

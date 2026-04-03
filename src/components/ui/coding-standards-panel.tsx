@@ -179,7 +179,7 @@ export function CodingStandardsPanel({
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <FileCode2 className="w-4 h-4 text-gray-400" />
+                        <FileCode2 className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                         <span className="text-sm font-medium text-gray-900 dark:text-white">
                           {SOURCE_LABELS[standard.source] || standard.source}
                         </span>

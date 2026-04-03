@@ -472,7 +472,7 @@ export function RepoDetail({
           <button
             onClick={fetchOpenPRs}
             disabled={isLoadingPRs}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
           >
             {isLoadingPRs ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -536,12 +536,12 @@ export function RepoDetail({
                           className={cn(
                             "px-2 py-0.5 rounded text-xs",
                             pr.reviewStatus === "completed"
-                              ? "bg-[#ECFDF5] text-[#10B981]"
+                              ? "bg-[#ECFDF5] dark:bg-green-900/30 text-[#10B981] dark:text-green-400"
                               : pr.reviewStatus === "failed"
-                                ? "bg-[#FEF2F2] text-[#EF4444]"
+                                ? "bg-[#FEF2F2] dark:bg-red-900/30 text-[#EF4444] dark:text-red-400"
                                 : pr.reviewStatus === "pending"
-                                  ? "bg-[#EEF2FF] text-[#4F46E5]"
-                                  : "bg-gray-100 text-gray-500"
+                                  ? "bg-[#EEF2FF] dark:bg-indigo-900/30 text-[#4F46E5] dark:text-indigo-400"
+                                  : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
                           )}
                         >
                           {pr.reviewStatus}
@@ -557,7 +557,7 @@ export function RepoDetail({
                     className={cn(
                       "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border flex-1 md:flex-none justify-center",
                       pr.reviewStatus === "pending"
-                        ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
+                        ? "bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed"
                         : "bg-[#10B981] border-[#10B981] text-white hover:bg-[#059669] hover:border-[#059669]",
                       reviewingPR === pr.number && "opacity-50 cursor-not-allowed"
                     )}
@@ -635,7 +635,7 @@ export function RepoDetail({
                 <div className="font-medium text-sm text-gray-700 dark:text-gray-300">
                   Webhook
                 </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-medium uppercase bg-[#ECFDF5] text-[#10B981]">
+                <span className="px-2 py-0.5 rounded text-[10px] font-medium uppercase bg-[#ECFDF5] dark:bg-green-900/30 text-[#10B981] dark:text-green-400">
                   Active
                 </span>
               </div>

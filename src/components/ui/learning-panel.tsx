@@ -305,7 +305,7 @@ export function LearningPanel({ repositoryId }: { repositoryId: string }) {
           {state.effective.suppressedCategories.length === 0 &&
             state.effective.suppressedIssueTypes.length === 0 &&
             state.effective.suppressedText.length === 0 && (
-              <span className="text-xs text-gray-500">No learned suppressions yet.</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">No learned suppressions yet.</span>
             )}
           {state.effective.suppressedCategories.map((c) => (
             <span
@@ -336,7 +336,7 @@ export function LearningPanel({ repositoryId }: { repositoryId: string }) {
             <select
               value={newCategory}
               onChange={(e) => setNewCategory(e.target.value as (typeof IssueCategories)[number])}
-              className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+              className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-gray-200"
             >
               {IssueCategories.map((c) => (
                 <option key={c} value={c}>
@@ -371,7 +371,7 @@ export function LearningPanel({ repositoryId }: { repositoryId: string }) {
               value={newPattern}
               onChange={(e) => setNewPattern(e.target.value)}
               placeholder='e.g. "naming nitpick"'
-              className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+              className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-gray-200 dark:placeholder-gray-400"
             />
             <button
               onClick={addTextSuppression}
@@ -399,13 +399,13 @@ export function LearningPanel({ repositoryId }: { repositoryId: string }) {
             <h4 className="text-sm font-medium text-gray-900 dark:text-white">
               Active Suppressions (Repo)
             </h4>
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-gray-500 dark:text-gray-400">
               {repoSuppressions.length} active
             </span>
           </div>
         </div>
         {repoSuppressions.length === 0 ? (
-          <div className="p-4 text-sm text-gray-500">No suppressions yet.</div>
+          <div className="p-4 text-sm text-gray-500 dark:text-gray-400">No suppressions yet.</div>
         ) : (
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
             {repoSuppressions.map((s) => {
@@ -427,7 +427,7 @@ export function LearningPanel({ repositoryId }: { repositoryId: string }) {
                         {s.reason}
                       </div>
                     )}
-                    <div className="text-xs text-gray-400 mt-1">
+                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                       {s.source ? `source: ${s.source}` : "source: unknown"}
                     </div>
                   </div>
@@ -465,14 +465,14 @@ export function LearningPanel({ repositoryId }: { repositoryId: string }) {
             <h4 className="text-sm font-medium text-gray-900 dark:text-white">
               Suggested Custom Rules
             </h4>
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-gray-500 dark:text-gray-400">
               {repoSuggestions.length} repo / {orgSuggestions.length} org
             </span>
           </div>
         </div>
 
         {repoSuggestions.length === 0 && orgSuggestions.length === 0 ? (
-          <div className="p-4 text-sm text-gray-500">
+          <div className="p-4 text-sm text-gray-500 dark:text-gray-400">
             No suggestions yet. Click Refresh to analyze recent human PR comments.
           </div>
         ) : (
@@ -490,14 +490,14 @@ export function LearningPanel({ repositoryId }: { repositoryId: string }) {
                         {s.rule.severity}/{s.rule.category}
                       </span>
                       {typeof s.frequency === "number" && (
-                        <span className="text-xs text-gray-400">freq: {s.frequency}</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">freq: {s.frequency}</span>
                       )}
                     </div>
                     <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                       {s.rule.message}
                     </div>
                     {s.rule.pattern && (
-                      <div className="mt-2 text-xs font-mono text-gray-500 break-all">
+                      <div className="mt-2 text-xs font-mono text-gray-500 dark:text-gray-400 break-all">
                         pattern: {s.rule.pattern}
                       </div>
                     )}
@@ -535,7 +535,7 @@ export function LearningPanel({ repositoryId }: { repositoryId: string }) {
                 </div>
                 <div className="space-y-2">
                   {orgSuggestions.slice(0, 5).map((s) => (
-                    <div key={s.id} className="text-xs text-gray-600 dark:text-gray-400">
+                    <div key={s.id} className="text-xs text-gray-600 dark:text-gray-300">
                       • {s.rule.name} ({s.rule.severity}/{s.rule.category})
                     </div>
                   ))}

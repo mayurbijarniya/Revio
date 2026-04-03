@@ -217,10 +217,10 @@ export default function BillingPage() {
               <CreditCard className="w-6 h-6 text-[#4F46E5] dark:text-[#818CF8]" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">Billing & Subscription</h1>
-              <p className="text-gray-500">Manage your subscription, billing details, and invoices</p>
+              <h1 className="text-2xl font-bold dark:text-white">Billing & Subscription</h1>
+              <p className="text-gray-500 dark:text-gray-400">Manage your subscription, billing details, and invoices</p>
               {user && (
-                <div className="mt-2 inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#EEF2FF] text-[#4F46E5] border border-[#E0E7FF]">
+                <div className="mt-2 inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#EEF2FF] dark:bg-indigo-900/30 text-[#4F46E5] dark:text-indigo-400 border border-[#E0E7FF] dark:border-indigo-800">
                   Current Plan: <span className="capitalize">{currentPlan}</span>
                 </div>
               )}
@@ -264,11 +264,11 @@ export default function BillingPage() {
 
       {/* Usage Section */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 dark:text-white">
           <Zap className="w-5 h-5 text-[#F59E0B]" />
           Current Usage
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           <UsageCard
             label="Repositories"
             used={currentUsage.repositories}
@@ -288,7 +288,7 @@ export default function BillingPage() {
       </div>
 
       {/* Pricing Plans */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {PLANS.map((plan) => {
           const Icon = plan.icon;
           const isCurrentPlan = currentPlan === plan.id;
@@ -301,8 +301,8 @@ export default function BillingPage() {
               className={cn(
                 "relative rounded-lg border p-6 flex flex-col h-full transition-all",
                 isCurrentPlan
-                  ? "border-[#4F46E5] bg-[#EEF2FF] dark:bg-[#4F46E5]/10 ring-1 ring-[#4F46E5]"
-                  : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-[#4F46E5]/50"
+                  ? "border-[#4F46E5] bg-[#EEF2FF] dark:bg-[#4F46E5]/10 ring-1 ring-[#4F46E5] dark:text-white"
+                  : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-[#4F46E5]/50 dark:text-white"
               )}
             >
               {plan.popular && !isCurrentPlan && (
@@ -331,13 +331,13 @@ export default function BillingPage() {
                 <h3 className={cn("text-lg font-bold mb-1", isCurrentPlan ? "text-[#4F46E5]" : "")}>
                   {plan.name}
                 </h3>
-                <p className="text-sm text-gray-500 h-10">{plan.description}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 h-10">{plan.description}</p>
               </div>
 
               <div className="mb-6">
                 <div className="flex items-baseline gap-1">
                   <span className="text-3xl font-bold">{price}</span>
-                  <span className="text-gray-500">{period}</span>
+                  <span className="text-gray-500 dark:text-gray-400">{period}</span>
                 </div>
                 {billingCycle === "yearly" && plan.yearlyPrice && (
                   <p className="text-xs text-[#10B981] font-medium mt-1">
@@ -355,8 +355,8 @@ export default function BillingPage() {
                 ))}
                 {plan.notIncluded.map((feature, i) => (
                   <li key={i} className="flex items-start gap-3 text-sm opacity-50">
-                    <Check className="w-4 h-4 text-gray-300 shrink-0 mt-0.5" />
-                    <span className="line-through text-gray-400">{feature}</span>
+                    <Check className="w-4 h-4 text-gray-300 dark:text-gray-600 shrink-0 mt-0.5" />
+                    <span className="line-through text-gray-400 dark:text-gray-500">{feature}</span>
                   </li>
                 ))}
               </ul>
@@ -400,8 +400,8 @@ export default function BillingPage() {
           <div className="flex items-center gap-3">
             <CreditCard className="w-5 h-5 text-gray-400" />
             <div>
-              <h3 className="font-semibold">Payment Methods</h3>
-              <p className="text-sm text-gray-500">Securely manage your payment options</p>
+              <h3 className="font-semibold dark:text-white">Payment Methods</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Securely manage your payment options</p>
             </div>
           </div>
           <button className="text-sm text-[#4F46E5] hover:text-[#4338CA] font-medium w-full sm:w-auto text-left sm:text-right">
@@ -409,7 +409,7 @@ export default function BillingPage() {
           </button>
         </div>
         <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg text-center border border-gray-100 dark:border-gray-700 border-dashed">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             No payment methods on file. Upgrade to a paid plan to add a card.
           </p>
         </div>

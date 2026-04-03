@@ -268,9 +268,10 @@ function CodeBlock({ code, language }: CodeBlockProps) {
 interface MarkdownRendererProps {
   content: string;
   className?: string;
+  isStreaming?: boolean;
 }
 
-export function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
+export function MarkdownRenderer({ content, className, isStreaming = false }: MarkdownRendererProps) {
   return (
     <div className={cn("markdown-renderer", className)}>
       <ReactMarkdown
@@ -285,6 +286,18 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
             const isBlockCode = language && (inline === false || codeString.includes("\n"));
 
             if (isBlockCode) {
+              if (isStreaming) {
+                return (
+                  <div className="my-4 rounded-xl overflow-hidden border border-[#282c34]" style={{ backgroundColor: '#101010' }}>
+                    <div className="px-4 py-2 border-b border-[#282c34]" style={{ backgroundColor: '#101010' }}>
+                      <span className="font-mono text-xs text-gray-400 font-medium">{language}</span>
+                    </div>
+                    <pre className="p-4 m-0 font-mono text-sm leading-relaxed text-gray-300 overflow-auto max-h-[500px]" style={{ backgroundColor: '#101010' }}>
+                      {codeString}
+                    </pre>
+                  </div>
+                );
+              }
               return <CodeBlock code={codeString} language={language} />;
             }
 
@@ -294,7 +307,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
             // Let's rely on globals.css but ensure base styles don't conflict.
             return (
               <code
-                className="font-mono px-1.5 py-0.5 rounded text-[0.875em] bg-gray-200 text-gray-900 dark:bg-gray-800 dark:text-gray-200"
+                className="font-mono font-semibold text-[0.85em] text-indigo-600 dark:text-indigo-400"
                 {...props}
               >
                 {children}
@@ -326,7 +339,6 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
             return <li className="pl-1 leading-relaxed">{children}</li>;
           },
           blockquote({ children }) {
-            // Updated blockquote colors
             return <blockquote className="border-l-4 pl-4 py-1 my-4 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">{children}</blockquote>;
           },
           hr({ }) {

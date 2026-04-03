@@ -381,9 +381,9 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
       {review.status === "completed" && (
         <div
           className={`rounded-lg p-4 mb-6 border-2 ${review.mergeVerdict === "ready"
-            ? "bg-green-50 border-green-300"
+            ? "bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-800"
             : review.mergeVerdict === "needs_changes"
-              ? "bg-red-50 border-red-300"
+              ? "bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-800"
               : review.mergeVerdict === "review"
                 ? "bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-800"
                 : "bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700"
@@ -392,30 +392,30 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
           <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
             <div
               className={`p-3 rounded-full ${review.mergeVerdict === "ready"
-                ? "bg-green-100"
+                ? "bg-green-100 dark:bg-green-900/40"
                 : review.mergeVerdict === "needs_changes"
-                  ? "bg-red-100"
+                  ? "bg-red-100 dark:bg-red-900/40"
                   : review.mergeVerdict === "review"
                     ? "bg-amber-100 dark:bg-amber-900/40"
                     : "bg-gray-100 dark:bg-gray-700"
                 }`}
             >
               {review.mergeVerdict === "ready" ? (
-                <GitMerge className="h-6 w-6 text-green-600" />
+                <GitMerge className="h-6 w-6 text-green-600 dark:text-green-400" />
               ) : review.mergeVerdict === "needs_changes" ? (
-                <XCircle className="h-6 w-6 text-red-600" />
+                <XCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
               ) : review.mergeVerdict === "review" ? (
-                <AlertCircle className="h-6 w-6 text-amber-600" />
+                <AlertCircle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
               ) : (
-                <Clock className="h-6 w-6 text-gray-600" />
+                <Clock className="h-6 w-6 text-gray-600 dark:text-gray-400" />
               )}
             </div>
             <div className="flex-1">
               <h3
                 className={`text-lg font-semibold ${review.mergeVerdict === "ready"
-                  ? "text-green-800"
+                  ? "text-green-800 dark:text-green-300"
                   : review.mergeVerdict === "needs_changes"
-                    ? "text-red-800"
+                    ? "text-red-800 dark:text-red-300"
                     : review.mergeVerdict === "review"
                       ? "text-amber-800 dark:text-amber-300"
                       : "text-gray-800 dark:text-gray-200"
@@ -431,12 +431,12 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
               </h3>
               <p
                 className={`text-sm ${review.mergeVerdict === "ready"
-                  ? "text-green-600"
+                  ? "text-green-600 dark:text-green-400"
                   : review.mergeVerdict === "needs_changes"
-                    ? "text-red-600"
+                    ? "text-red-600 dark:text-red-400"
                     : review.mergeVerdict === "review"
-                      ? "text-amber-600"
-                      : "text-gray-600"
+                      ? "text-amber-600 dark:text-amber-400"
+                      : "text-gray-600 dark:text-gray-400"
                   }`}
               >
                 {review.mergeMessage}
@@ -444,13 +444,13 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
             </div>
             {review.recommendation && (
               <div className="text-right">
-                <div className="text-xs text-gray-500 mb-1">AI Recommendation</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">AI Recommendation</div>
                 <span
                   className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ${review.recommendation === "approve"
-                    ? "bg-green-100 text-green-700"
+                    ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                     : review.recommendation === "request_changes"
-                      ? "bg-red-100 text-red-700"
-                      : "bg-gray-100 text-gray-700"
+                      ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
                     }`}
                 >
                   {review.recommendation === "approve"
@@ -463,15 +463,15 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
             )}
             {review.riskLevel && (
               <div className="text-right">
-                <div className="text-xs text-gray-500 mb-1">Risk Level</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Risk Level</div>
                 <span
                   className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ${review.riskLevel === "critical"
-                    ? "bg-red-100 text-red-700"
+                    ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
                     : review.riskLevel === "high"
-                      ? "bg-orange-100 text-orange-700"
+                      ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
                       : review.riskLevel === "medium"
-                        ? "bg-amber-100 text-amber-700"
-                        : "bg-green-100 text-green-700"
+                        ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
+                        : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                     }`}
                 >
                   {review.riskLevel.charAt(0).toUpperCase() + review.riskLevel.slice(1)}
@@ -480,7 +480,7 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
             )}
             {review.confidenceScore && (
               <div className="text-right">
-                <div className="text-xs text-gray-500 mb-1">Confidence Score</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Confidence Score</div>
                 <div className="flex items-center gap-1">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <Star
@@ -597,8 +597,8 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
                 onClick={() => handleFeedback("helpful")}
                 disabled={feedbackLoading}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors ${review.feedback === "helpful"
-                  ? "bg-green-100 text-green-700"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                  : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
                   }`}
               >
                 <ThumbsUp className="h-4 w-4" />
@@ -608,8 +608,8 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
                 onClick={() => handleFeedback("not_helpful")}
                 disabled={feedbackLoading}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors ${review.feedback === "not_helpful"
-                  ? "bg-red-100 text-red-700"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                  : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
                   }`}
               >
                 <ThumbsDown className="h-4 w-4" />
@@ -629,7 +629,7 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
             </h2>
           </div>
 
-          <div className="divide-y divide-gray-200">
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
             {Object.entries(review.issuesByFile).map(([file, issues]) => (
               <div key={file}>
                 {/* File Header */}
@@ -737,9 +737,9 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
               Suggestions ({review.suggestions.length})
             </h2>
           </div>
-          <div className="divide-y divide-gray-200">
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
             {review.suggestions.map((suggestion, idx) => (
-              <div key={idx} className="p-4">
+              <div key={idx} className="p-4 bg-white dark:bg-gray-800">
                 <div className="flex items-start gap-3">
                   <div className="p-1.5 rounded bg-blue-100 dark:bg-blue-900/30">
                     <Lightbulb className="h-4 w-4 text-blue-600 dark:text-blue-400" />

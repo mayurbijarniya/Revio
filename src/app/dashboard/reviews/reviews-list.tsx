@@ -167,7 +167,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
     <div className="max-w-6xl mx-auto p-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold flex items-center gap-3">
+        <h1 className="text-2xl font-bold flex items-center gap-3 text-gray-900 dark:text-white">
           <GitPullRequest className="w-7 h-7" />
           PR Reviews
         </h1>
@@ -197,8 +197,8 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
               <GitPullRequest className="w-5 h-5" />
             </div>
           </div>
-          <div className="text-2xl font-bold">{counts.total}</div>
-          <div className="text-sm text-gray-500">Total Reviews</div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">{counts.total}</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">Total Reviews</div>
         </button>
         <button
           onClick={() => setStatusFilter("completed")}
@@ -220,7 +220,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
             </div>
           </div>
           <div className="text-2xl font-bold text-[#10B981]">{counts.completed}</div>
-          <div className="text-sm text-gray-500">Completed</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">Completed</div>
         </button>
         <button
           onClick={() => setStatusFilter("failed")}
@@ -242,7 +242,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
             </div>
           </div>
           <div className="text-2xl font-bold text-[#EF4444]">{counts.failed}</div>
-          <div className="text-sm text-gray-500">Failed</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">Failed</div>
         </button>
         <button
           onClick={() => setStatusFilter("pending")}
@@ -264,7 +264,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
             </div>
           </div>
           <div className="text-2xl font-bold text-[#F59E0B]">{counts.pending}</div>
-          <div className="text-sm text-gray-500">Pending</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">Pending</div>
         </button>
       </div>
 
@@ -295,7 +295,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
           <div className="px-4 pb-4 border-t border-gray-200 dark:border-gray-700 pt-4">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
-                <label className="block text-sm font-medium mb-2">Repository</label>
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Repository</label>
                 <div className="relative">
                   <select
                     value={repoFilter}
@@ -315,7 +315,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
                 </div>
               </div>
               <div className="flex-1">
-                <label className="block text-sm font-medium mb-2">Status</label>
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Status</label>
                 <div className="relative">
                   <select
                     value={statusFilter}
@@ -385,7 +385,7 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
             )}
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto divide-y divide-gray-200 dark:divide-gray-700">
+          <div className="flex-1 overflow-y-auto divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
             {filteredReviews.map((review) => {
               const status = statusConfig[review.status as keyof typeof statusConfig] || statusConfig.pending;
               const StatusIcon = status.icon;
@@ -404,8 +404,8 @@ export function ReviewsList({ reviews, repositories, counts }: ReviewsListProps)
                         >
                           {review.repository.fullName}
                         </Link>
-                        <span className="text-gray-300 hidden sm:inline">|</span>
-                        <span className="font-medium">#{review.prNumber}</span>
+                        <span className="text-gray-300 dark:text-gray-600 hidden sm:inline">|</span>
+                        <span className="font-medium text-gray-900 dark:text-white">#{review.prNumber}</span>
                         <span
                           className={cn(
                             "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium",

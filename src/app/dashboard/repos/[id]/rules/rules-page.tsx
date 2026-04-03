@@ -109,7 +109,7 @@ export function RulesPage({
           <div className="flex-1">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
-                <h1 className="text-2xl font-bold">Custom Review Rules</h1>
+                <h1 className="text-2xl font-bold dark:text-white">Custom Review Rules</h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                   {repositoryName}
                 </p>
@@ -137,7 +137,7 @@ export function RulesPage({
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Review Configuration</h2>
+        <h2 className="text-lg font-semibold mb-4 dark:text-white">Review Configuration</h2>
         <ReviewRulesEditor
           settings={reviewSettings}
           onSave={handleSaveReviewRules}
