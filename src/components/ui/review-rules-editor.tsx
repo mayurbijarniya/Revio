@@ -144,7 +144,7 @@ export function ReviewRulesEditor({
     <div className="space-y-6">
       {/* Severity Settings */}
       <div>
-        <h3 className="text-sm font-medium mb-3">Severity Thresholds</h3>
+        <h3 className="text-sm font-medium mb-3 dark:text-gray-200">Severity Thresholds</h3>
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -208,7 +208,7 @@ export function ReviewRulesEditor({
 
       {/* Focus Categories */}
       <div>
-        <h3 className="text-sm font-medium mb-3">Focus Areas</h3>
+        <h3 className="text-sm font-medium mb-3 dark:text-gray-200">Focus Areas</h3>
         <div className="flex flex-wrap gap-2">
           {IssueCategories.map((category) => {
             const Icon = categoryIcons[category];
@@ -235,7 +235,7 @@ export function ReviewRulesEditor({
       {/* Custom Rules */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium">Custom Rules</h3>
+          <h3 className="text-sm font-medium dark:text-gray-200">Custom Rules</h3>
           <div className="flex gap-2">
             <button
               onClick={() => setShowTemplates(!showTemplates)}
@@ -270,7 +270,7 @@ export function ReviewRulesEditor({
         {/* Templates dropdown */}
         {showTemplates && (
           <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-            <p className="text-xs text-gray-500 mb-2">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
               Click to add a template rule:
             </p>
             <div className="space-y-2">
@@ -286,7 +286,7 @@ export function ReviewRulesEditor({
                   >
                     <div className="flex items-center gap-2">
                       <Icon className="w-4 h-4 text-gray-500" />
-                      <span className="text-sm font-medium">{template.name}</span>
+                      <span className="text-sm font-medium dark:text-gray-300">{template.name}</span>
                       <span
                         className={cn(
                           "px-1.5 py-0.5 rounded text-xs",
@@ -296,7 +296,7 @@ export function ReviewRulesEditor({
                         {template.severity}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1 ml-6">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6">
                       {template.description}
                     </p>
                   </button>
@@ -305,7 +305,7 @@ export function ReviewRulesEditor({
               {REVIEW_RULE_TEMPLATES.every((t) =>
                 settings.customRules.some((r) => r.id === t.id)
               ) && (
-                  <p className="text-xs text-gray-500 text-center py-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
                     All templates have been added
                   </p>
                 )}
@@ -316,7 +316,7 @@ export function ReviewRulesEditor({
         {/* New rule form */}
         {newRule && (
           <div className="mb-4 p-3 bg-[#EEF2FF] dark:bg-[#4F46E5]/10 rounded-lg border border-[#4F46E5]/20">
-            <h4 className="text-sm font-medium mb-3">New Custom Rule</h4>
+            <h4 className="text-sm font-medium mb-3 dark:text-gray-200">New Custom Rule</h4>
             <div className="space-y-3">
               <input
                 type="text"
@@ -418,7 +418,7 @@ export function ReviewRulesEditor({
         {/* Rules list */}
         <div className="space-y-2">
           {settings.customRules.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
               No custom rules configured. Add from templates or create your own.
             </p>
           ) : (
@@ -449,7 +449,7 @@ export function ReviewRulesEditor({
                         {rule.enabled && <Check className="w-3 h-3" />}
                       </button>
                       <Icon className="w-4 h-4 text-gray-500" />
-                      <span className="text-sm font-medium">{rule.name}</span>
+                      <span className="text-sm font-medium dark:text-gray-200">{rule.name}</span>
                       <span
                         className={cn(
                           "px-1.5 py-0.5 rounded text-xs",
@@ -485,14 +485,14 @@ export function ReviewRulesEditor({
                       <p>{rule.description}</p>
                       {rule.pattern && (
                         <p>
-                          <span className="font-medium">Pattern:</span>{" "}
-                          <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-mono">
+                          <span className="font-medium dark:text-gray-300">Pattern:</span>{" "}
+                          <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded text-xs font-mono">
                             {rule.pattern}
                           </code>
                         </p>
                       )}
                       <p>
-                        <span className="font-medium">Message:</span> {rule.message}
+                        <span className="font-medium dark:text-gray-300">Message:</span> {rule.message}
                       </p>
                     </div>
                   )}
@@ -509,7 +509,7 @@ export function ReviewRulesEditor({
           <button
             onClick={handleReset}
             disabled={isLoading}
-            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
             Reset
           </button>

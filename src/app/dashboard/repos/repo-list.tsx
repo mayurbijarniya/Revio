@@ -302,7 +302,7 @@ export function RepoList() {
             <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
               <FolderGit2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium mb-2">No repositories found</h3>
-              <p className="text-gray-500">
+              <p className="text-gray-500 dark:text-gray-400">
                 We couldn&apos;t find any repositories in your GitHub account
               </p>
             </div>
@@ -408,7 +408,7 @@ function ConnectedRepoCard({
                 "inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg transition-colors flex-1 sm:flex-none justify-center",
                 canIndex
                   ? "bg-[#4F46E5] text-white hover:bg-[#4338CA]"
-                  : "text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700",
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700",
                 (isIndexing || repo.indexStatus === "indexing") && "opacity-50 cursor-not-allowed"
               )}
               title={canIndex ? "Start Indexing" : "Reindex"}
@@ -458,7 +458,7 @@ function AvailableRepoCard({
               )}
             </div>
             {repo.description && (
-              <p className="text-sm text-gray-500 mt-1 line-clamp-1">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">
                 {repo.description}
               </p>
             )}

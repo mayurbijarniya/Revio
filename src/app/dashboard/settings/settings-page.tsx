@@ -131,30 +131,30 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
                   className="w-20 h-20 rounded-full object-cover"
                 />
               ) : (
-                <div className="w-20 h-20 rounded-full bg-gray-300 flex items-center justify-center mx-auto sm:mx-0">
-                  <User className="w-8 h-8 text-gray-600" />
+                <div className="w-20 h-20 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center mx-auto sm:mx-0">
+                  <User className="w-8 h-8 text-gray-600 dark:text-gray-300" />
                 </div>
               )}
               <div className="flex-1 space-y-3 w-full">
                 <div>
-                  <label className="text-sm text-gray-500">Username</label>
-                  <div className="font-medium">{user.githubUsername}</div>
+                  <label className="text-sm text-gray-500 dark:text-gray-400">Username</label>
+                  <div className="font-medium dark:text-gray-100">{user.githubUsername}</div>
                 </div>
                 {user.email && (
                   <div>
-                    <label className="text-sm text-gray-500 flex items-center justify-center sm:justify-start gap-1">
+                    <label className="text-sm text-gray-500 dark:text-gray-400 flex items-center justify-center sm:justify-start gap-1">
                       <Mail className="w-3 h-3" />
                       Email
                     </label>
-                    <div className="font-medium">{user.email}</div>
+                    <div className="font-medium dark:text-gray-100">{user.email}</div>
                   </div>
                 )}
                 <div>
-                  <label className="text-sm text-gray-500 flex items-center justify-center sm:justify-start gap-1">
+                  <label className="text-sm text-gray-500 dark:text-gray-400 flex items-center justify-center sm:justify-start gap-1">
                     <Calendar className="w-3 h-3" />
                     Member since
                   </label>
-                  <div className="font-medium">{formatDate(user.createdAt)}</div>
+                  <div className="font-medium dark:text-gray-100">{formatDate(user.createdAt)}</div>
                 </div>
               </div>
             </div>
@@ -169,16 +169,16 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                  <Github className="w-6 h-6" />
+                  <Github className="w-6 h-6 dark:text-gray-300" />
                 </div>
                 <div>
-                  <div className="font-medium">GitHub</div>
-                  <div className="text-sm text-gray-500">
+                  <div className="font-medium dark:text-gray-100">GitHub</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
                     Connected as @{user.githubUsername}
                   </div>
                 </div>
               </div>
-              <span className="flex items-center gap-1 px-2 py-1 bg-[#ECFDF5] text-[#10B981] rounded text-sm w-full sm:w-auto justify-center sm:justify-start">
+              <span className="flex items-center gap-1 px-2 py-1 bg-[#ECFDF5] dark:bg-green-900/30 text-[#10B981] dark:text-green-400 rounded text-sm w-full sm:w-auto justify-center sm:justify-start">
                 <CheckCircle className="w-4 h-4" />
                 Connected
               </span>
@@ -192,7 +192,7 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
               Revio Bot
             </h2>
             <div className="space-y-4">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
                 The Revio Bot posts AI-powered PR reviews on your behalf. Install it on your repositories to enable automatic code reviews.
               </p>
               <div className="flex flex-wrap items-center gap-3">
@@ -213,7 +213,7 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
                   Manage on GitHub
                 </a>
               </div>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 Use this to add the bot to new repositories or update permissions.
               </p>
             </div>
@@ -228,15 +228,15 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="font-medium">Sign out</div>
-                  <div className="text-sm text-gray-500">
+                  <div className="font-medium dark:text-gray-100">Sign out</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
                     Sign out from your account on this device
                   </div>
                 </div>
                 <button
                   onClick={handleLogout}
                   disabled={isLoggingOut}
-                  className="px-4 py-2 text-[#EF4444] border border-[#FEF2F2] rounded-lg hover:bg-[#FEF2F2] disabled:opacity-50 flex items-center gap-2"
+                  className="px-4 py-2 text-[#EF4444] border border-[#FEF2F2] dark:border-red-900/50 rounded-lg hover:bg-[#FEF2F2] dark:hover:bg-red-900/20 disabled:opacity-50 flex items-center gap-2"
                 >
                   {isLoggingOut && <Loader2 className="w-4 h-4 animate-spin" />}
                   Sign out
@@ -256,22 +256,22 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
               <BarChart3 className="w-5 h-5" />
               All-time Statistics
             </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <div className="text-2xl font-bold">{stats.repositories}</div>
-                <div className="text-sm text-gray-500">Repositories</div>
+                <div className="text-2xl font-bold dark:text-white">{stats.repositories}</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">Repositories</div>
               </div>
               <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <div className="text-2xl font-bold">{stats.conversations}</div>
-                <div className="text-sm text-gray-500">Conversations</div>
+                <div className="text-2xl font-bold dark:text-white">{stats.conversations}</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">Conversations</div>
               </div>
               <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <div className="text-2xl font-bold">{stats.reviews}</div>
-                <div className="text-sm text-gray-500">PR Reviews</div>
+                <div className="text-2xl font-bold dark:text-white">{stats.reviews}</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">PR Reviews</div>
               </div>
               <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <div className="text-2xl font-bold">{stats.messages}</div>
-                <div className="text-sm text-gray-500">Messages</div>
+                <div className="text-2xl font-bold dark:text-white">{stats.messages}</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">Messages</div>
               </div>
             </div>
           </div>
@@ -282,8 +282,8 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
             <div className="space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">PR Reviews</span>
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm font-medium dark:text-gray-200">PR Reviews</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
                     {monthlyUsage.reviews} / {planLimits.reviewsPerMonth === -1 ? "Unlimited" : planLimits.reviewsPerMonth}
                   </span>
                 </div>
@@ -307,8 +307,8 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
               </div>
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Chat Messages</span>
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm font-medium dark:text-gray-200">Chat Messages</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
                     {monthlyUsage.messages} / {planLimits.messagesPerMonth === -1 ? "Unlimited" : planLimits.messagesPerMonth}
                   </span>
                 </div>
@@ -351,16 +351,16 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
                     className={cn(
                       "px-3 py-1 rounded-full text-sm font-medium",
                       user.plan === "free"
-                        ? "bg-gray-100 text-gray-700"
+                        ? "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
                         : user.plan === "pro"
-                          ? "bg-[#EEF2FF] text-[#4F46E5]"
-                          : "bg-[#EEF2FF] text-[#4F46E5]"
+                          ? "bg-[#EEF2FF] dark:bg-indigo-900/30 text-[#4F46E5] dark:text-indigo-400"
+                          : "bg-[#EEF2FF] dark:bg-indigo-900/30 text-[#4F46E5] dark:text-indigo-400"
                     )}
                   >
                     {user.plan.toUpperCase()}
                   </span>
                   {user.plan === "free" && (
-                    <span className="text-sm text-gray-500">Limited features</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Limited features</span>
                   )}
                 </div>
               </div>
@@ -373,15 +373,15 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
               <CreditCard className="w-5 h-5" />
               Plan Limits
             </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-100 dark:border-gray-600">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-8 h-8 bg-[#EEF2FF] dark:bg-[#4F46E5]/30 rounded-lg flex items-center justify-center">
                     <FolderGit2 className="w-4 h-4 text-[#4F46E5] dark:text-[#4F46E5]" />
                   </div>
                 </div>
-                <div className="text-sm text-gray-500 mb-1">Repositories</div>
-                <div className="text-2xl font-bold">
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Repositories</div>
+                <div className="text-2xl font-bold dark:text-white">
                   {planLimits.repos === -1 ? "∞" : planLimits.repos}
                 </div>
               </div>
@@ -391,8 +391,8 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
                     <GitPullRequest className="w-4 h-4 text-[#10B981] dark:text-[#10B981]" />
                   </div>
                 </div>
-                <div className="text-sm text-gray-500 mb-1">PR Reviews / mo</div>
-                <div className="text-2xl font-bold">
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">PR Reviews / mo</div>
+                <div className="text-2xl font-bold dark:text-white">
                   {planLimits.reviewsPerMonth === -1 ? "∞" : planLimits.reviewsPerMonth}
                 </div>
               </div>
@@ -402,8 +402,8 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
                     <MessageSquare className="w-4 h-4 text-[#4F46E5] dark:text-[#4F46E5]" />
                   </div>
                 </div>
-                <div className="text-sm text-gray-500 mb-1">Messages / mo</div>
-                <div className="text-2xl font-bold">
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Messages / mo</div>
+                <div className="text-2xl font-bold dark:text-white">
                   {planLimits.messagesPerMonth === -1 ? "∞" : planLimits.messagesPerMonth}
                 </div>
               </div>
@@ -413,8 +413,8 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
                     <FileCode className="w-4 h-4 text-[#F59E0B] dark:text-[#F59E0B]" />
                   </div>
                 </div>
-                <div className="text-sm text-gray-500 mb-1">Context chunks</div>
-                <div className="text-2xl font-bold">{planLimits.contextChunks}</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Context chunks</div>
+                <div className="text-2xl font-bold dark:text-white">{planLimits.contextChunks}</div>
               </div>
             </div>
           </div>

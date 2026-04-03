@@ -57,7 +57,7 @@ export function BlastRadiusPanel({ blastRadius }: { blastRadius: BlastRadiusData
           <span className={cn("px-2 py-1 rounded text-xs font-medium", styles.badge)}>
             {blastRadius.riskLevel.toUpperCase()}
           </span>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-gray-500 dark:text-gray-400">
             {blastRadius.totalImpactRadius} affected nodes
           </span>
         </div>
@@ -130,7 +130,7 @@ export function BlastRadiusPanel({ blastRadius }: { blastRadius: BlastRadiusData
                   </li>
                 ))}
                 {blastRadius.changedFiles.length > 10 && (
-                  <li className="text-gray-500">… +{blastRadius.changedFiles.length - 10} more</li>
+                  <li className="text-gray-500 dark:text-gray-400">… +{blastRadius.changedFiles.length - 10} more</li>
                 )}
               </ul>
             </div>
@@ -148,7 +148,7 @@ export function BlastRadiusPanel({ blastRadius }: { blastRadius: BlastRadiusData
                   </li>
                 ))}
                 {blastRadius.directlyAffectedFiles.truncated && (
-                  <li className="text-gray-500">
+                  <li className="text-gray-500 dark:text-gray-400">
                     … +{blastRadius.directlyAffectedFiles.total - blastRadius.directlyAffectedFiles.sample.length} more
                   </li>
                 )}
@@ -172,7 +172,7 @@ export function BlastRadiusPanel({ blastRadius }: { blastRadius: BlastRadiusData
                   </li>
                 ))}
                 {blastRadius.indirectCallers.truncated && (
-                  <li className="text-gray-500">
+                  <li className="text-gray-500 dark:text-gray-400">
                     … +{blastRadius.indirectCallers.total - blastRadius.indirectCallers.sample.length} more
                   </li>
                 )}
@@ -196,7 +196,7 @@ export function BlastRadiusPanel({ blastRadius }: { blastRadius: BlastRadiusData
                   </li>
                 ))}
                 {blastRadius.affectedEntryPoints.truncated && (
-                  <li className="text-gray-500">
+                  <li className="text-gray-500 dark:text-gray-400">
                     … +{blastRadius.affectedEntryPoints.total - blastRadius.affectedEntryPoints.sample.length} more
                   </li>
                 )}

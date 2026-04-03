@@ -170,12 +170,12 @@ export default function RepoInsights({
                   </span>
                 )}
               </div>
-              <p className="text-sm md:text-base text-gray-500">
+              <p className="text-sm md:text-base text-gray-500 dark:text-gray-400">
                 {repoName} · <span className="font-mono text-xs">{repoFullName}</span>
               </p>
-              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                 <span>Index: {data.repository.indexStatus}</span>
-                <span className="text-gray-300">•</span>
+                <span className="text-gray-300 dark:text-gray-600">•</span>
                 <span>{data.repository.fileCount} files</span>
               </div>
             </div>
@@ -216,9 +216,9 @@ export default function RepoInsights({
             <CardDescription>Based on issues per review</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{data.quality.qualityScore}</div>
+            <div className="text-3xl font-bold dark:text-white">{data.quality.qualityScore}</div>
             {trendDelta && (
-              <div className="mt-2 text-sm text-gray-500">
+              <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                 {trendDelta.from} → {trendDelta.to} ({trendUp ? "+" : ""}{trendDelta.delta})
               </div>
             )}
@@ -231,8 +231,8 @@ export default function RepoInsights({
             <CardDescription>Across completed reviews</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{data.quality.totalIssues}</div>
-            <div className="mt-2 text-sm text-gray-500">
+            <div className="text-3xl font-bold dark:text-white">{data.quality.totalIssues}</div>
+            <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
               Avg {data.quality.avgIssuesPerReview} / review
             </div>
           </CardContent>
@@ -247,8 +247,8 @@ export default function RepoInsights({
             <CardDescription>From security-category issues</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{data.security.securityScore}</div>
-            <div className="mt-2 text-sm text-gray-500">
+            <div className="text-3xl font-bold dark:text-white">{data.security.securityScore}</div>
+            <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
               {data.security.criticalIssues} critical/high · {data.security.totalIssues} total
             </div>
           </CardContent>
