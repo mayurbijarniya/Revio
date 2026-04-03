@@ -135,10 +135,12 @@ export interface EmbeddedChunk extends CodeChunk {
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
   const client = getOpenAIClient();
+  const MAX_CHARS = 24000;
+  const safeText = text.length > MAX_CHARS ? text.slice(0, MAX_CHARS) : text;
 
   const response = await client.embeddings.create({
     model: AI_CONFIG.embedding.model,
-    input: text,
+    input: safeText,
     dimensions: AI_CONFIG.embedding.dimensions,
   });
 
@@ -184,12 +186,18 @@ export async function generateEmbeddings(
 
   // Generate embeddings for uncached texts
   if (uncachedTexts.length > 0) {
-    // OpenAI allows up to 2048 inputs per request
+    // text-embedding-3-small hard limit is 8192 tokens (~4 chars/token)
+    // Truncate to 24,000 chars (~6,000 tokens) for a safe buffer
+    const MAX_CHARS = 24000;
+    const safeTexts = uncachedTexts.map((t) =>
+      t.length > MAX_CHARS ? t.slice(0, MAX_CHARS) : t
+    );
+
     const batchSize = 100;
     const newEmbeddings: number[][] = [];
 
-    for (let i = 0; i < uncachedTexts.length; i += batchSize) {
-      const batch = uncachedTexts.slice(i, i + batchSize);
+    for (let i = 0; i < safeTexts.length; i += batchSize) {
+      const batch = safeTexts.slice(i, i + batchSize);
 
       const response = await client.embeddings.create({
         model: AI_CONFIG.embedding.model,
