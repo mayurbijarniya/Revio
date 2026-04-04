@@ -32,6 +32,55 @@ interface Release {
 
 const releases: Release[] = [
   {
+    version: "3.1.0",
+    date: "April 4, 2026",
+    title: "Chat Streaming, UI Polish & Embedding Reliability",
+    description: "Streaming typewriter for first chat messages, full dark mode pass, tablet responsiveness, hero animation overhaul, pagination for repo list, and embedding token limit fix.",
+    type: "minor",
+    icon: Sparkles,
+    changes: [
+      {
+        category: "added",
+        items: [
+          "Streaming typewriter effect now works from the very first message in a new conversation",
+          "Bouncing typing indicator appears before first AI token arrives",
+          "Auto-scroll to bottom during streaming, with scroll-to-bottom button when reading history",
+          "Textarea auto-resize input with Shift+Enter for new lines, Enter to send",
+          "Load more pagination for GitHub repository list — all repos across pages now accessible",
+          "Conversation sidebar date grouping (Today / Yesterday / This week / Older) with Pinned section",
+          "Error banner auto-dismisses after 5 seconds with manual X dismiss button",
+          "Input auto-focuses after every message send",
+          "Hero animation rebuilt for mobile/tablet — vertical SVG layout with animated particles matching desktop style",
+        ],
+      },
+      {
+        category: "improved",
+        items: [
+          "Centered navbar navigation with grid layout (logo left, nav center, user right)",
+          "Icon-only navbar below 1280px — labels hidden at tablet/small laptop widths",
+          "Full dark mode audit across every dashboard page, component, and marketing page",
+          "Inline code rendered as bold indigo monospace — no gray box, cleaner reading",
+          "Chat message spacing tightened from space-y-12 to space-y-6",
+          "Code blocks use plain dark pre during streaming to eliminate white flash",
+          "Org create modal URL prefix updated and border alignment fixed",
+          "Mobile hero animation now mirrors desktop — same cards, paths, and particles in vertical layout",
+          "Dashboard pages responsive for tablet (768–1279px) with proper grid stacking",
+        ],
+      },
+      {
+        category: "fixed",
+        items: [
+          "Embedding generation no longer fails on dense/minified files — inputs truncated to 6,000 chars before OpenAI API call",
+          "First chat message no longer renders all at once — full SSE streaming from conversation creation",
+          "Navbar background now matches page background in dark mode instead of GitHub black",
+          "Scroll-to-bottom button anchored correctly to chat container",
+          "Shiki code block background no longer flashes white during scroll (CSS specificity fix)",
+          "Repo selector dropdown z-index corrected for chat page header",
+        ],
+      },
+    ],
+  },
+  {
     version: "3.0.1",
     date: "February 23, 2026",
     title: "Indexing Reliability & Runtime Stability",
