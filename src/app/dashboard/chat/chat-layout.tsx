@@ -195,43 +195,95 @@ export function ChatLayout({
       content: input.trim(),
       createdAt: new Date(),
     };
-    setMessages([userMessage]);
+    const streamingId = `streaming-${Date.now()}`;
+
+    setMessages([
+      userMessage,
+      { id: streamingId, role: "assistant", content: "", createdAt: new Date() },
+    ]);
     setInput("");
     if (inputRef.current) inputRef.current.style.height = "auto";
     setTimeout(() => inputRef.current?.focus(), 50);
     setIsLoading(true);
     setError(null);
+
     try {
       const res = await fetch("/api/chat/conversations", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "text/event-stream",
+        },
         body: JSON.stringify({
           repositoryIds: selectedRepos.map((r) => r.id),
           message: userMessage.content,
           mode: selectedMode,
         }),
       });
-      const data = await res.json();
-      if (data.success) {
-        const conv = data.data.conversation;
-        setSelectedConversation(conv.id);
-        setMessages(conv.messages);
-        setConversations((prev) => [
-          {
-            id: conv.id,
-            title: conv.title,
-            repositoryName: selectedRepos.map((r) => r.fullName).join(", "),
-            lastMessage: userMessage.content.slice(0, 60),
-            updatedAt: new Date(),
-            isPinned: false,
-            mode: selectedMode,
-          },
-          ...prev,
-        ]);
-      } else {
-        setMessages([]);
-        setError(data.error?.message || "Failed to start conversation");
+
+      if (!res.ok || !res.body) throw new Error("Stream failed");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let convId = "";
+      let convTitle = "";
+      let firstEvent = true;
+      let finalId = streamingId;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = JSON.parse(line.slice(6));
+
+          if (firstEvent && payload.conversationId) {
+            // First event — conversation metadata
+            convId = payload.conversationId;
+            convTitle = payload.title;
+            setSelectedConversation(convId);
+            setConversations((prev) => [
+              {
+                id: convId,
+                title: convTitle,
+                repositoryName: selectedRepos.map((r) => r.fullName).join(", "),
+                lastMessage: userMessage.content.slice(0, 60),
+                updatedAt: new Date(),
+                isPinned: false,
+                mode: selectedMode,
+              },
+              ...prev,
+            ]);
+            firstEvent = false;
+          } else if (payload.done) {
+            if (payload.messageId) finalId = payload.messageId;
+          } else if (payload.content) {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === streamingId ? { ...m, content: m.content + payload.content } : m
+              )
+            );
+            if (isAtBottom) {
+              messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+            }
+          }
+        }
       }
+
+      // Settle user message id and assistant message id
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id === streamingId) return { ...m, id: finalId };
+          if (m.id === userMessage.id) return { ...m, id: m.id };
+          return m;
+        })
+      );
     } catch {
       setMessages([]);
       setError("Failed to start conversation");

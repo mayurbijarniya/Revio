@@ -30,6 +30,9 @@ export function RepoList() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [repoToDelete, setRepoToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [availablePage, setAvailablePage] = useState(1);
+  const [hasMoreRepos, setHasMoreRepos] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const fetchConnectedRepos = useCallback(async (silent: boolean = false) => {
     if (!silent) {
@@ -60,11 +63,13 @@ export function RepoList() {
   async function fetchAvailableRepos() {
     setLoading(true);
     setError(null);
+    setAvailablePage(1);
     try {
-      const res = await fetch("/api/repos");
+      const res = await fetch("/api/repos?page=1&per_page=30");
       const data = await res.json();
       if (data.success) {
         setAvailableRepos(data.data.repositories);
+        setHasMoreRepos(data.data.hasMore);
       } else {
         setError(data.error?.message || "Failed to fetch repositories");
       }
@@ -72,6 +77,24 @@ export function RepoList() {
       setError("Failed to fetch repositories");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadMoreRepos() {
+    setLoadingMore(true);
+    const nextPage = availablePage + 1;
+    try {
+      const res = await fetch(`/api/repos?page=${nextPage}&per_page=30`);
+      const data = await res.json();
+      if (data.success) {
+        setAvailableRepos((prev) => [...prev, ...data.data.repositories]);
+        setHasMoreRepos(data.data.hasMore);
+        setAvailablePage(nextPage);
+      }
+    } catch {
+      setError("Failed to load more repositories");
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -307,14 +330,32 @@ export function RepoList() {
               </p>
             </div>
           ) : (
-            availableRepos.map((repo) => (
-              <AvailableRepoCard
-                key={repo.id}
-                repo={repo}
-                onConnect={() => connectRepo(repo)}
-                isConnecting={connecting === repo.id}
-              />
-            ))
+            <>
+              {availableRepos.map((repo) => (
+                <AvailableRepoCard
+                  key={repo.id}
+                  repo={repo}
+                  onConnect={() => connectRepo(repo)}
+                  isConnecting={connecting === repo.id}
+                />
+              ))}
+              {hasMoreRepos && (
+                <div className="flex justify-center pt-2">
+                  <button
+                    onClick={loadMoreRepos}
+                    disabled={loadingMore}
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors disabled:opacity-50"
+                  >
+                    {loadingMore ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4" />
+                    )}
+                    {loadingMore ? "Loading..." : "Load more repositories"}
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

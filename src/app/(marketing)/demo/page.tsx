@@ -19,6 +19,8 @@ import {
   Eye,
   Zap,
   Star,
+  Search,
+  FileCode2,
 } from "lucide-react";
 
 // macOS Window Chrome Component
@@ -125,7 +127,7 @@ function DashboardDemo() {
       </div>
 
       {/* Repo List */}
-      <div className="space-y-2">
+      <div className="space-y-2 mb-4">
         <div className="text-xs text-[#808080] mb-2 uppercase font-mono">[ ACTIVE_REPOSITORIES ]</div>
         {[
           { name: "revio/frontend", lang: "TypeScript", status: "indexed" },
@@ -140,12 +142,35 @@ function DashboardDemo() {
                 <div className="text-[10px] text-[#808080]">{repo.lang}</div>
               </div>
             </div>
-            <span className={`text-[10px] px-2 py-0.5 rounded ${repo.status === "indexed"
-              ? "bg-green-500/10 text-green-400 border border-green-500/20"
-              : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-              }`}>
-              {repo.status.toUpperCase()}
+            <span className="text-[10px] px-2 py-0.5 rounded bg-green-500/10 text-green-400 border border-green-500/20">
+              INDEXED
             </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Recent Reviews */}
+      <div className="space-y-2">
+        <div className="text-xs text-[#808080] mb-2 uppercase font-mono">[ RECENT_REVIEWS ]</div>
+        {[
+          { pr: "#42 feat/auth-flow", score: 4, verdict: "Ready", color: "green" },
+          { pr: "#41 fix/db-query", score: 3, verdict: "Review", color: "amber" },
+        ].map((r) => (
+          <div key={r.pr} className="flex items-center justify-between bg-[#252525] border border-[#333] rounded-lg p-2.5">
+            <div className="flex items-center gap-2">
+              <GitPullRequest className="w-3.5 h-3.5 text-[#808080]" />
+              <span className="text-xs text-white">{r.pr}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex">
+                {[1,2,3,4,5].map((s) => (
+                  <Star key={s} className={`w-2.5 h-2.5 ${s <= r.score ? "text-amber-400 fill-amber-400" : "text-[#555]"}`} />
+                ))}
+              </div>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded ${r.color === "green" ? "bg-green-500/10 text-green-400" : "bg-amber-500/10 text-amber-400"}`}>
+                {r.verdict}
+              </span>
+            </div>
           </div>
         ))}
       </div>
@@ -236,6 +261,16 @@ function PRReviewDemo() {
             </div>
             <div className="text-xs text-[#cccccc]">Session token entropy is low. Recommend 32+ bytes for security.</div>
           </div>
+          <div className="bg-[#1a2a1a] border-l-2 border-green-600 p-2.5 rounded shadow-lg">
+            <div className="flex items-center gap-2 mb-1">
+              <FileCode2 className="w-3 h-3 text-green-400" />
+              <span className="text-[10px] font-bold text-green-400 uppercase">Docstring Suggestion</span>
+              <span className="text-[10px] text-[#808080] font-mono">auth.ts:42</span>
+            </div>
+            <div className="text-[10px] text-green-300 font-mono bg-[#0d1a0d] rounded p-1.5 mt-1">
+              {`/** Validates JWT token securely using async crypto. @returns decoded payload or null */`}
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -266,9 +301,16 @@ function ChatDemo() {
   return (
     <div className="flex flex-col h-[300px]">
       {/* Chat Header */}
-      <div className="flex items-center gap-3 p-3 border-b border-[#2d2d2d]">
-        <MessageSquare className="w-4 h-4 text-[var(--primary)]" />
-        <span className="text-sm text-white font-medium">Chat with acme/frontend</span>
+      <div className="flex items-center justify-between p-3 border-b border-[#2d2d2d]">
+        <div className="flex items-center gap-3">
+          <MessageSquare className="w-4 h-4 text-[var(--primary)]" />
+          <span className="text-sm text-white font-medium">Chat with acme/frontend</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="flex items-center gap-1 px-2 py-0.5 bg-[var(--primary)]/20 border border-[var(--primary)]/30 rounded text-[10px] text-[var(--primary)] font-medium">
+            <Search className="w-2.5 h-2.5" /> Smart
+          </span>
+        </div>
       </div>
 
       {/* Messages */}
@@ -510,46 +552,14 @@ export default function DemoPage() {
           {/* Features Grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-8 sm:mt-12">
             {[
-              {
-                icon: Brain,
-                title: "Graph Analysis",
-                description: "AST-powered code understanding",
-              },
-              {
-                icon: Target,
-                title: "Confidence Score",
-                description: "1-5 star merge readiness",
-              },
-              {
-                icon: Zap,
-                title: "Learning System",
-                description: "Adapts to your team's feedback",
-              },
-              {
-                icon: Eye,
-                title: "Blast Radius",
-                description: "Visual impact analysis",
-              },
-              {
-                icon: MessageSquare,
-                title: "Interactive Bot",
-                description: "@revio-bot in PR comments",
-              },
-              {
-                icon: Shield,
-                title: "Security Scan",
-                description: "40+ vulnerability patterns",
-              },
-              {
-                icon: GitPullRequest,
-                title: "Auto Reviews",
-                description: "AI analyzes every PR",
-              },
-              {
-                icon: FolderGit2,
-                title: "Full Indexing",
-                description: "Understand entire codebase",
-              },
+              { icon: Brain, title: "Graph Analysis", description: "AST-powered code understanding with call paths" },
+              { icon: Target, title: "Confidence Score", description: "1-5 star merge readiness scoring" },
+              { icon: Zap, title: "Learning System", description: "Adapts to your team's feedback patterns" },
+              { icon: Eye, title: "Blast Radius", description: "Visual impact analysis for every change" },
+              { icon: MessageSquare, title: "Streaming Chat", description: "Typewriter AI responses from first message" },
+              { icon: Shield, title: "Security Scan", description: "40+ vulnerability patterns detected" },
+              { icon: FileCode2, title: "Coding Standards", description: "Auto-detects .claude.md, .cursorrules" },
+              { icon: Search, title: "Smart Search", description: "Vector + full-repo context modes" },
             ].map((feature) => {
               const Icon = feature.icon;
               return (

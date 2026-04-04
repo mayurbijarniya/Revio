@@ -1,10 +1,10 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { jsonSuccess, jsonError } from "@/lib/api-utils";
 import { createConversationSchema } from "@/types/chat";
 import { retrieveContext, retrieveMultiRepoContext, formatContextForPrompt } from "@/lib/services/retriever";
-import { generateChatResponse, type ChatMessage } from "@/lib/services/gemini";
+import { generateChatResponse, generateChatResponseStream, type ChatMessage } from "@/lib/services/gemini";
 import { CHAT_SYSTEM_PROMPT, buildChatUserMessage } from "@/lib/prompts/chat";
 import { getFullRepoContext, formatFullRepoContextForStorage } from "@/lib/services/full-repo-context";
 import { Prisma } from "@prisma/client";
@@ -135,50 +135,103 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    // Build messages for Gemini
     const chatMessages: ChatMessage[] = [
       { role: "user", content: buildChatUserMessage(message, formattedContext) },
     ];
 
-    // Generate AI response
-    const aiResponse = await generateChatResponse(
-      CHAT_SYSTEM_PROMPT,
-      chatMessages
-    );
-
-    // Generate title if not provided
     const conversationTitle = title ?? generateTitle(message);
+    const isStreaming = request.headers.get("accept")?.includes("text/event-stream");
 
-    // Create conversation with messages (use first repo as primary for backward compatibility)
-    const conversation = await db.conversation.create({
-      data: {
-        userId: session.userId,
-        repositoryId: repositoryIds[0]!, // Primary repository
-        repositoryIds, // Store all selected repository IDs
-        title: conversationTitle,
-        mode, // Lock the mode for this conversation
-        fullRepoContext: (fullRepoContextData ?? Prisma.JsonNull) as Prisma.InputJsonValue, // Cache full repo context if mode is "full_repo"
-        messages: {
-          create: [
-            {
+    if (isStreaming) {
+      // Create conversation with only the user message first
+      const conversation = await db.conversation.create({
+        data: {
+          userId: session.userId,
+          repositoryId: repositoryIds[0]!,
+          repositoryIds,
+          title: conversationTitle,
+          mode,
+          fullRepoContext: (fullRepoContextData ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+          messages: {
+            create: [{
               role: "user",
               content: message,
               contextChunks: (contextChunksForStorage ?? Prisma.JsonNull) as Prisma.InputJsonValue,
-            },
-            {
-              role: "assistant",
-              content: aiResponse,
-            },
+            }],
+          },
+        },
+        include: {
+          messages: { orderBy: { createdAt: "asc" } },
+          repository: { select: { id: true, fullName: true, language: true } },
+        },
+      });
+
+      const encoder = new TextEncoder();
+      let fullResponse = "";
+
+      const readableStream = new ReadableStream({
+        async start(controller) {
+          try {
+            // Send conversation metadata first so frontend can set selectedConversation
+            const meta = JSON.stringify({
+              conversationId: conversation.id,
+              title: conversation.title,
+              repositoryIds: conversation.repositoryIds,
+            });
+            controller.enqueue(encoder.encode(`data: ${meta}\n\n`));
+
+            const stream = await generateChatResponseStream(CHAT_SYSTEM_PROMPT, chatMessages);
+
+            for await (const chunk of stream.stream) {
+              const text = chunk.text();
+              fullResponse += text;
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: text, done: false })}\n\n`));
+            }
+
+            const assistantMessage = await db.message.create({
+              data: { conversationId: conversation.id, role: "assistant", content: fullResponse },
+            });
+
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, messageId: assistantMessage.id })}\n\n`));
+            controller.close();
+          } catch (error) {
+            console.error("Streaming error:", error);
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: "Stream error", done: true })}\n\n`));
+            controller.close();
+          }
+        },
+      });
+
+      return new NextResponse(readableStream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    }
+
+    // Non-streaming fallback
+    const aiResponse = await generateChatResponse(CHAT_SYSTEM_PROMPT, chatMessages);
+
+    const conversation = await db.conversation.create({
+      data: {
+        userId: session.userId,
+        repositoryId: repositoryIds[0]!,
+        repositoryIds,
+        title: conversationTitle,
+        mode,
+        fullRepoContext: (fullRepoContextData ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        messages: {
+          create: [
+            { role: "user", content: message, contextChunks: (contextChunksForStorage ?? Prisma.JsonNull) as Prisma.InputJsonValue },
+            { role: "assistant", content: aiResponse },
           ],
         },
       },
       include: {
-        messages: {
-          orderBy: { createdAt: "asc" },
-        },
-        repository: {
-          select: { id: true, fullName: true, language: true },
-        },
+        messages: { orderBy: { createdAt: "asc" } },
+        repository: { select: { id: true, fullName: true, language: true } },
       },
     });
 

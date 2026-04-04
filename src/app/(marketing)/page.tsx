@@ -24,7 +24,7 @@ export default function Home() {
       <Link href="/changelog" className="block border-b border-[var(--code-border)] py-2 px-4 sm:px-6 bg-[var(--code-bg)] hover:bg-[var(--code-bg)]/80 transition-colors">
         <p className="font-mono text-[10px] sm:text-xs font-medium text-[var(--foreground)]/60 uppercase tracking-wide flex items-center gap-2">
           <span className="w-2 h-2 bg-[var(--primary)] inline-block flex-shrink-0"></span>
-          <span className="truncate">[ ANNOUNCEMENT ] : V3.0.1 INDEXING RELIABILITY + LIVE PROGRESS UPDATES</span>
+          <span className="truncate">[ ANNOUNCEMENT ] : V3.1.0 CHAT STREAMING + UI POLISH + EMBEDDING RELIABILITY</span>
         </p>
       </Link>
 
@@ -109,7 +109,7 @@ export default function Home() {
               COMPLETE VISIBILITY INTO YOUR CODEBASE HEALTH
             </h2>
             <span className="font-mono text-[10px] sm:text-xs text-[var(--foreground)]/50">
-              [ INTERFACE_PREVIEW_V3.0.1 ]
+              [ INTERFACE_PREVIEW_V3.1.0 ]
             </span>
           </div>
 
@@ -186,7 +186,10 @@ export default function Home() {
               <p className="text-gray-400 whitespace-nowrap">To github.com:org/repo.git</p>
               <br />
               <p className="animate-pulse whitespace-nowrap">⚡ Revio is analyzing your changes...</p>
-              <p className="text-blue-400 font-bold whitespace-nowrap">[ANALYSIS_COMPLETE] Found 2 potential bugs.</p>
+              <p className="text-blue-400 font-bold whitespace-nowrap">[ANALYSIS_COMPLETE] Found 2 issues · Confidence: ★★★★☆ 4/5</p>
+              <p className="text-amber-400 whitespace-nowrap">  ⚠ security · api.ts:89 — SSRF via unsanitized redirect</p>
+              <p className="text-gray-500 whitespace-nowrap">  ✓ blast radius: 3 functions affected, 12 indirect callers</p>
+              <p className="text-green-400 font-bold whitespace-nowrap">[REVIEW_POSTED] → github.com/org/repo/pull/42</p>
             </div>
           </div>
         </div>
