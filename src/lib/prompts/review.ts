@@ -67,6 +67,12 @@ const REVIEW_CORE_INSTRUCTIONS = `## Your Responsibilities
 5. Verify code readability and maintainability
 6. Identify potential breaking changes
 
+## Evidence Standard
+- Only report an issue when the diff or provided codebase context gives enough evidence.
+- Do not invent file paths, line numbers, call paths, behavior, or project intent that is not visible in the supplied diff/context.
+- If a scanner finding appears to be a false positive, do not include it in "issues". Mention it briefly in the summary only when it is useful context.
+- If uncertain, lower the severity or omit the issue. Avoid speculative findings.
+
 ## Review Format
 You MUST respond with valid JSON in the following format:
 {
@@ -87,6 +93,18 @@ You MUST respond with valid JSON in the following format:
   "positives": ["List of good practices or improvements noticed in the PR"],
   "recommendation": "approve" | "request_changes" | "comment"
 }
+
+## Recommendation Rules
+- Use "approve" only when there are no critical/warning issues, no unresolved security concerns, no correctness risk, and no meaningful missing-test risk.
+- Use "request_changes" for security flaws, correctness bugs, data loss risk, auth/permission issues, broken user flows, or production reliability regressions.
+- Use "comment" for non-blocking improvements, test suggestions, maintainability concerns, or low-risk follow-up items.
+- The "riskLevel" must match the highest real impact in the review. Do not mark risk as low when warning or critical issues are present.
+
+## Issue Wording Rules
+- Titles must be specific, evidence-based, and under 80 characters.
+- Descriptions must explain impact, not just restate the code.
+- Suggestions must describe the concrete fix. Include a small code example only when it makes the fix clearer.
+- Keep positives specific and limited to meaningful engineering choices. Do not praise obvious or cosmetic changes.
 
 ## Guidelines
 - Be specific and actionable. Include file paths and line numbers for all issues.
@@ -110,6 +128,12 @@ export const REVIEW_SYSTEM_PROMPT = `You are an expert code reviewer for the Rev
 5. Verify code readability and maintainability
 6. Identify potential breaking changes
 
+## Evidence Standard
+- Only report an issue when the diff or provided codebase context gives enough evidence.
+- Do not invent file paths, line numbers, call paths, behavior, or project intent that is not visible in the supplied diff/context.
+- If a scanner finding appears to be a false positive, do not include it in "issues". Mention it briefly in the summary only when it is useful context.
+- If uncertain, lower the severity or omit the issue. Avoid speculative findings.
+
 ## Review Format
 You MUST respond with valid JSON in the following format:
 {
@@ -129,6 +153,18 @@ You MUST respond with valid JSON in the following format:
   "positives": ["List of good practices or improvements noticed in the PR"],
   "recommendation": "approve" | "request_changes" | "comment"
 }
+
+## Recommendation Rules
+- Use "approve" only when there are no critical/warning issues, no unresolved security concerns, no correctness risk, and no meaningful missing-test risk.
+- Use "request_changes" for security flaws, correctness bugs, data loss risk, auth/permission issues, broken user flows, or production reliability regressions.
+- Use "comment" for non-blocking improvements, test suggestions, maintainability concerns, or low-risk follow-up items.
+- The "riskLevel" must match the highest real impact in the review. Do not mark risk as low when warning or critical issues are present.
+
+## Issue Wording Rules
+- Titles must be specific, evidence-based, and under 80 characters.
+- Descriptions must explain impact, not just restate the code.
+- Suggestions must describe the concrete fix. Include a small code example only when it makes the fix clearer.
+- Keep positives specific and limited to meaningful engineering choices. Do not praise obvious or cosmetic changes.
 
 ## Guidelines
 - Be specific and actionable. Include file paths and line numbers for all issues.
@@ -476,6 +512,22 @@ function sanitizeIssue(issue: Partial<ReviewIssue>): ReviewIssue | null {
   issue.suggestion = typeof issue.suggestion === 'string' ? issue.suggestion : undefined;
   issue.ruleId = typeof issue.ruleId === 'string' ? issue.ruleId : undefined;
 
+  const combinedText = [
+    issue.title,
+    issue.description,
+    issue.suggestion,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (
+    combinedText.includes("false positive") ||
+    combinedText.includes("ignore this specific automated security finding")
+  ) {
+    return null;
+  }
+
   return issue as ReviewIssue;
 }
 
@@ -795,7 +847,7 @@ export function formatReviewForGitHub(
   }
 
   if (review.positives.length > 0) {
-    comment += `### Positives\n`;
+    comment += `### Review Highlights\n`;
     for (const positive of review.positives) {
       comment += `- ${positive}\n`;
     }

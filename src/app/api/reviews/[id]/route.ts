@@ -2,6 +2,8 @@ import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { jsonSuccess, jsonError } from "@/lib/api-utils";
 import { getConfidenceLevel } from "@/lib/services/confidence-scorer";
+import type { BlastRadiusData } from "@/types/blast-radius";
+import type { TestCoverageData } from "@/types/test-coverage";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -123,21 +125,23 @@ export async function GET(_request: Request, { params }: RouteParams) {
     const sequenceDiagram = (review as { sequenceDiagram?: string | null }).sequenceDiagram || null;
     const docstringSuggestions = (review as { docstringSuggestions?: unknown }).docstringSuggestions || [];
     const blastRadiusRaw = (review as { blastRadius?: unknown }).blastRadius;
-    const blastRadius =
+    const blastRadius = (
       blastRadiusRaw &&
       typeof blastRadiusRaw === "object" &&
       blastRadiusRaw !== null &&
       "mermaid" in blastRadiusRaw
         ? blastRadiusRaw
-        : null;
+        : null
+    ) as BlastRadiusData | null;
     const testCoverageRaw = (review as { testCoverage?: unknown }).testCoverage;
-    const testCoverage =
+    const testCoverage = (
       testCoverageRaw &&
       typeof testCoverageRaw === "object" &&
       testCoverageRaw !== null &&
       "changedFiles" in testCoverageRaw
         ? testCoverageRaw
-        : null;
+        : null
+    ) as TestCoverageData | null;
 
     // Calculate merge readiness verdict
     let mergeVerdict: "ready" | "needs_changes" | "review" | "pending" = "pending";
@@ -146,16 +150,27 @@ export async function GET(_request: Request, { params }: RouteParams) {
     if (review.status === "completed") {
       const criticalCount = severityCounts.critical || 0;
       const highCount = severityCounts.high || 0;
+      const blastRisk = blastRadius?.riskLevel ?? null;
+      const missingTestCount = Array.isArray(testCoverage?.missingTests)
+        ? testCoverage.missingTests.length
+        : 0;
+      const hasCriticalImpact = blastRisk === "critical";
+      const hasHighImpact = blastRisk === "high";
 
-      if (recommendation === "approve" && criticalCount === 0 && highCount === 0) {
+      if (recommendation === "approve" && criticalCount === 0 && highCount === 0 && !hasCriticalImpact && missingTestCount === 0) {
         mergeVerdict = "ready";
         mergeMessage = "This PR looks good and is ready to merge!";
-      } else if (recommendation === "request_changes" || criticalCount > 0 || highCount > 0) {
+      } else if (recommendation === "request_changes" || criticalCount > 0 || highCount > 0 || hasCriticalImpact) {
         mergeVerdict = "needs_changes";
-        mergeMessage = `This PR requires changes before merging. Found ${criticalCount} critical and ${highCount} high severity issues.`;
+        const impactText = hasCriticalImpact ? " Critical blast radius detected." : "";
+        mergeMessage = `This PR requires changes before merging. Found ${criticalCount} critical and ${highCount} high severity issues.${impactText}`;
       } else {
         mergeVerdict = "review";
-        mergeMessage = "This PR has some items to address but may be mergeable after review.";
+        const testText = missingTestCount > 0
+          ? ` ${missingTestCount} changed file${missingTestCount === 1 ? "" : "s"} may need related tests.`
+          : "";
+        const impactText = hasHighImpact ? " High blast radius detected." : "";
+        mergeMessage = `This PR has some items to address but may be mergeable after review.${impactText}${testText}`;
       }
     }
 
