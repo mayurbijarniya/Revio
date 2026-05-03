@@ -6,6 +6,7 @@ import {
 } from "@/types/review";
 import type { BlastRadiusData } from "@/types/blast-radius";
 import type { TestCoverageData } from "@/types/test-coverage";
+import { shouldShowSequenceDiagram } from "@/lib/review-display";
 
 /**
  * Build system prompt with custom rules
@@ -750,6 +751,42 @@ export interface DocstringSuggestion {
   signatureLine: string;
 }
 
+function getMissingTestCount(testCoverage?: TestCoverageData | null): number {
+  return Array.isArray(testCoverage?.missingTests) ? testCoverage.missingTests.length : 0;
+}
+
+function hasBroadImpact(blastRadius?: BlastRadiusData | null): boolean {
+  return blastRadius?.riskLevel === "high" || blastRadius?.riskLevel === "critical";
+}
+
+function formatRecommendation(review: ReviewResult, options: {
+  blastRadius?: BlastRadiusData | null;
+  testCoverage?: TestCoverageData | null;
+}): string {
+  const hasBlockingIssues = review.issues.some((issue) =>
+    issue.severity === "critical" || issue.severity === "warning"
+  );
+  const missingTestCount = getMissingTestCount(options.testCoverage);
+  const broadImpact = hasBroadImpact(options.blastRadius);
+
+  if (review.recommendation === "request_changes" || hasBlockingIssues) {
+    return "This PR requires changes before merging.";
+  }
+
+  if (broadImpact || missingTestCount > 0) {
+    const reasons = [
+      broadImpact ? "broad impact radius" : null,
+      missingTestCount > 0 ? "potential test gaps" : null,
+    ].filter(Boolean);
+
+    return `This PR has no blocking code issues, but should be reviewed before merging because of ${reasons.join(" and ")}.`;
+  }
+
+  return review.recommendation === "approve"
+    ? "This PR looks good and is ready to merge."
+    : "This PR has some non-blocking items to address but may be mergeable.";
+}
+
 export function formatReviewForGitHub(
   review: ReviewResult,
   options: {
@@ -776,7 +813,7 @@ export function formatReviewForGitHub(
 
   comment += `\n### Summary\n${review.summary}\n\n`;
 
-  if (sequenceDiagram) {
+  if (shouldShowSequenceDiagram(sequenceDiagram ?? null)) {
     comment += `### Sequence Diagram\n`;
     comment += `<details>\n<summary>View Mermaid sequence diagram</summary>\n\n`;
     comment += "```mermaid\n";
@@ -864,12 +901,7 @@ export function formatReviewForGitHub(
   }
 
   comment += `### Recommendation\n`;
-  const recommendationText = {
-    approve: "This PR looks good and is ready to merge.",
-    request_changes: "This PR requires changes before merging.",
-    comment: "This PR has some items to address but may be mergeable.",
-  };
-  comment += recommendationText[review.recommendation];
+  comment += formatRecommendation(review, { blastRadius, testCoverage });
 
   comment += `\n\n---\n*Powered by [Revio](https://revio.mayur.app) AI Code Review*`;
 
