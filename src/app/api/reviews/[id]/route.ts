@@ -160,16 +160,19 @@ export async function GET(_request: Request, { params }: RouteParams) {
       if (recommendation === "approve" && criticalCount === 0 && highCount === 0 && !hasCriticalImpact && missingTestCount === 0) {
         mergeVerdict = "ready";
         mergeMessage = "This PR looks good and is ready to merge!";
-      } else if (recommendation === "request_changes" || criticalCount > 0 || highCount > 0 || hasCriticalImpact) {
+      } else if (recommendation === "request_changes" || criticalCount > 0 || highCount > 0) {
         mergeVerdict = "needs_changes";
-        const impactText = hasCriticalImpact ? " Critical blast radius detected." : "";
-        mergeMessage = `This PR requires changes before merging. Found ${criticalCount} critical and ${highCount} high severity issues.${impactText}`;
+        mergeMessage = `This PR requires changes before merging. Found ${criticalCount} critical and ${highCount} high severity issues.`;
       } else {
         mergeVerdict = "review";
         const testText = missingTestCount > 0
           ? ` ${missingTestCount} changed file${missingTestCount === 1 ? "" : "s"} may need related tests.`
           : "";
-        const impactText = hasHighImpact ? " High blast radius detected." : "";
+        const impactText = hasCriticalImpact
+          ? " Broad impact radius detected."
+          : hasHighImpact
+            ? " High impact radius detected."
+            : "";
         mergeMessage = `This PR has some items to address but may be mergeable after review.${impactText}${testText}`;
       }
     }
