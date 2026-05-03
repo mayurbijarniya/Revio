@@ -156,9 +156,12 @@ function formatMetricNumber(value: number | null | undefined) {
 function shouldShowSequenceDiagram(sequenceDiagram: string | null) {
   if (!sequenceDiagram) return false;
 
-  return ["GitHub", "Service", "Database", "VectorDB"].some((participant) =>
+  const hasExternalSystem = ["GitHub", "Database", "VectorDB"].some((participant) =>
     sequenceDiagram.includes(`participant ${participant}`)
   );
+  const hasConcreteFileStep = /\.tsx?:|\.ts\b|\.tsx\b/.test(sequenceDiagram);
+
+  return hasExternalSystem || hasConcreteFileStep;
 }
 
 export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
