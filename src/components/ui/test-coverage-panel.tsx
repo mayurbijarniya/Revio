@@ -37,7 +37,7 @@ export function TestCoveragePanel({ testCoverage }: { testCoverage: TestCoverage
           </p>
         </div>
         <span className={cn("px-2 py-1 rounded text-xs font-medium", getConfidenceStyles(confidence))}>
-          {confidence.toUpperCase()} CONFIDENCE
+          {confidence.toUpperCase()} ANALYSIS CONFIDENCE
         </span>
       </div>
 
@@ -71,7 +71,7 @@ export function TestCoveragePanel({ testCoverage }: { testCoverage: TestCoverage
       ) : (
         <div>
           <div className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-            Files that may need tests
+            Potential test gaps
           </div>
           <div className="space-y-2">
             {missing.slice(0, 10).map((m) => (
@@ -101,4 +101,3 @@ export function TestCoveragePanel({ testCoverage }: { testCoverage: TestCoverage
     </div>
   );
 }
-

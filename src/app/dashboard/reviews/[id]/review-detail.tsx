@@ -149,6 +149,18 @@ const CATEGORY_CONFIG: Record<string, { icon: React.ElementType; label: string }
   other: { icon: FileCode, label: "Other" },
 };
 
+function formatMetricNumber(value: number | null | undefined) {
+  return typeof value === "number" && value > 0 ? value.toLocaleString() : "-";
+}
+
+function shouldShowSequenceDiagram(sequenceDiagram: string | null) {
+  if (!sequenceDiagram) return false;
+
+  return ["GitHub", "Service", "Database", "VectorDB"].some((participant) =>
+    sequenceDiagram.includes(`participant ${participant}`)
+  );
+}
+
 export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
   const [review, setReview] = useState<ReviewData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -280,6 +292,8 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
 
   const status = statusConfig[review.status as keyof typeof statusConfig] || statusConfig.pending;
   const StatusIcon = status.icon;
+  const showSequenceDiagram = shouldShowSequenceDiagram(review.sequenceDiagram);
+  const sequenceDiagram = showSequenceDiagram ? review.sequenceDiagram : null;
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -372,7 +386,7 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
           <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Tokens Used</div>
           <div className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <Zap className="h-5 w-5 text-gray-400" />
-            {review.tokensUsed?.toLocaleString() || "-"}
+            {formatMetricNumber(review.tokensUsed)}
           </div>
         </div>
       </div>
@@ -537,14 +551,14 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
       )}
 
       {/* Sequence Diagram */}
-      {review.sequenceDiagram && (
+      {sequenceDiagram && (
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6">
           <div className="flex items-center justify-between gap-4 mb-3">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Sequence Diagram
             </h2>
           </div>
-          <MermaidDiagram chart={review.sequenceDiagram} />
+          <MermaidDiagram chart={sequenceDiagram} />
         </div>
       )}
 
@@ -729,12 +743,12 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
         </div>
       )}
 
-      {/* Suggestions */}
+      {/* Review Highlights */}
       {review.suggestions && review.suggestions.length > 0 && (
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden mb-6">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Suggestions ({review.suggestions.length})
+              Review Highlights ({review.suggestions.length})
             </h2>
           </div>
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -742,11 +756,11 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
               <div key={idx} className="p-4 bg-white dark:bg-gray-800">
                 <div className="flex items-start gap-3">
                   <div className="p-1.5 rounded bg-blue-100 dark:bg-blue-900/30">
-                    <Lightbulb className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
                     <h4 className="font-medium text-gray-900 dark:text-white mb-1">
-                      {suggestion.title || `Suggestion ${idx + 1}`}
+                      {suggestion.title || `Highlight ${idx + 1}`}
                     </h4>
                     <p className="text-sm text-gray-600 dark:text-gray-300">{suggestion.description}</p>
                     {suggestion.priority && (

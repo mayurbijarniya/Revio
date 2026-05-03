@@ -1,4 +1,8 @@
-import { GoogleGenerativeAI, type GenerateContentStreamResult } from "@google/generative-ai";
+import {
+  GoogleGenerativeAI,
+  type GenerateContentStreamResult,
+  type UsageMetadata,
+} from "@google/generative-ai";
 import { AI_CONFIG } from "@/lib/constants";
 import { requireEnv } from "@/lib/env";
 
@@ -21,6 +25,11 @@ function mapToGeminiRole(role: string): "user" | "model" {
 export interface ChatMessage {
   role: "user" | "model";
   content: string;
+}
+
+export interface ReviewGenerationResult {
+  text: string;
+  usageMetadata: UsageMetadata | null;
 }
 
 /**
@@ -120,7 +129,7 @@ export async function generateReviewResponse(
   options: {
     isComplex?: boolean;
   } = {}
-): Promise<string> {
+): Promise<ReviewGenerationResult> {
   const { isComplex = false } = options;
 
   const model = isComplex
@@ -139,7 +148,10 @@ export async function generateReviewResponse(
   });
 
   const result = await genModel.generateContent(userPrompt);
-  return result.response.text();
+  return {
+    text: result.response.text(),
+    usageMetadata: result.response.usageMetadata ?? null,
+  };
 }
 
 /**

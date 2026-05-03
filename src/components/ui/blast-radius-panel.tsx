@@ -39,6 +39,14 @@ function formatFunctionLabel(fn: { name: string; file: string; line: number | nu
   return `${fn.name} (${fn.file}:${fn.line})`;
 }
 
+function EmptySample() {
+  return (
+    <li className="text-gray-400 dark:text-gray-500">
+      None detected
+    </li>
+  );
+}
+
 export function BlastRadiusPanel({ blastRadius }: { blastRadius: BlastRadiusData }) {
   const styles = getRiskStyles(blastRadius.riskLevel);
 
@@ -142,6 +150,7 @@ export function BlastRadiusPanel({ blastRadius }: { blastRadius: BlastRadiusData
             </div>
             <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
               <ul className="space-y-1 text-xs text-gray-700 dark:text-gray-200">
+                {blastRadius.directlyAffectedFiles.sample.length === 0 && <EmptySample />}
                 {blastRadius.directlyAffectedFiles.sample.slice(0, 10).map((f) => (
                   <li key={f} className="font-mono truncate" title={f}>
                     {f}
@@ -162,6 +171,7 @@ export function BlastRadiusPanel({ blastRadius }: { blastRadius: BlastRadiusData
             </div>
             <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
               <ul className="space-y-1 text-xs text-gray-700 dark:text-gray-200">
+                {blastRadius.indirectCallers.sample.length === 0 && <EmptySample />}
                 {blastRadius.indirectCallers.sample.slice(0, 8).map((fn) => (
                   <li
                     key={fn.id}
@@ -186,6 +196,7 @@ export function BlastRadiusPanel({ blastRadius }: { blastRadius: BlastRadiusData
             </div>
             <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
               <ul className="space-y-1 text-xs text-gray-700 dark:text-gray-200">
+                {blastRadius.affectedEntryPoints.sample.length === 0 && <EmptySample />}
                 {blastRadius.affectedEntryPoints.sample.slice(0, 8).map((fn) => (
                   <li
                     key={fn.id}
@@ -217,4 +228,3 @@ export function BlastRadiusPanel({ blastRadius }: { blastRadius: BlastRadiusData
     </div>
   );
 }
-

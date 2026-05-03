@@ -3,7 +3,7 @@ import { logger } from "@/lib/logger";
 import { GitHubService } from "./github";
 import { createBotGitHubService } from "./github-app";
 import { retrieveMultiContext, formatContextForPrompt } from "./retriever";
-import { generateReviewResponse } from "./gemini";
+import { estimateTokenCount, generateReviewResponse } from "./gemini";
 import {
   buildReviewSystemPrompt,
   buildReviewPrompt,
@@ -225,11 +225,12 @@ export async function reviewPullRequest(
 
   // Generate review
   console.warn(`[Reviewer] Starting AI generation using ${isComplex ? 'complex' : 'standard'} model`);
-  const rawResponse = await generateReviewResponse(
+  const generationResult = await generateReviewResponse(
     systemPrompt,
     reviewPrompt,
     { isComplex }
   );
+  const rawResponse = generationResult.text;
   console.warn(`[Reviewer] AI generation completed, parsing response`);
 
   // Parse response
@@ -245,6 +246,9 @@ export async function reviewPullRequest(
     : review;
 
   const processingTime = Date.now() - startTime;
+  const tokensUsed =
+    generationResult.usageMetadata?.totalTokenCount ??
+    estimateTokenCount(`${systemPrompt}\n\n${reviewPrompt}\n\n${rawResponse}`);
 
   // Generate a Mermaid sequence diagram from code graph + changed files (best-effort)
   const sequenceDiagram = generateSequenceDiagram({
@@ -365,6 +369,7 @@ export async function reviewPullRequest(
       startedAt: null,
       jobId: null,
       processingTimeMs: processingTime,
+      tokensUsed,
     },
     create: {
       repositoryId,
@@ -390,6 +395,7 @@ export async function reviewPullRequest(
       startedAt: null,
       jobId: null,
       processingTimeMs: processingTime,
+      tokensUsed,
     },
   });
 
@@ -409,7 +415,7 @@ export async function reviewPullRequest(
         confidenceScore: confidenceResult.score,
         sequenceDiagram,
         processingTimeMs: processingTime,
-        tokensUsed: 0,
+        tokensUsed,
         docstringSuggestions: JSON.parse(JSON.stringify(docstringSuggestions)),
         blastRadius: blastRadiusJson,
         testCoverage: testCoverageJson,
