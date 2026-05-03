@@ -203,6 +203,8 @@ npm run lint
 npm run test
 ```
 
+Before opening a PR, run the validation commands above so Revio can focus its review on the actual code changes.
+
 ## Production Checklist
 
 1. Set production env vars
