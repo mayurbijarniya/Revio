@@ -39,6 +39,7 @@ import type { BlastRadiusData } from "@/types/blast-radius";
 import { TestCoveragePanel } from "@/components/ui/test-coverage-panel";
 import type { TestCoverageData } from "@/types/test-coverage";
 import { MermaidDiagram } from "@/components/ui/mermaid-diagram";
+import { shouldShowSequenceDiagram } from "@/lib/review-display";
 
 interface ReviewIssue {
   file?: string;
@@ -151,17 +152,6 @@ const CATEGORY_CONFIG: Record<string, { icon: React.ElementType; label: string }
 
 function formatMetricNumber(value: number | null | undefined) {
   return typeof value === "number" && value > 0 ? value.toLocaleString() : "-";
-}
-
-function shouldShowSequenceDiagram(sequenceDiagram: string | null) {
-  if (!sequenceDiagram) return false;
-
-  const hasExternalSystem = ["GitHub", "Database", "VectorDB"].some((participant) =>
-    sequenceDiagram.includes(`participant ${participant}`)
-  );
-  const hasConcreteFileStep = /\.tsx?:|\.ts\b|\.tsx\b/.test(sequenceDiagram);
-
-  return hasExternalSystem || hasConcreteFileStep;
 }
 
 export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
@@ -739,10 +729,38 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
 
       {/* No Issues State */}
       {review.status === "completed" && review.issueCount === 0 && (
-        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-6 mb-6 text-center">
-          <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-green-800 dark:text-green-400 mb-1">No Issues Found!</h3>
-          <p className="text-green-600 dark:text-green-300">This pull request looks good. Great job!</p>
+        <div
+          className={`rounded-lg p-6 mb-6 text-center border ${
+            review.mergeVerdict === "ready"
+              ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+              : "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800"
+          }`}
+        >
+          {review.mergeVerdict === "ready" ? (
+            <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
+          ) : (
+            <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-3" />
+          )}
+          <h3
+            className={`text-lg font-semibold mb-1 ${
+              review.mergeVerdict === "ready"
+                ? "text-green-800 dark:text-green-400"
+                : "text-amber-800 dark:text-amber-300"
+            }`}
+          >
+            No Blocking Code Issues
+          </h3>
+          <p
+            className={
+              review.mergeVerdict === "ready"
+                ? "text-green-600 dark:text-green-300"
+                : "text-amber-700 dark:text-amber-300"
+            }
+          >
+            {review.mergeVerdict === "ready"
+              ? "This pull request looks good."
+              : "Review the impact radius and test coverage notes before merging."}
+          </p>
         </div>
       )}
 
