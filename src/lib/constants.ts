@@ -61,14 +61,14 @@ export const AI_CONFIG = {
     maxInputChars: 6_000,
   },
   chat: {
-    model: "gemini-3.1-flash-lite-preview",
-    fallbackModel: "gemini-3.1-flash-lite-preview",
+    model: "gemini-3.1-flash-lite",
+    fallbackModel: "gemini-3.1-flash-lite",
     maxOutputTokens: 4096,
     temperature: 0.7,
   },
   review: {
-    model: "gemini-3.1-flash-lite-preview",
-    complexModel: "gemini-3.1-flash-lite-preview",
+    model: "gemini-3.1-flash-lite",
+    complexModel: "gemini-3.1-flash-lite",
     maxOutputTokens: 4096,
     temperature: 0.2,
     // Thresholds for upgrading to complex model
