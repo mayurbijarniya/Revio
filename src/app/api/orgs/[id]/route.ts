@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { jsonSuccess, jsonError } from "@/lib/api-utils";
+import { logActivity } from "@/lib/services/activity";
 import { z } from "zod";
 
 const UpdateOrgSchema = z.object({
@@ -136,6 +137,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         plan: true,
         createdAt: true,
       },
+    });
+
+    await logActivity({
+      organizationId: id,
+      userId: session.userId,
+      type: "settings_updated",
+      title: "Updated organization settings",
+      description: name ? `Renamed organization to ${name}` : undefined,
     });
 
     return jsonSuccess({ organization: updated }, 200);

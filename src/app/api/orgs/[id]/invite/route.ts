@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { jsonSuccess, jsonError } from "@/lib/api-utils";
+import { logActivity } from "@/lib/services/activity";
 import { z } from "zod";
 
 const InviteSchema = z.object({
@@ -108,6 +109,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           },
         },
       },
+    });
+
+    await logActivity({
+      organizationId: id,
+      userId: session.userId,
+      type: "member_joined",
+      title: `Added ${member.user.githubUsername} as ${role}`,
     });
 
     return jsonSuccess({ member }, 201);

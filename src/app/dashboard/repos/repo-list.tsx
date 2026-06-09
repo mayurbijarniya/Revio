@@ -446,11 +446,12 @@ function ConnectedRepoCard({
               onClick={onIndex}
               disabled={isIndexing || repo.indexStatus === "indexing"}
               className={cn(
-                "inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg transition-colors flex-1 sm:flex-none justify-center",
+                "inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors border flex-1 sm:flex-none justify-center",
                 canIndex
-                  ? "bg-[#4F46E5] text-white hover:bg-[#4338CA]"
-                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700",
-                (isIndexing || repo.indexStatus === "indexing") && "opacity-50 cursor-not-allowed"
+                  ? "bg-[#4F46E5] border-[#4F46E5] text-white hover:bg-[#4338CA] hover:border-[#4338CA]"
+                  : "bg-white dark:bg-transparent border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700",
+                (isIndexing || repo.indexStatus === "indexing") &&
+                "opacity-50 cursor-not-allowed bg-[#4F46E5] border-[#4F46E5] text-white"
               )}
               title={canIndex ? "Start Indexing" : "Reindex"}
             >
@@ -465,7 +466,7 @@ function ConnectedRepoCard({
           <button
             onClick={onDisconnect}
             disabled={isIndexing || repo.indexStatus === "indexing"}
-            className="px-3 py-1.5 text-sm text-[#EF4444] hover:bg-[#FEF2F2] dark:hover:bg-[#7F1D1D] rounded-lg disabled:opacity-50 flex-1 sm:flex-none"
+            className="inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 disabled:opacity-50 flex-1 sm:flex-none"
           >
             Disconnect
           </button>

@@ -186,7 +186,7 @@ export default function RepoInsights({
               <select
                 value={days}
                 onChange={(e) => setDays(parseInt(e.target.value, 10))}
-                className="w-full appearance-none px-3 py-2 pr-8 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-lg focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5]"
+                className="w-full appearance-none px-3 py-2 pr-8 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5]"
               >
                 <option value={7}>Last 7 days</option>
                 <option value={14}>Last 14 days</option>
@@ -426,4 +426,3 @@ export default function RepoInsights({
     </div>
   );
 }
-

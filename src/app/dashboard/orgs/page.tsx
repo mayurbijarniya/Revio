@@ -8,6 +8,7 @@ import {
   Loader2,
   Crown,
   Building2,
+  AlertCircle,
 } from "lucide-react";
 
 interface Organization {
@@ -34,6 +35,7 @@ export default function OrganizationsPage() {
   const [orgSlug, setOrgSlug] = useState("");
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchOrganizations = async () => {
@@ -58,6 +60,7 @@ export default function OrganizationsPage() {
     if (!orgName.trim() || !orgSlug.trim()) return;
 
     setLoading(true);
+    setCreateError(null);
     try {
       const response = await fetch("/api/orgs", {
         method: "POST",
@@ -70,15 +73,16 @@ export default function OrganizationsPage() {
         setShowCreateModal(false);
         setOrgName("");
         setOrgSlug("");
+        setCreateError(null);
         setOrganizations((prev) => [data.data.organization, ...prev]);
         router.push(`/dashboard/orgs/${data.data.organization.slug}`);
       } else {
         const data = await response.json();
-        alert(data.error?.message || "Failed to create organization");
+        setCreateError(data.error?.message || "Failed to create organization");
       }
     } catch (error) {
       console.error("Create org error:", error);
-      alert("Failed to create organization");
+      setCreateError("Failed to create organization");
     } finally {
       setLoading(false);
     }
@@ -168,6 +172,12 @@ export default function OrganizationsPage() {
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md">
             <h2 className="text-xl font-bold mb-4 dark:text-white">Create Organization</h2>
             <form onSubmit={handleCreateOrg} className="space-y-4">
+              {createError && (
+                <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+                  <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <span>{createError}</span>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-gray-300">
                   Organization Name
@@ -177,7 +187,7 @@ export default function OrganizationsPage() {
                   value={orgName}
                   onChange={(e) => setOrgName(e.target.value)}
                   placeholder="Acme Corporation"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-[#4F46E5]"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-[#4F46E5]"
                   required
                 />
               </div>
@@ -194,7 +204,7 @@ export default function OrganizationsPage() {
                     value={orgSlug}
                     onChange={(e) => setOrgSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
                     placeholder="acme-corp"
-                    className="flex-1 px-4 py-2 bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 focus:outline-none"
+                    className="flex-1 px-4 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none"
                     required
                   />
                 </div>
@@ -206,6 +216,7 @@ export default function OrganizationsPage() {
                     setShowCreateModal(false);
                     setOrgName("");
                     setOrgSlug("");
+                    setCreateError(null);
                   }}
                   className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >

@@ -39,6 +39,7 @@ export async function GET() {
       fileCount: repo.fileCount,
       chunkCount: repo.chunkCount,
       autoReview: repo.autoReview,
+      organizationId: repo.organizationId,
       createdAt: repo.createdAt,
       updatedAt: repo.updatedAt,
     }));

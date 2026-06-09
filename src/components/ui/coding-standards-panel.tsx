@@ -36,6 +36,11 @@ interface CodingStandardsPanelProps {
   initialStandards: CodingStandard[];
 }
 
+type PanelStatus = {
+  type: "success" | "error" | "info";
+  message: string;
+};
+
 const SOURCE_LABELS: Record<string, string> = {
   claude_md: "Claude Code (.claude.md)",
   cursorrules: "Cursor (.cursorrules)",
@@ -54,16 +59,19 @@ export function CodingStandardsPanel({
   const [isDetecting, setIsDetecting] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [status, setStatus] = useState<PanelStatus | null>(null);
 
   const handleDetect = async () => {
     setIsDetecting(true);
+    setStatus(null);
     try {
       const res = await fetch(`/api/repos/${repositoryId}/standards`, {
         method: "POST",
       });
+      const result = await res.json();
 
-      if (!res.ok) {
-        throw new Error("Failed to detect standards");
+      if (!res.ok || !result.success) {
+        throw new Error(result.error?.message || "Failed to detect standards");
       }
 
       // Refresh standards list
@@ -72,9 +80,23 @@ export function CodingStandardsPanel({
       if (data.success) {
         setStandards(data.data.standards);
       }
+      const detectedCount = result.data?.standardsDetected ?? data.data?.standards?.length ?? 0;
+      setStatus({
+        type: detectedCount > 0 ? "success" : "info",
+        message:
+          detectedCount > 0
+            ? `Detected ${detectedCount} coding standards file${detectedCount === 1 ? "" : "s"}.`
+            : "Scan completed. No supported standards files were found on the default branch.",
+      });
     } catch (error) {
       console.error("Failed to detect coding standards:", error);
-      alert("Failed to detect coding standards. Please try again.");
+      setStatus({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to detect coding standards. Please try again.",
+      });
     } finally {
       setIsDetecting(false);
     }
@@ -82,6 +104,7 @@ export function CodingStandardsPanel({
 
   const handleToggle = async (standardId: string, currentEnabled: boolean) => {
     setTogglingId(standardId);
+    setStatus(null);
     try {
       const res = await fetch(`/api/repos/${repositoryId}/standards`, {
         method: "PATCH",
@@ -92,8 +115,9 @@ export function CodingStandardsPanel({
         }),
       });
 
-      if (!res.ok) {
-        throw new Error("Failed to toggle standard");
+      const result = await res.json();
+      if (!res.ok || !result.success) {
+        throw new Error(result.error?.message || "Failed to toggle standard");
       }
 
       // Update local state
@@ -102,9 +126,19 @@ export function CodingStandardsPanel({
           s.id === standardId ? { ...s, enabled: !currentEnabled } : s
         )
       );
+      setStatus({
+        type: "success",
+        message: `Coding standard ${currentEnabled ? "disabled" : "enabled"} for future PR reviews.`,
+      });
     } catch (error) {
       console.error("Failed to toggle coding standard:", error);
-      alert("Failed to update standard. Please try again.");
+      setStatus({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to update standard. Please try again.",
+      });
     } finally {
       setTogglingId(null);
     }
@@ -146,6 +180,20 @@ export function CodingStandardsPanel({
         </button>
       </div>
 
+      {status && (
+        <div
+          className={
+            status.type === "error"
+              ? "rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
+              : status.type === "success"
+                ? "rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-300"
+                : "rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300"
+          }
+        >
+          {status.message}
+        </div>
+      )}
+
       {standards.length === 0 ? (
         <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 text-center">
           <FileCode2 className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
@@ -160,8 +208,12 @@ export function CodingStandardsPanel({
             disabled={isDetecting}
             className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] disabled:opacity-50 transition-colors"
           >
-            <RefreshCw className="w-4 h-4" />
-            Scan Repository
+            {isDetecting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+            {isDetecting ? "Scanning..." : "Scan Repository"}
           </button>
         </div>
       ) : (

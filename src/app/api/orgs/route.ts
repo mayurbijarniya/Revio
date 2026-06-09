@@ -114,6 +114,13 @@ export async function POST(request: NextRequest) {
           select: {
             id: true,
             githubUsername: true,
+            avatarUrl: true,
+          },
+        },
+        _count: {
+          select: {
+            members: true,
+            repositories: true,
           },
         },
       },

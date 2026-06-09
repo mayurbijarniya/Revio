@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { jsonSuccess, jsonError } from "@/lib/api-utils";
+import { logActivity } from "@/lib/services/activity";
 import { z } from "zod";
 
 const UpdateMemberRoleSchema = z.object({
@@ -131,7 +132,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Get the member being updated
     const member = await db.organizationMember.findUnique({
       where: { id: memberId },
-      select: { organizationId: true, userId: true, role: true },
+      select: {
+        organizationId: true,
+        userId: true,
+        role: true,
+        user: { select: { githubUsername: true } },
+      },
     });
 
     if (!member || member.organizationId !== id) {
@@ -161,6 +167,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           },
         },
       },
+    });
+
+    await logActivity({
+      organizationId: id,
+      userId: session.userId,
+      type: "member_role_changed",
+      title: `Changed ${updated.user.githubUsername}'s role from ${member.role} to ${role}`,
     });
 
     return jsonSuccess({ member: updated }, 200);
@@ -215,7 +228,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // Get the member to be removed
     const member = await db.organizationMember.findUnique({
       where: { id: memberId },
-      select: { organizationId: true, userId: true, role: true },
+      select: {
+        organizationId: true,
+        userId: true,
+        role: true,
+        user: { select: { githubUsername: true } },
+      },
     });
 
     if (!member || member.organizationId !== id) {
@@ -242,6 +260,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     await db.organizationMember.delete({ where: { id: memberId } });
+
+    await logActivity({
+      organizationId: id,
+      userId: session.userId,
+      type: "member_left",
+      title: `Removed ${member.user.githubUsername}`,
+    });
 
     return jsonSuccess({ message: "Member removed" }, 200);
   } catch (error) {

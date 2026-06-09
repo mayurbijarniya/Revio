@@ -691,7 +691,7 @@ export function RepoDetail({
                   value={newIgnoredPath}
                   onChange={(e) => setNewIgnoredPath(e.target.value)}
                   placeholder="e.g., *.test.ts, docs/*"
-                  className="flex-1 px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+                  className="flex-1 px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
