@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import { createHighlighter, type BundledLanguage } from "shiki";
 import remarkGfm from "remark-gfm";
 import { Check, FileCode } from "lucide-react";
+import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 
 
@@ -156,7 +157,7 @@ const CopyIcon = (props: React.SVGProps<SVGSVGElement>) => (
 function getHighlighterInstance() {
   if (!highlighterPromise) {
     highlighterPromise = createHighlighter({
-      themes: ['vesper'],
+      themes: ['github-light', 'vesper'],
       langs: [
         'typescript', 'javascript', 'python', 'go', 'rust', 'java', 'css',
         'html', 'json', 'sql', 'bash', 'c', 'cpp', 'ruby', 'php',
@@ -168,8 +169,10 @@ function getHighlighterInstance() {
 }
 
 function CodeBlock({ code, language }: CodeBlockProps) {
+  const { resolvedTheme } = useTheme();
   const [copied, setCopied] = useState(false);
   const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
+  const shikiTheme = resolvedTheme === "dark" ? "vesper" : "github-light";
 
   useEffect(() => {
     let mounted = true;
@@ -182,7 +185,7 @@ function CodeBlock({ code, language }: CodeBlockProps) {
 
         const html = highlighter.codeToHtml(code, {
           lang,
-          theme: 'vesper'
+          theme: shikiTheme
         });
 
         if (mounted) {
@@ -198,7 +201,7 @@ function CodeBlock({ code, language }: CodeBlockProps) {
     return () => {
       mounted = false;
     };
-  }, [code, language]);
+  }, [code, language, shikiTheme]);
 
 
   const copyToClipboard = async () => {
@@ -219,19 +222,19 @@ function CodeBlock({ code, language }: CodeBlockProps) {
   const displayName = filePath || language;
 
   return (
-    <div className="my-4 rounded-xl overflow-hidden border border-[#282c34] bg-[#101010]">
+    <div className="my-4 rounded-xl overflow-hidden border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 bg-[#101010] border-b border-[#282c34]">
+      <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-200 dark:bg-gray-900 dark:border-gray-700">
         <div className="flex items-center gap-2">
           {getLanguageIcon(language)}
-          <span className="font-mono text-xs text-gray-400 font-medium">
+          <span className="font-mono text-xs text-gray-500 dark:text-gray-400 font-medium">
             {displayName}
           </span>
         </div>
 
         <button
           onClick={copyToClipboard}
-          className="relative p-1.5 rounded hover:bg-[#282c34] transition-colors"
+          className="relative p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           title={copied ? "Copied!" : "Copy code"}
           aria-label={copied ? "Copied to clipboard" : "Copy code to clipboard"}
         >
@@ -253,10 +256,10 @@ function CodeBlock({ code, language }: CodeBlockProps) {
         {highlightedHtml ? (
           <div
             dangerouslySetInnerHTML={{ __html: highlightedHtml }}
-            className="[&>pre]:!bg-[#101010] [&>pre]:!p-4 [&>pre]:!m-0 [&>pre]:!font-mono [&>pre]:!text-sm [&>pre]:!leading-relaxed"
+            className="code-block-content [&>pre]:!bg-white dark:[&>pre]:!bg-gray-900 [&>pre]:!p-4 [&>pre]:!m-0 [&>pre]:!font-mono [&>pre]:!text-sm [&>pre]:!leading-relaxed"
           />
         ) : (
-          <pre className="p-4 m-0 font-mono text-sm leading-relaxed text-gray-300 bg-[#101010]">
+          <pre className="p-4 m-0 font-mono text-sm leading-relaxed text-gray-800 bg-white dark:text-gray-300 dark:bg-gray-900">
             {displayCode}
           </pre>
         )}
@@ -288,11 +291,11 @@ export function MarkdownRenderer({ content, className, isStreaming = false }: Ma
             if (isBlockCode) {
               if (isStreaming) {
                 return (
-                  <div className="my-4 rounded-xl overflow-hidden border border-[#282c34]" style={{ backgroundColor: '#101010' }}>
-                    <div className="px-4 py-2 border-b border-[#282c34]" style={{ backgroundColor: '#101010' }}>
-                      <span className="font-mono text-xs text-gray-400 font-medium">{language}</span>
+                  <div className="my-4 rounded-xl overflow-hidden border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                    <div className="px-4 py-2 border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
+                      <span className="font-mono text-xs text-gray-500 dark:text-gray-400 font-medium">{language}</span>
                     </div>
-                    <pre className="p-4 m-0 font-mono text-sm leading-relaxed text-gray-300 overflow-auto max-h-[500px]" style={{ backgroundColor: '#101010' }}>
+                    <pre className="p-4 m-0 font-mono text-sm leading-relaxed text-gray-800 dark:text-gray-300 overflow-auto max-h-[500px] bg-white dark:bg-gray-900">
                       {codeString}
                     </pre>
                   </div>
@@ -307,7 +310,7 @@ export function MarkdownRenderer({ content, className, isStreaming = false }: Ma
             // Let's rely on globals.css but ensure base styles don't conflict.
             return (
               <code
-                className="font-mono font-semibold text-[0.85em] text-indigo-600 dark:text-indigo-400"
+                className="font-mono font-medium text-[0.85em] text-indigo-600 dark:text-indigo-400"
                 {...props}
               >
                 {children}
@@ -363,9 +366,5 @@ export function MarkdownRenderer({ content, className, isStreaming = false }: Ma
     </div>
   );
 }
-
-
-
-
 
 

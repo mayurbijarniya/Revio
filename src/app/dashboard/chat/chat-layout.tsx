@@ -825,7 +825,7 @@ export function ChatLayout({
         <div
           ref={messagesContainerRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto px-4 md:px-6 lg:px-10 py-6 pb-40 scrollbar-hide"
+          className="flex-1 overflow-y-auto px-4 md:px-6 lg:px-10 py-6 pb-64 md:pb-56 scrollbar-hide"
         >
           {error && (
             <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-3">
@@ -911,7 +911,7 @@ export function ChatLayout({
         {!isAtBottom && selectedConversation && (
           <button
             onClick={scrollToBottom}
-            className="absolute bottom-36 right-8 z-40 p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-md hover:shadow-lg hover:border-indigo-400 transition-all text-gray-500 hover:text-indigo-600"
+            className="absolute bottom-44 right-8 z-40 p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-md hover:shadow-lg hover:border-indigo-400 transition-all text-gray-500 hover:text-indigo-600"
             title="Scroll to bottom"
           >
             <ChevronsDown className="w-4 h-4" />

@@ -1,8 +1,14 @@
 import { redirect } from "next/navigation";
+import { IBM_Plex_Sans } from "next/font/google";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { DashboardNav } from "./dashboard-nav";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
+
+const dashboardFont = IBM_Plex_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
 
 export default async function DashboardLayout({
   children,
@@ -30,7 +36,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className={`${dashboardFont.className} min-h-screen bg-gray-50 dark:bg-gray-900`}>
       <DashboardNav
         user={{
           username: user.githubUsername,
