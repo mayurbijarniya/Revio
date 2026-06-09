@@ -160,7 +160,7 @@ export function ReviewRulesEditor({
                   });
                   setIsEditing(true);
                 }}
-                className="px-3 py-1.5 pr-8 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-[#4F46E5] appearance-none"
+                className="px-3 py-1.5 pr-8 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4F46E5] appearance-none"
               >
                 {SeverityLevels.map((level) => (
                   <option key={level} value={level}>
@@ -323,7 +323,7 @@ export function ReviewRulesEditor({
                 placeholder="Rule name"
                 value={newRule.name || ""}
                 onChange={(e) => setNewRule({ ...newRule, name: e.target.value })}
-                className="w-full px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+                className="w-full px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
               />
               <input
                 type="text"
@@ -332,7 +332,7 @@ export function ReviewRulesEditor({
                 onChange={(e) =>
                   setNewRule({ ...newRule, description: e.target.value })
                 }
-                className="w-full px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+                className="w-full px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
               />
               <input
                 type="text"
@@ -341,7 +341,7 @@ export function ReviewRulesEditor({
                 onChange={(e) =>
                   setNewRule({ ...newRule, pattern: e.target.value })
                 }
-                className="w-full px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-[#4F46E5] font-mono"
+                className="w-full px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#4F46E5] font-mono"
               />
               <textarea
                 placeholder="Message to show when rule is violated"
@@ -350,7 +350,7 @@ export function ReviewRulesEditor({
                   setNewRule({ ...newRule, message: e.target.value })
                 }
                 rows={2}
-                className="w-full px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+                className="w-full px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
               />
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -362,7 +362,7 @@ export function ReviewRulesEditor({
                         category: e.target.value as IssueCategory,
                       })
                     }
-                    className="w-full px-3 py-1.5 pr-8 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-[#4F46E5] appearance-none"
+                    className="w-full px-3 py-1.5 pr-8 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4F46E5] appearance-none"
                   >
                     {IssueCategories.map((cat) => (
                       <option key={cat} value={cat}>
@@ -383,7 +383,7 @@ export function ReviewRulesEditor({
                         severity: e.target.value as SeverityLevel,
                       })
                     }
-                    className="w-full px-3 py-1.5 pr-8 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-[#4F46E5] appearance-none"
+                    className="w-full px-3 py-1.5 pr-8 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4F46E5] appearance-none"
                   >
                     {SeverityLevels.map((level) => (
                       <option key={level} value={level}>

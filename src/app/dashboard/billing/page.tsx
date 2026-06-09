@@ -9,6 +9,7 @@ import {
   CreditCard,
   Loader2,
   Crown,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PLAN_LIMITS } from "@/lib/constants";
@@ -99,6 +100,7 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
 
   // Fetch user and usage data
@@ -134,6 +136,7 @@ export default function BillingPage() {
 
     setLoadingPlan(planId);
     setSuccessMsg(null);
+    setErrorMsg(null);
 
     try {
       const response = await fetch("/api/billing/upgrade", {
@@ -152,11 +155,12 @@ export default function BillingPage() {
         }
         router.refresh();
       } else {
-        alert("Failed to upgrade. Please try again.");
+        const data = await response.json().catch(() => null);
+        setErrorMsg(data?.error?.message || "Failed to upgrade. Please try again.");
       }
     } catch (error) {
       console.error("Upgrade error:", error);
-      alert("Failed to upgrade. Please try again.");
+      setErrorMsg("Failed to upgrade. Please try again.");
     } finally {
       setLoadingPlan(null);
     }
@@ -167,6 +171,7 @@ export default function BillingPage() {
 
     setLoadingPlan(planId);
     setSuccessMsg(null);
+    setErrorMsg(null);
 
     try {
       const response = await fetch("/api/billing/upgrade", {
@@ -185,11 +190,12 @@ export default function BillingPage() {
         }
         router.refresh();
       } else {
-        alert("Failed to change plan. Please try again.");
+        const data = await response.json().catch(() => null);
+        setErrorMsg(data?.error?.message || "Failed to change plan. Please try again.");
       }
     } catch (error) {
       console.error("Plan change error:", error);
-      alert("Failed to change plan. Please try again.");
+      setErrorMsg("Failed to change plan. Please try again.");
     } finally {
       setLoadingPlan(null);
     }
@@ -259,6 +265,19 @@ export default function BillingPage() {
         <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2">
           <Check className="w-5 h-5 text-green-500" />
           <p className="text-green-700 dark:text-green-400">{successMsg}</p>
+        </div>
+      )}
+
+      {errorMsg && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5" />
+          <p className="flex-1 text-red-700 dark:text-red-300">{errorMsg}</p>
+          <button
+            onClick={() => setErrorMsg(null)}
+            className="rounded-lg px-2 py-1 text-sm text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 

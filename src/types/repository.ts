@@ -32,6 +32,7 @@ export interface ConnectedRepository {
   fileCount: number;
   chunkCount: number;
   autoReview: boolean;
+  organizationId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

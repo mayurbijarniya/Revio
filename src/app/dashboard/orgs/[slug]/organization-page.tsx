@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Users,
   Settings,
@@ -12,7 +13,6 @@ import {
   User,
   Plus,
   Loader2,
-  CheckCircle,
   FolderGit2,
   Activity,
   RefreshCw,
@@ -27,8 +27,11 @@ import {
   TrendingUp,
   AlertTriangle,
   CheckCircle2,
+  X,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface OrgMember {
   id: string;
@@ -106,17 +109,34 @@ interface OrganizationPageProps {
 }
 
 export default function OrganizationPage({ organization: initialOrg }: OrganizationPageProps) {
+  const router = useRouter();
   const [organization, setOrganization] = useState(initialOrg);
   const [inviteUsername, setInviteUsername] = useState("");
   const [inviteRole, setInviteRole] = useState<"admin" | "member" | "viewer">("member");
+  const [showSettings, setShowSettings] = useState(false);
+  const [editName, setEditName] = useState(initialOrg.name);
   const [loading, setLoading] = useState(false);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [deletingOrg, setDeletingOrg] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [repoStatus, setRepoStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [memberStatus, setMemberStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [settingsStatus, setSettingsStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [memberToRemove, setMemberToRemove] = useState<{ id: string; username: string } | null>(null);
+  const [repoToRemove, setRepoToRemove] = useState<{ id: string; fullName: string } | null>(null);
+  const [deleteOrgDialogOpen, setDeleteOrgDialogOpen] = useState(false);
   const [repositories, setRepositories] = useState<OrgRepository[]>([]);
+  const [availableRepos, setAvailableRepos] = useState<OrgRepository[]>([]);
+  const [selectedRepoId, setSelectedRepoId] = useState("");
   const [activities, setActivities] = useState<OrgActivity[]>([]);
   const [analytics, setAnalytics] = useState<TeamAnalytics | null>(null);
   const [loadingRepos, setLoadingRepos] = useState(true);
+  const [loadingAvailableRepos, setLoadingAvailableRepos] = useState(true);
+  const [addingRepo, setAddingRepo] = useState(false);
   const [loadingActivities, setLoadingActivities] = useState(true);
   const [loadingAnalytics, setLoadingAnalytics] = useState(true);
+
+  const canManageRepos = organization.userRole === "owner" || organization.userRole === "admin";
 
   // Fetch organization repositories
   const fetchRepositories = useCallback(async () => {
@@ -166,16 +186,44 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
     }
   }, [organization.id]);
 
+  const fetchAvailableRepos = useCallback(async () => {
+    setLoadingAvailableRepos(true);
+    try {
+      const res = await fetch("/api/repos/connected");
+      const data = await res.json();
+      if (data.success) {
+        setAvailableRepos(
+          data.data.repositories.filter((repo: OrgRepository & { organizationId: string | null }) => !repo.organizationId)
+        );
+      }
+    } catch {
+      // Failed to fetch connected repositories
+    } finally {
+      setLoadingAvailableRepos(false);
+    }
+  }, []);
+
   // Fetch data on mount
   useEffect(() => {
     fetchRepositories();
     fetchActivities();
     fetchAnalytics();
-  }, [fetchRepositories, fetchActivities, fetchAnalytics]);
+    fetchAvailableRepos();
+  }, [fetchRepositories, fetchActivities, fetchAnalytics, fetchAvailableRepos]);
 
-  const showSuccess = (message: string) => {
-    setSuccessMsg(message);
-    setTimeout(() => setSuccessMsg(null), 3000);
+  const showError = (message: string) => {
+    setErrorMsg(message);
+  };
+
+  const showSectionStatus = (
+    setter: React.Dispatch<React.SetStateAction<{ type: "success" | "error"; message: string } | null>>,
+    type: "success" | "error",
+    message: string
+  ) => {
+    setter({ type, message });
+    if (type === "success") {
+      setTimeout(() => setter(null), 3000);
+    }
   };
 
   const handleInvite = async (e: React.FormEvent) => {
@@ -201,44 +249,46 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
           ...prev,
           members: [...prev.members, data.data.member],
         }));
-        showSuccess(`${inviteUsername} has been invited to the organization`);
+        await fetchActivities();
+        showSectionStatus(setMemberStatus, "success", `${inviteUsername} has been added to the organization`);
       } else {
         const data = await response.json();
-        alert(data.error?.message || "Failed to invite user");
+        showSectionStatus(setMemberStatus, "error", data.error?.message || "Failed to add member");
       }
     } catch (error) {
       console.error("Invite error:", error);
-      alert("Failed to invite user");
+      showSectionStatus(setMemberStatus, "error", "Failed to add member");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRemoveMember = async (memberId: string, username: string) => {
-    if (!confirm(`Are you sure you want to remove ${username} from the organization?`)) return;
-
+  const handleRemoveMember = async () => {
+    if (!memberToRemove) return;
     setLoading(true);
     try {
       const response = await fetch(`/api/orgs/${organization.id}/members`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ memberId }),
+        body: JSON.stringify({ memberId: memberToRemove.id }),
       });
 
       if (response.ok) {
         // Update local state
         setOrganization((prev) => ({
           ...prev,
-          members: prev.members.filter((m) => m.id !== memberId),
+          members: prev.members.filter((m) => m.id !== memberToRemove.id),
         }));
-        showSuccess("Member removed successfully");
+        setMemberToRemove(null);
+        await fetchActivities();
+        showSectionStatus(setMemberStatus, "success", "Member removed successfully");
       } else {
         const data = await response.json();
-        alert(data.error?.message || "Failed to remove member");
+        showSectionStatus(setMemberStatus, "error", data.error?.message || "Failed to remove member");
       }
     } catch (error) {
       console.error("Remove member error:", error);
-      alert("Failed to remove member");
+      showSectionStatus(setMemberStatus, "error", "Failed to remove member");
     } finally {
       setLoading(false);
     }
@@ -261,16 +311,141 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
             m.id === memberId ? { ...m, role: newRole } : m
           ),
         }));
-        showSuccess(`${username}'s role updated to ${newRole}`);
+        await fetchActivities();
+        showSectionStatus(setMemberStatus, "success", `${username}'s role updated to ${newRole}`);
       } else {
         const data = await response.json();
-        alert(data.error?.message || "Failed to update role");
+        showSectionStatus(setMemberStatus, "error", data.error?.message || "Failed to update role");
       }
     } catch (error) {
       console.error("Update role error:", error);
-      alert("Failed to update role");
+      showSectionStatus(setMemberStatus, "error", "Failed to update role");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddRepository = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedRepoId) return;
+
+    setAddingRepo(true);
+    try {
+      const response = await fetch(`/api/orgs/${organization.id}/repos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repositoryId: selectedRepoId }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setSelectedRepoId("");
+        setOrganization((prev) => ({
+          ...prev,
+          _count: {
+            ...prev._count,
+            repositories: prev._count.repositories + 1,
+          },
+        }));
+        await Promise.all([fetchRepositories(), fetchAvailableRepos(), fetchActivities(), fetchAnalytics()]);
+        showSectionStatus(setRepoStatus, "success", "Repository added to organization");
+      } else {
+        showSectionStatus(setRepoStatus, "error", data.error?.message || "Failed to add repository");
+      }
+    } catch (error) {
+      console.error("Add repository error:", error);
+      showSectionStatus(setRepoStatus, "error", "Failed to add repository");
+    } finally {
+      setAddingRepo(false);
+    }
+  };
+
+  const handleRemoveRepository = async () => {
+    if (!repoToRemove) return;
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/orgs/${organization.id}/repos`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repositoryId: repoToRemove.id }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setRepositories((prev) => prev.filter((repo) => repo.id !== repoToRemove.id));
+        setOrganization((prev) => ({
+          ...prev,
+          _count: {
+            ...prev._count,
+            repositories: Math.max(0, prev._count.repositories - 1),
+          },
+        }));
+        await Promise.all([fetchAvailableRepos(), fetchActivities(), fetchAnalytics()]);
+        setRepoToRemove(null);
+        showSectionStatus(setRepoStatus, "success", "Repository removed from organization");
+      } else {
+        showSectionStatus(setRepoStatus, "error", data.error?.message || "Failed to remove repository");
+      }
+    } catch (error) {
+      console.error("Remove repository error:", error);
+      showSectionStatus(setRepoStatus, "error", "Failed to remove repository");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateOrganization = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editName.trim()) return;
+
+    setSavingSettings(true);
+    try {
+      const response = await fetch(`/api/orgs/${organization.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editName.trim() }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setOrganization((prev) => ({
+          ...prev,
+          name: data.data.organization.name,
+        }));
+        setShowSettings(false);
+        await fetchActivities();
+        showSectionStatus(setSettingsStatus, "success", "Organization settings updated");
+      } else {
+        showSectionStatus(setSettingsStatus, "error", data.error?.message || "Failed to update organization");
+      }
+    } catch (error) {
+      console.error("Update organization error:", error);
+      showSectionStatus(setSettingsStatus, "error", "Failed to update organization");
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const handleDeleteOrganization = async () => {
+    setDeletingOrg(true);
+    try {
+      const response = await fetch(`/api/orgs/${organization.id}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+      if (data.success) {
+        router.push("/dashboard/orgs");
+        router.refresh();
+      } else {
+        showError(data.error?.message || "Failed to delete organization");
+        setDeleteOrgDialogOpen(false);
+      }
+    } catch (error) {
+      console.error("Delete organization error:", error);
+      showError("Failed to delete organization");
+      setDeleteOrgDialogOpen(false);
+    } finally {
+      setDeletingOrg(false);
     }
   };
 
@@ -294,11 +469,17 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
         Back to organizations
       </Link>
 
-      {/* Success Message */}
-      {successMsg && (
-        <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2">
-          <CheckCircle className="w-5 h-5 text-green-500" />
-          <p className="text-green-700 dark:text-green-400">{successMsg}</p>
+      {errorMsg && (
+        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 text-red-500" />
+          <p className="flex-1 text-red-700 dark:text-red-400">{errorMsg}</p>
+          <button
+            onClick={() => setErrorMsg(null)}
+            className="rounded-lg p-1 text-red-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30"
+            aria-label="Dismiss error"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 
@@ -329,7 +510,13 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
           </div>
 
           {organization.isOwner && (
-            <button className="flex items-center gap-2 px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <button
+              onClick={() => {
+                setEditName(organization.name);
+                setShowSettings(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
               <Settings className="w-4 h-4" />
               Settings
             </button>
@@ -459,7 +646,7 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
 
         {/* Repositories Section */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <h2 className="text-lg font-semibold flex items-center gap-2 dark:text-white">
               <FolderGit2 className="w-5 h-5" />
               Repositories
@@ -467,18 +654,77 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
                 ({repositories.length})
               </span>
             </h2>
-            <button
-              onClick={fetchRepositories}
-              disabled={loadingRepos}
-              className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50"
-            >
-              {loadingRepos ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4" />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              {canManageRepos && (
+                <form onSubmit={handleAddRepository} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <div className="relative min-w-[240px]">
+                    <select
+                      value={selectedRepoId}
+                      onChange={(e) => setSelectedRepoId(e.target.value)}
+                      disabled={loadingAvailableRepos || addingRepo || availableRepos.length === 0}
+                      className="w-full appearance-none px-3 py-2 pr-8 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5] disabled:opacity-50"
+                    >
+                      <option value="">
+                        {loadingAvailableRepos
+                          ? "Loading repositories..."
+                          : availableRepos.length === 0
+                            ? "No personal repos available"
+                            : "Select repository"}
+                      </option>
+                      {availableRepos.map((repo) => (
+                        <option key={repo.id} value={repo.id}>
+                          {repo.fullName}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500 dark:text-gray-400">
+                      <ChevronDown className="h-4 w-4" />
+                    </div>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={addingRepo || !selectedRepoId}
+                    className="inline-flex items-center justify-center gap-2 px-3 py-2 bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] disabled:opacity-50 text-sm font-medium"
+                  >
+                    {addingRepo ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4" />
+                        Add Repository
+                      </>
+                    )}
+                  </button>
+                </form>
               )}
-            </button>
+              <button
+                onClick={() => {
+                  fetchRepositories();
+                  fetchAvailableRepos();
+                }}
+                disabled={loadingRepos || loadingAvailableRepos}
+                className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {loadingRepos || loadingAvailableRepos ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+              </button>
+            </div>
           </div>
+          {repoStatus && (
+            <div
+              className={cn(
+                "mx-6 mt-4 rounded-lg border px-4 py-3 text-sm",
+                repoStatus.type === "success"
+                  ? "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400"
+                  : "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
+              )}
+            >
+              {repoStatus.message}
+            </div>
+          )}
           {loadingRepos ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
@@ -487,18 +733,32 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
             <div className="text-center py-12 text-gray-500 dark:text-gray-400">
               <FolderGit2 className="w-10 h-10 mx-auto mb-3 opacity-50" />
               <p className="text-sm">No repositories in this organization</p>
-              <p className="text-xs mt-1">Add repositories from the repository settings page</p>
+              <p className="text-xs mt-1">
+                {canManageRepos
+                  ? availableRepos.length > 0
+                    ? "Use the selector above to add a connected repository."
+                    : "Connect a repository first, then add it to this organization."
+                  : "Ask an organization admin to add repositories."}
+              </p>
+              {canManageRepos && availableRepos.length === 0 && !loadingAvailableRepos && (
+                <Link
+                  href="/dashboard/repos"
+                  className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] text-sm font-medium"
+                >
+                  <Plus className="w-4 h-4" />
+                  Connect Repository
+                </Link>
+              )}
             </div>
           ) : (
             <div className="divide-y divide-gray-100 dark:divide-gray-700">
               {repositories.map((repo) => (
-                <Link
+                <div
                   key={repo.id}
-                  href={`/dashboard/repos/${repo.id}`}
                   className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                 >
-                  <div className="flex items-center gap-3">
-                    <FolderGit2 className="w-5 h-5 text-gray-400" />
+                  <Link href={`/dashboard/repos/${repo.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+                    <FolderGit2 className="w-5 h-5 text-gray-400 flex-shrink-0" />
                     <div>
                       <div className="font-medium dark:text-gray-200">{repo.fullName}</div>
                       <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400 mt-0.5">
@@ -521,9 +781,21 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
                         </span>
                       </div>
                     </div>
+                  </Link>
+                  <div className="flex items-center gap-2 pl-4">
+                    {canManageRepos && (
+                      <button
+                        onClick={() => setRepoToRemove({ id: repo.id, fullName: repo.fullName })}
+                        disabled={loading}
+                        className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50"
+                        title="Remove from organization"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                    <ExternalLink className="w-4 h-4 text-gray-400" />
                   </div>
-                  <ExternalLink className="w-4 h-4 text-gray-400" />
-                </Link>
+                </div>
               ))}
             </div>
           )}
@@ -532,24 +804,34 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
         {/* Invite Section */}
         {canManageMembers && (
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="text-lg font-semibold mb-4 dark:text-white">Invite Team Members</h2>
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold dark:text-white">Add Team Member</h2>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Add someone who has already signed in to Revio using their GitHub username.
+              </p>
+            </div>
             <form onSubmit={handleInvite} className="flex flex-col gap-4 sm:flex-row sm:flex-wrap lg:flex-nowrap">
               <input
                 type="text"
                 placeholder="GitHub username"
                 value={inviteUsername}
                 onChange={(e) => setInviteUsername(e.target.value)}
-                className="flex-1 px-4 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-lg focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5]"
+                className="flex-1 px-4 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5]"
               />
-              <select
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value as typeof inviteRole)}
-                className="px-4 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-lg focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5]"
-              >
-                <option value="viewer">Viewer</option>
-                <option value="member">Member</option>
-                <option value="admin">Admin</option>
-              </select>
+              <div className="relative sm:w-44">
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as typeof inviteRole)}
+                  className="w-full appearance-none px-4 py-2 pr-9 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5]"
+                >
+                  <option value="viewer">Viewer</option>
+                  <option value="member">Member</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500 dark:text-gray-400">
+                  <ChevronDown className="h-4 w-4" />
+                </div>
+              </div>
               <button
                 type="submit"
                 disabled={loading || !inviteUsername.trim()}
@@ -560,11 +842,23 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
                 ) : (
                   <>
                     <Plus className="w-4 h-4" />
-                    Invite
+                    Add Member
                   </>
                 )}
               </button>
             </form>
+            {memberStatus && (
+              <div
+                className={cn(
+                  "mt-4 rounded-lg border px-4 py-3 text-sm",
+                  memberStatus.type === "success"
+                    ? "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400"
+                    : "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
+                )}
+              >
+                {memberStatus.message}
+              </div>
+            )}
           </div>
         )}
 
@@ -612,18 +906,23 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
                   </div>
                   {canManageMembers && member.role !== "owner" && (
                     <div className="flex items-center gap-2">
-                      <select
-                        value={member.role}
-                        onChange={(e) => handleUpdateRole(member.id, e.target.value, member.user.githubUsername)}
-                        disabled={loading}
-                        className="px-3 py-1 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-lg focus:ring-2 focus:ring-[#4F46E5] disabled:opacity-50"
-                      >
-                        <option value="viewer">Viewer</option>
-                        <option value="member">Member</option>
-                        <option value="admin">Admin</option>
-                      </select>
+                      <div className="relative w-32">
+                        <select
+                          value={member.role}
+                          onChange={(e) => handleUpdateRole(member.id, e.target.value, member.user.githubUsername)}
+                          disabled={loading}
+                          className="w-full appearance-none px-3 py-1.5 pr-8 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5] disabled:opacity-50"
+                        >
+                          <option value="viewer">Viewer</option>
+                          <option value="member">Member</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500 dark:text-gray-400">
+                          <ChevronDown className="h-4 w-4" />
+                        </div>
+                      </div>
                       <button
-                        onClick={() => handleRemoveMember(member.id, member.user.githubUsername)}
+                        onClick={() => setMemberToRemove({ id: member.id, username: member.user.githubUsername })}
                         disabled={loading}
                         className="p-2 text-[#EF4444] hover:bg-[#FEF2F2] rounded-lg transition-colors disabled:opacity-50"
                       >
@@ -730,7 +1029,12 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
                     Permanently delete this organization and all its data. This action cannot be undone.
                   </p>
                 </div>
-                <button className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium">
+                <button
+                  onClick={() => setDeleteOrgDialogOpen(true)}
+                  disabled={deletingOrg}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium disabled:opacity-50"
+                >
+                  {deletingOrg && <Loader2 className="w-4 h-4 animate-spin" />}
                   Delete Organization
                 </button>
               </div>
@@ -738,6 +1042,127 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
           </div>
         )}
       </div>
+
+      {showSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-gray-800">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold dark:text-white">Organization Settings</h2>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Update the organization display name.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+                aria-label="Close settings"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateOrganization} className="space-y-4">
+              {settingsStatus && (
+                <div
+                  className={cn(
+                    "rounded-lg border px-4 py-3 text-sm",
+                    settingsStatus.type === "success"
+                      ? "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400"
+                      : "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
+                  )}
+                >
+                  {settingsStatus.message}
+                </div>
+              )}
+              <div>
+                <label className="mb-1 block text-sm font-medium dark:text-gray-300">
+                  Organization Name
+                </label>
+                <input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium dark:text-gray-300">
+                  URL Slug
+                </label>
+                <input
+                  value={organization.slug}
+                  disabled
+                  className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Slugs are fixed after organization creation.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSettings(false)}
+                  className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingSettings || !editName.trim()}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#4F46E5] px-4 py-2 text-white hover:bg-[#4338CA] disabled:opacity-50"
+                >
+                  {savingSettings && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        isOpen={memberToRemove !== null}
+        onClose={() => setMemberToRemove(null)}
+        onConfirm={handleRemoveMember}
+        title="Remove team member?"
+        message={
+          memberToRemove
+            ? `Remove ${memberToRemove.username} from ${organization.name}? They will lose access to this organization's repositories and analytics.`
+            : ""
+        }
+        confirmText="Remove"
+        variant="danger"
+        isLoading={loading}
+      />
+
+      <ConfirmDialog
+        isOpen={repoToRemove !== null}
+        onClose={() => setRepoToRemove(null)}
+        onConfirm={handleRemoveRepository}
+        title="Remove repository?"
+        message={
+          repoToRemove
+            ? `Remove ${repoToRemove.fullName} from ${organization.name}? The repository will move back to your personal connected repositories.`
+            : ""
+        }
+        confirmText="Remove"
+        variant="danger"
+        isLoading={loading}
+      />
+
+      <ConfirmDialog
+        isOpen={deleteOrgDialogOpen}
+        onClose={() => setDeleteOrgDialogOpen(false)}
+        onConfirm={handleDeleteOrganization}
+        title="Delete organization?"
+        message={`Delete ${organization.name}? This is only allowed when the organization has no repositories and no other members.`}
+        confirmText="Delete"
+        variant="danger"
+        isLoading={deletingOrg}
+      />
     </div>
   );
 }
