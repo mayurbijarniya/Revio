@@ -226,6 +226,10 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
     }
   };
 
+  const refreshOrganizationData = useCallback(async () => {
+    await Promise.all([fetchRepositories(), fetchAvailableRepos(), fetchActivities(), fetchAnalytics()]);
+  }, [fetchRepositories, fetchAvailableRepos, fetchActivities, fetchAnalytics]);
+
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteUsername.trim()) return;
@@ -327,7 +331,7 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
 
   const handleAddRepository = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedRepoId) return;
+    if (!selectedRepoId || addingRepo) return;
 
     setAddingRepo(true);
     try {
@@ -347,7 +351,7 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
             repositories: prev._count.repositories + 1,
           },
         }));
-        await Promise.all([fetchRepositories(), fetchAvailableRepos(), fetchActivities(), fetchAnalytics()]);
+        await refreshOrganizationData();
         showSectionStatus(setRepoStatus, "success", "Repository added to organization");
       } else {
         showSectionStatus(setRepoStatus, "error", data.error?.message || "Failed to add repository");
@@ -380,7 +384,7 @@ export default function OrganizationPage({ organization: initialOrg }: Organizat
             repositories: Math.max(0, prev._count.repositories - 1),
           },
         }));
-        await Promise.all([fetchAvailableRepos(), fetchActivities(), fetchAnalytics()]);
+        await refreshOrganizationData();
         setRepoToRemove(null);
         showSectionStatus(setRepoStatus, "success", "Repository removed from organization");
       } else {
