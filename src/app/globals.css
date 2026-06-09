@@ -280,7 +280,7 @@ body {
 :not(pre)>code {
   font-family: 'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace;
   font-size: 0.85em;
-  font-weight: 600;
+  font-weight: 500;
   color: #4F46E5;
   word-break: break-word;
   background: none;
@@ -1065,25 +1065,38 @@ body {
 .code-block-content {
   margin: 0 !important;
   padding: 0 !important;
+  font-family: 'JetBrains Mono', 'Menlo', 'Consolas', 'Courier New', monospace !important;
 }
 
 .code-block-content pre {
-  background: #0d0d0d !important;
+  background: #ffffff !important;
   margin: 0 !important;
   padding: 0 !important;
   border: none !important;
+  font-family: inherit !important;
 }
 
 .code-block-content code {
   background: transparent !important;
+  font-family: inherit !important;
 }
 
 .code-block-content pre code {
+  color: #1f2937 !important;
+  font-family: inherit !important;
+}
+
+.dark .code-block-content pre {
+  background: #111827 !important;
+}
+
+.dark .code-block-content pre code {
   color: #d4d4d4 !important;
 }
 
 .code-block-content span {
   background: transparent !important;
+  font-family: inherit !important;
 }
 
 /* Custom scrollbar for code blocks */
