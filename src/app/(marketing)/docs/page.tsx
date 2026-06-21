@@ -423,6 +423,7 @@ export default function DocsPage() {
                 You&apos;ll see a list of all repositories where the Revio Bot is installed.
               </DocParagraph>
               <DocList items={[
+                "Use the All, Public, and Private filters to narrow available repositories before connecting",
                 "Click 'Connect' next to any repository",
                 "Revio will automatically start indexing the codebase",
                 "A webhook is created to receive PR events",

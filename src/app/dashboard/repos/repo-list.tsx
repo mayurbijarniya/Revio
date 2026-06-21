@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   FolderGit2,
   Lock,
@@ -35,6 +35,7 @@ export function RepoList() {
   const [hasMoreRepos, setHasMoreRepos] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>("all");
+  const availableReposAbortController = useRef<AbortController | null>(null);
   const visibilityFilterIndex = ["all", "public", "private"].indexOf(visibilityFilter);
 
   const fetchConnectedRepos = useCallback(async (silent: boolean = false) => {
@@ -64,11 +65,17 @@ export function RepoList() {
   }, []);
 
   async function fetchAvailableRepos(visibility: VisibilityFilter = visibilityFilter) {
+    availableReposAbortController.current?.abort();
+    const abortController = new AbortController();
+    availableReposAbortController.current = abortController;
+
     setLoading(true);
     setError(null);
     setAvailablePage(1);
     try {
-      const res = await fetch(`/api/repos?page=1&per_page=30&visibility=${visibility}`);
+      const res = await fetch(`/api/repos?page=1&per_page=30&visibility=${visibility}`, {
+        signal: abortController.signal,
+      });
       const data = await res.json();
       if (data.success) {
         setAvailableRepos(data.data.repositories);
@@ -76,19 +83,28 @@ export function RepoList() {
       } else {
         setError(data.error?.message || "Failed to fetch repositories");
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
       setError("Failed to fetch repositories");
     } finally {
-      setLoading(false);
+      if (availableReposAbortController.current === abortController) {
+        availableReposAbortController.current = null;
+        setLoading(false);
+      }
     }
   }
 
   async function loadMoreRepos() {
+    availableReposAbortController.current?.abort();
+    const abortController = new AbortController();
+    availableReposAbortController.current = abortController;
+
     setLoadingMore(true);
     const nextPage = availablePage + 1;
     try {
       const res = await fetch(
-        `/api/repos?page=${nextPage}&per_page=30&visibility=${visibilityFilter}`
+        `/api/repos?page=${nextPage}&per_page=30&visibility=${visibilityFilter}`,
+        { signal: abortController.signal }
       );
       const data = await res.json();
       if (data.success) {
@@ -96,10 +112,14 @@ export function RepoList() {
         setHasMoreRepos(data.data.hasMore);
         setAvailablePage(nextPage);
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
       setError("Failed to load more repositories");
     } finally {
-      setLoadingMore(false);
+      if (availableReposAbortController.current === abortController) {
+        availableReposAbortController.current = null;
+        setLoadingMore(false);
+      }
     }
   }
 
@@ -126,6 +146,10 @@ export function RepoList() {
       void fetchAvailableRepos();
     }
   }, [activeTab, fetchConnectedRepos]);
+
+  useEffect(() => {
+    return () => availableReposAbortController.current?.abort();
+  }, []);
 
   useEffect(() => {
     if (activeTab !== "connected") return;
