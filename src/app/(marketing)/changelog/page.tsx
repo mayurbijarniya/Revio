@@ -32,6 +32,43 @@ interface Release {
 
 const releases: Release[] = [
   {
+    version: "3.2.0",
+    date: "June 21, 2026",
+    title: "Repository Filtering, Dashboard Feedback & Review Polish",
+    description: "Repository visibility filters, organization management improvements, dashboard feedback refinements, theme-aware chat code blocks, and clearer PR review verdicts.",
+    type: "minor",
+    icon: Rocket,
+    changes: [
+      {
+        category: "added",
+        items: [
+          "Available repositories can now be filtered by All, Public, or Private visibility",
+          "Repository visibility filtering is handled server-side with pagination, so Load more respects the selected filter",
+          "Segmented visibility control added beside Refresh on the repository connection screen",
+          "Organization management flows now include improved dashboard feedback for user actions",
+        ],
+      },
+      {
+        category: "improved",
+        items: [
+          "Dashboard typography refined for better readability across repository, review, and organization views",
+          "Chat code blocks now render with better theme-aware styling in light and dark modes",
+          "Review verdict messaging is aligned between the dashboard and GitHub comments",
+          "Chat and complex reasoning model configuration updated for current review workflows",
+          "Review prompt quality improved with better guidance and token tracking",
+        ],
+      },
+      {
+        category: "fixed",
+        items: [
+          "Repository visibility filter no longer only filters already-loaded repositories",
+          "Rapid repository filter changes now cancel stale requests to keep the selected filter and results in sync",
+          "PR review output consistency improved across re-review and GitHub posting flows",
+        ],
+      },
+    ],
+  },
+  {
     version: "3.1.0",
     date: "April 4, 2026",
     title: "Chat Streaming, UI Polish & Embedding Reliability",
