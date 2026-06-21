@@ -117,6 +117,24 @@ interface ReviewData {
   feedback: string | null;
 }
 
+function getIssueWeight(severity?: string) {
+  switch (severity) {
+    case "critical":
+      return 10;
+    case "high":
+      return 5;
+    case "medium":
+    case "warning":
+      return 2;
+    case "low":
+    case "info":
+    case "suggestion":
+      return 0.5;
+    default:
+      return 1;
+  }
+}
+
 function calculateQualityMetrics(reviews: ReviewData[]) {
   const completed = reviews.filter((r) => r.status === "completed");
 
@@ -159,7 +177,10 @@ function calculateQualityMetrics(reviews: ReviewData[]) {
 
   // Calculate quality score (100 - weighted issues)
   const weightedIssues =
-    criticalCount * 10 + highCount * 5 + mediumCount * 2 + lowCount * 0.5;
+    criticalCount * getIssueWeight("critical") +
+    highCount * getIssueWeight("high") +
+    mediumCount * getIssueWeight("medium") +
+    lowCount * getIssueWeight("low");
   const qualityScore = Math.max(
     0,
     Math.min(100, 100 - Math.round(weightedIssues / Math.max(1, completed.length)))
@@ -233,7 +254,7 @@ function calculateHotspots(reviews: ReviewData[]) {
 function calculateTrends(reviews: ReviewData[], days: number) {
   const trends: Record<
     string,
-    { date: string; reviews: number; issues: number; avgQuality: number }
+    { date: string; reviews: number; issues: number; weightedIssues: number; avgQuality: number }
   > = {};
 
   // Initialize days
@@ -241,7 +262,7 @@ function calculateTrends(reviews: ReviewData[], days: number) {
     const date = new Date();
     date.setDate(date.getDate() - i);
     const dateStr = date.toISOString().split("T")[0] || "";
-    trends[dateStr] = { date: dateStr, reviews: 0, issues: 0, avgQuality: 100 };
+    trends[dateStr] = { date: dateStr, reviews: 0, issues: 0, weightedIssues: 0, avgQuality: 100 };
   }
 
   // Fill in data
@@ -249,9 +270,13 @@ function calculateTrends(reviews: ReviewData[], days: number) {
     const dateStr = review.createdAt.toISOString().split("T")[0] || "";
     if (trends[dateStr]) {
       trends[dateStr].reviews++;
-      const issues = review.issues as Array<unknown> | null;
+      const issues = review.issues as Array<{ severity?: string }> | null;
       if (Array.isArray(issues)) {
         trends[dateStr].issues += issues.length;
+        trends[dateStr].weightedIssues += issues.reduce(
+          (sum, issue) => sum + getIssueWeight(issue.severity),
+          0
+        );
       }
     }
   }
@@ -260,8 +285,7 @@ function calculateTrends(reviews: ReviewData[], days: number) {
   for (const key of Object.keys(trends)) {
     const t = trends[key];
     if (t && t.reviews > 0) {
-      // Simple quality score: 100 - (issues per review * 10)
-      t.avgQuality = Math.max(0, 100 - Math.round((t.issues / t.reviews) * 10));
+      t.avgQuality = Math.max(0, 100 - Math.round(t.weightedIssues / t.reviews));
     }
   }
 

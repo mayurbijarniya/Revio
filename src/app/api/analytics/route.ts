@@ -187,6 +187,24 @@ export async function GET(request: NextRequest) {
       title?: string;
     }
 
+    function getIssueWeight(severity?: string) {
+      switch (severity) {
+        case "critical":
+          return 10;
+        case "high":
+          return 5;
+        case "medium":
+        case "warning":
+          return 2;
+        case "low":
+        case "info":
+        case "suggestion":
+          return 0.5;
+        default:
+          return 1;
+      }
+    }
+
     const severityCounts: Record<string, number> = {
       critical: 0,
       warning: 0,
@@ -240,8 +258,11 @@ export async function GET(request: NextRequest) {
         }
       });
 
-      // Repo trend quality score per review: 100 - (issues * 10)
-      const quality = Math.max(0, 100 - Math.round(issues.length * 10));
+      const weightedIssues = issues.reduce(
+        (sum, issue) => sum + getIssueWeight(issue.severity),
+        0
+      );
+      const quality = Math.max(0, 100 - Math.round(weightedIssues));
       const agg = repoTrendAgg.get(review.repositoryId) || {
         beforeSum: 0,
         beforeCount: 0,
