@@ -17,6 +17,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { AvailableRepository, ConnectedRepository } from "@/types/repository";
 
 type Tab = "connected" | "available";
+type VisibilityFilter = "all" | "public" | "private";
 
 export function RepoList() {
   const [activeTab, setActiveTab] = useState<Tab>("connected");
@@ -33,6 +34,14 @@ export function RepoList() {
   const [availablePage, setAvailablePage] = useState(1);
   const [hasMoreRepos, setHasMoreRepos] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>("all");
+
+  const filteredAvailableRepos = availableRepos.filter((repo) => {
+    if (visibilityFilter === "private") return repo.private;
+    if (visibilityFilter === "public") return !repo.private;
+    return true;
+  });
+  const visibilityFilterIndex = ["all", "public", "private"].indexOf(visibilityFilter);
 
   const fetchConnectedRepos = useCallback(async (silent: boolean = false) => {
     if (!silent) {
@@ -258,15 +267,48 @@ export function RepoList() {
             Available to Connect
           </button>
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={loading || refreshing}
-          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl transition-all disabled:opacity-50 w-full md:w-auto justify-center"
-          title="Refresh repository list"
-        >
-          <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
-          Refresh
-        </button>
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
+          {activeTab === "available" && availableRepos.length > 0 && (
+            <div className="relative grid grid-cols-3 w-full sm:w-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-1 overflow-hidden">
+              <div
+                className="absolute left-1 top-1 bottom-1 rounded-lg bg-[#4F46E5] shadow-sm transition-transform duration-200 ease-out"
+                style={{
+                  width: "calc((100% - 0.5rem) / 3)",
+                  transform: `translateX(${visibilityFilterIndex * 100}%)`,
+                }}
+              />
+              {([
+                ["all", "All"],
+                ["public", "Public"],
+                ["private", "Private"],
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => setVisibilityFilter(value)}
+                  className={cn(
+                    "relative z-10 inline-flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors duration-200",
+                    visibilityFilter === value
+                      ? "text-white"
+                      : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  )}
+                >
+                  {value === "private" && <Lock className="w-3.5 h-3.5" />}
+                  {value === "public" && <Globe className="w-3.5 h-3.5" />}
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          <button
+            onClick={handleRefresh}
+            disabled={loading || refreshing}
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl transition-all disabled:opacity-50 w-full sm:w-auto justify-center"
+            title="Refresh repository list"
+          >
+            <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Error message */}
@@ -329,9 +371,17 @@ export function RepoList() {
                 We couldn&apos;t find any repositories in your GitHub account
               </p>
             </div>
+          ) : filteredAvailableRepos.length === 0 ? (
+            <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+              <FolderGit2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">No {visibilityFilter} repositories found</h3>
+              <p className="text-gray-500 dark:text-gray-400">
+                Try another filter or load more repositories.
+              </p>
+            </div>
           ) : (
             <>
-              {availableRepos.map((repo) => (
+              {filteredAvailableRepos.map((repo) => (
                 <AvailableRepoCard
                   key={repo.id}
                   repo={repo}
