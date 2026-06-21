@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { jsonSuccess, jsonError } from "@/lib/api-utils";
+import { calculateQualityScoreFromWeight, calculateWeightedIssues } from "@/lib/scoring";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -117,24 +118,6 @@ interface ReviewData {
   feedback: string | null;
 }
 
-function getIssueWeight(severity?: string) {
-  switch (severity) {
-    case "critical":
-      return 10;
-    case "high":
-      return 5;
-    case "medium":
-    case "warning":
-      return 2;
-    case "low":
-    case "info":
-    case "suggestion":
-      return 0.5;
-    default:
-      return 1;
-  }
-}
-
 function calculateQualityMetrics(reviews: ReviewData[]) {
   const completed = reviews.filter((r) => r.status === "completed");
 
@@ -176,15 +159,11 @@ function calculateQualityMetrics(reviews: ReviewData[]) {
       : 0;
 
   // Calculate quality score (100 - weighted issues)
-  const weightedIssues =
-    criticalCount * getIssueWeight("critical") +
-    highCount * getIssueWeight("high") +
-    mediumCount * getIssueWeight("medium") +
-    lowCount * getIssueWeight("low");
-  const qualityScore = Math.max(
-    0,
-    Math.min(100, 100 - Math.round(weightedIssues / Math.max(1, completed.length)))
-  );
+  const weightedIssues = completed.reduce((sum, review) => {
+    const issues = review.issues as Array<{ severity?: string }> | null;
+    return sum + (Array.isArray(issues) ? calculateWeightedIssues(issues) : 0);
+  }, 0);
+  const qualityScore = calculateQualityScoreFromWeight(weightedIssues, completed.length);
 
   return {
     totalReviews: reviews.length,
@@ -273,10 +252,7 @@ function calculateTrends(reviews: ReviewData[], days: number) {
       const issues = review.issues as Array<{ severity?: string }> | null;
       if (Array.isArray(issues)) {
         trends[dateStr].issues += issues.length;
-        trends[dateStr].weightedIssues += issues.reduce(
-          (sum, issue) => sum + getIssueWeight(issue.severity),
-          0
-        );
+        trends[dateStr].weightedIssues += calculateWeightedIssues(issues);
       }
     }
   }
@@ -285,7 +261,7 @@ function calculateTrends(reviews: ReviewData[], days: number) {
   for (const key of Object.keys(trends)) {
     const t = trends[key];
     if (t && t.reviews > 0) {
-      t.avgQuality = Math.max(0, 100 - Math.round(t.weightedIssues / t.reviews));
+      t.avgQuality = calculateQualityScoreFromWeight(t.weightedIssues, t.reviews);
     }
   }
 

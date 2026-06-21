@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { jsonSuccess, jsonError } from "@/lib/api-utils";
+import { calculateQualityScoreFromWeight, calculateWeightedIssues } from "@/lib/scoring";
 
 /**
  * GET /api/analytics
@@ -187,24 +188,6 @@ export async function GET(request: NextRequest) {
       title?: string;
     }
 
-    function getIssueWeight(severity?: string) {
-      switch (severity) {
-        case "critical":
-          return 10;
-        case "high":
-          return 5;
-        case "medium":
-        case "warning":
-          return 2;
-        case "low":
-        case "info":
-        case "suggestion":
-          return 0.5;
-        default:
-          return 1;
-      }
-    }
-
     const severityCounts: Record<string, number> = {
       critical: 0,
       warning: 0,
@@ -258,11 +241,8 @@ export async function GET(request: NextRequest) {
         }
       });
 
-      const weightedIssues = issues.reduce(
-        (sum, issue) => sum + getIssueWeight(issue.severity),
-        0
-      );
-      const quality = Math.max(0, 100 - Math.round(weightedIssues));
+      const weightedIssues = calculateWeightedIssues(issues);
+      const quality = calculateQualityScoreFromWeight(weightedIssues);
       const agg = repoTrendAgg.get(review.repositoryId) || {
         beforeSum: 0,
         beforeCount: 0,
