@@ -23,6 +23,8 @@ export interface GitHubRepo {
   };
 }
 
+export type GitHubRepoVisibility = "all" | "public" | "private";
+
 /**
  * Changed file in a PR
  */
@@ -75,14 +77,15 @@ export class GitHubService {
    */
   async getUserRepos(
     page: number = 1,
-    perPage: number = 30
+    perPage: number = 30,
+    visibility: GitHubRepoVisibility = "all"
   ): Promise<GitHubRepo[]> {
     const { data } = await this.octokit.rest.repos.listForAuthenticatedUser({
       sort: "pushed",
       direction: "desc",
       per_page: perPage,
       page,
-      type: "all",
+      type: visibility,
     });
 
     return data.map((repo) => ({

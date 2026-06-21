@@ -35,12 +35,6 @@ export function RepoList() {
   const [hasMoreRepos, setHasMoreRepos] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>("all");
-
-  const filteredAvailableRepos = availableRepos.filter((repo) => {
-    if (visibilityFilter === "private") return repo.private;
-    if (visibilityFilter === "public") return !repo.private;
-    return true;
-  });
   const visibilityFilterIndex = ["all", "public", "private"].indexOf(visibilityFilter);
 
   const fetchConnectedRepos = useCallback(async (silent: boolean = false) => {
@@ -69,12 +63,12 @@ export function RepoList() {
     }
   }, []);
 
-  async function fetchAvailableRepos() {
+  async function fetchAvailableRepos(visibility: VisibilityFilter = visibilityFilter) {
     setLoading(true);
     setError(null);
     setAvailablePage(1);
     try {
-      const res = await fetch("/api/repos?page=1&per_page=30");
+      const res = await fetch(`/api/repos?page=1&per_page=30&visibility=${visibility}`);
       const data = await res.json();
       if (data.success) {
         setAvailableRepos(data.data.repositories);
@@ -93,7 +87,9 @@ export function RepoList() {
     setLoadingMore(true);
     const nextPage = availablePage + 1;
     try {
-      const res = await fetch(`/api/repos?page=${nextPage}&per_page=30`);
+      const res = await fetch(
+        `/api/repos?page=${nextPage}&per_page=30&visibility=${visibilityFilter}`
+      );
       const data = await res.json();
       if (data.success) {
         setAvailableRepos((prev) => [...prev, ...data.data.repositories]);
@@ -105,6 +101,11 @@ export function RepoList() {
     } finally {
       setLoadingMore(false);
     }
+  }
+
+  function handleVisibilityFilterChange(visibility: VisibilityFilter) {
+    setVisibilityFilter(visibility);
+    void fetchAvailableRepos(visibility);
   }
 
   async function handleRefresh() {
@@ -268,7 +269,7 @@ export function RepoList() {
           </button>
         </div>
         <div className="flex flex-wrap gap-2 w-full md:w-auto">
-          {activeTab === "available" && availableRepos.length > 0 && (
+          {activeTab === "available" && (
             <div className="relative grid grid-cols-3 w-full sm:w-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-1 overflow-hidden">
               <div
                 className="absolute left-1 top-1 bottom-1 rounded-lg bg-[#4F46E5] shadow-sm transition-transform duration-200 ease-out"
@@ -284,7 +285,7 @@ export function RepoList() {
               ] as const).map(([value, label]) => (
                 <button
                   key={value}
-                  onClick={() => setVisibilityFilter(value)}
+                  onClick={() => handleVisibilityFilterChange(value)}
                   className={cn(
                     "relative z-10 inline-flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors duration-200",
                     visibilityFilter === value
@@ -366,22 +367,20 @@ export function RepoList() {
           {availableRepos.length === 0 ? (
             <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
               <FolderGit2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">No repositories found</h3>
+              <h3 className="text-lg font-medium mb-2">
+                {visibilityFilter === "all"
+                  ? "No repositories found"
+                  : `No ${visibilityFilter} repositories found`}
+              </h3>
               <p className="text-gray-500 dark:text-gray-400">
-                We couldn&apos;t find any repositories in your GitHub account
-              </p>
-            </div>
-          ) : filteredAvailableRepos.length === 0 ? (
-            <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-              <FolderGit2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">No {visibilityFilter} repositories found</h3>
-              <p className="text-gray-500 dark:text-gray-400">
-                Try another filter or load more repositories.
+                {visibilityFilter === "all"
+                  ? "We couldn't find any repositories in your GitHub account"
+                  : `We couldn't find any ${visibilityFilter} repositories in your GitHub account`}
               </p>
             </div>
           ) : (
             <>
-              {filteredAvailableRepos.map((repo) => (
+              {availableRepos.map((repo) => (
                 <AvailableRepoCard
                   key={repo.id}
                   repo={repo}
