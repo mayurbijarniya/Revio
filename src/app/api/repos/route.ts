@@ -2,9 +2,11 @@ import { NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { getUserAccessToken } from "@/lib/auth";
-import { GitHubService } from "@/lib/services/github";
+import { GitHubService, type GitHubRepoVisibility } from "@/lib/services/github";
 import { jsonSuccess, jsonError } from "@/lib/api-utils";
 import type { AvailableRepository } from "@/types/repository";
+
+const REPO_VISIBILITIES: GitHubRepoVisibility[] = ["all", "public", "private"];
 
 /**
  * GET /api/repos
@@ -21,6 +23,10 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const page = parseInt(searchParams.get("page") || "1", 10);
   const perPage = parseInt(searchParams.get("per_page") || "30", 10);
+  const requestedVisibility = searchParams.get("visibility") || "all";
+  const visibility = REPO_VISIBILITIES.includes(requestedVisibility as GitHubRepoVisibility)
+    ? (requestedVisibility as GitHubRepoVisibility)
+    : "all";
 
   try {
     // Get user's access token
@@ -31,7 +37,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch repos from GitHub
     const github = new GitHubService(accessToken);
-    const githubRepos = await github.getUserRepos(page, perPage);
+    const githubRepos = await github.getUserRepos(page, perPage, visibility);
 
     // Get connected repo IDs for this user
     const connectedRepos = await db.repository.findMany({
@@ -58,6 +64,7 @@ export async function GET(request: NextRequest) {
       repositories: repos,
       page,
       perPage,
+      visibility,
       hasMore: githubRepos.length === perPage,
     });
   } catch (error) {
