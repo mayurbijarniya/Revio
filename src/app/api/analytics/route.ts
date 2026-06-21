@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { jsonSuccess, jsonError } from "@/lib/api-utils";
+import { calculateQualityScoreFromWeight, calculateWeightedIssues } from "@/lib/scoring";
 
 /**
  * GET /api/analytics
@@ -240,8 +241,8 @@ export async function GET(request: NextRequest) {
         }
       });
 
-      // Repo trend quality score per review: 100 - (issues * 10)
-      const quality = Math.max(0, 100 - Math.round(issues.length * 10));
+      const weightedIssues = calculateWeightedIssues(issues);
+      const quality = calculateQualityScoreFromWeight(weightedIssues);
       const agg = repoTrendAgg.get(review.repositoryId) || {
         beforeSum: 0,
         beforeCount: 0,
