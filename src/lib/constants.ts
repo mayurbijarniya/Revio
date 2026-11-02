@@ -65,6 +65,11 @@ export const AI_CONFIG = {
     fallbackModel: "gemini-3.5-flash-lite",
     maxOutputTokens: 4096,
     temperature: 0.7,
+    /** Most recent messages sent as conversation history */
+    historyMessages: 20,
+    /** Vector search settings shared by first messages and follow-ups */
+    retrievalMaxChunks: 15,
+    retrievalScoreThreshold: 0.1,
   },
   review: {
     model: "gemini-3.5-flash-lite",

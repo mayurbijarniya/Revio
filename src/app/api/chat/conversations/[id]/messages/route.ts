@@ -1,16 +1,28 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { jsonSuccess, jsonError } from "@/lib/api-utils";
+import { jsonSuccess, jsonError, checkPlanLimit } from "@/lib/api-utils";
 import { sendMessageSchema } from "@/types/chat";
-import { retrieveContext, retrieveMultiRepoContext, formatContextForPrompt, type SearchFilters } from "@/lib/services/retriever";
-import {
-  generateChatResponse,
-  generateChatResponseStream,
-  type ChatMessage,
-} from "@/lib/services/gemini";
+import type { SearchFilters } from "@/lib/services/retriever";
+import { generateChatResponse, type ChatMessage } from "@/lib/services/gemini";
 import { CHAT_SYSTEM_PROMPT, buildFollowUpMessage } from "@/lib/prompts/chat";
-import { extractFullRepoContext } from "@/lib/services/full-repo-context";
+import {
+  combineFullRepoContext,
+  extractFullRepoContext,
+  formatFullRepoContextForStorage,
+  getFullRepoContext,
+  isFullRepoContextStale,
+} from "@/lib/services/full-repo-context";
+import {
+  EMPTY_REPLY_TEXT,
+  buildChatHistory,
+  buildRetrievalQuery,
+  checkChatRateLimit,
+  isRepositoryChatReady,
+  retrieveChatContext,
+  streamChatReply,
+} from "@/lib/services/chat-service";
+import { AI_CONFIG } from "@/lib/constants";
 import { Prisma } from "@prisma/client";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -43,26 +55,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const { content, filters } = parsed.data;
     const isStreaming = request.headers.get("accept")?.includes("text/event-stream");
 
-    // Convert filters from Zod type to retriever type
-    const searchFilters: SearchFilters | undefined = filters ? {
-      extensions: filters.extensions,
-      paths: filters.paths,
-      types: filters.types,
-    } : undefined;
+    const searchFilters: SearchFilters | undefined = filters
+      ? { extensions: filters.extensions, paths: filters.paths, types: filters.types }
+      : undefined;
 
-    // Verify conversation ownership and get repository
+    // Verify conversation ownership; load the most recent messages for history
     const conversation = await db.conversation.findFirst({
       where: {
         id,
         userId: session.userId,
       },
       include: {
-        repository: {
-          select: { id: true, indexStatus: true, fullName: true },
-        },
         messages: {
-          orderBy: { createdAt: "asc" },
-          take: 20, // Get last 20 messages for context
+          orderBy: { createdAt: "desc" },
+          take: AI_CONFIG.chat.historyMessages,
         },
       },
     });
@@ -71,20 +77,31 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return jsonError("CHAT_002", "Conversation not found", 404);
     }
 
-    // Get all repos in this conversation to check indexing status
+    const limit = await checkPlanLimit(session.userId, "messages");
+    if (!limit.allowed) return limit.error!;
+    const rateLimitError = await checkChatRateLimit(session.userId);
+    if (rateLimitError) return rateLimitError;
+
     const repositoryIds = conversation.repositoryIds?.length > 0
       ? conversation.repositoryIds
       : [conversation.repositoryId];
 
     const repos = await db.repository.findMany({
-      where: { id: { in: repositoryIds } },
-      select: { id: true, indexStatus: true, fullName: true },
+      where: { id: { in: repositoryIds }, userId: session.userId },
+      select: { id: true, indexStatus: true, chunkCount: true, fullName: true, indexedAt: true },
     });
 
-    // Check if all repos are indexed
-    const notIndexed = repos.filter((r) => r.indexStatus !== "indexed");
-    if (notIndexed.length > 0) {
-      const names = notIndexed.map((r) => r.fullName).join(", ");
+    if (repos.length === 0) {
+      return jsonError(
+        "REPO_001",
+        "The repositories for this conversation are no longer connected.",
+        404
+      );
+    }
+
+    const notReady = repos.filter((r) => !isRepositoryChatReady(r));
+    if (notReady.length > 0) {
+      const names = notReady.map((r) => r.fullName).join(", ");
       return jsonError(
         "INDEX_003",
         `All repositories must be indexed before chatting. Not indexed: ${names}`,
@@ -92,73 +109,41 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
-    // Get context based on conversation mode
-    let formattedContext: string | undefined;
-    let contextChunksForStorage: unknown = null;
+    const availableRepoIds = repos.map((r) => r.id);
+    // Loaded newest-first; history needs oldest-first
+    const previousUserMessage = conversation.messages.find((m) => m.role === "user")?.content;
+    const recentMessages = [...conversation.messages].reverse();
+
+    // Relevant code for this question (both modes)
+    const retrieval = await retrieveChatContext(
+      availableRepoIds,
+      buildRetrievalQuery(content, previousUserMessage),
+      conversation.mode === "full_repo" ? undefined : searchFilters
+    );
+
+    let formattedContext = retrieval.formatted;
+    let contextChunksForStorage = retrieval.storage;
 
     if (conversation.mode === "full_repo") {
-      // Full repo mode: Use cached context
-      const cachedContext = extractFullRepoContext(conversation.fullRepoContext);
-      if (cachedContext) {
-        formattedContext = cachedContext;
-        contextChunksForStorage = { type: "full_repo", cached: true };
-      } else {
-        // This shouldn't happen, but handle gracefully
-        console.error("Full repo context not found in conversation, falling back to indexed mode");
-        const newContext = repositoryIds.length === 1
-          ? await retrieveContext(repositoryIds[0]!, content, { maxChunks: 15, scoreThreshold: 0.1 })
-          : await retrieveMultiRepoContext(repositoryIds, content, { maxChunks: 15, scoreThreshold: 0.1 });
-        formattedContext = newContext.chunks.length > 0 ? formatContextForPrompt(newContext.chunks) : undefined;
-        contextChunksForStorage = newContext.chunks.length > 0
-          ? {
-              chunks: newContext.chunks.map((c) => ({
-                filePath: c.filePath,
-                startLine: c.startLine,
-                endLine: c.endLine,
-                content: c.content.slice(0, 500),
-              })),
-              totalTokens: newContext.totalTokens,
-            }
-          : null;
+      // Full repo mode: repository structure (refreshed after re-indexing) + relevant code
+      let fileList = extractFullRepoContext(conversation.fullRepoContext);
+      if (!fileList || isFullRepoContextStale(conversation.fullRepoContext, repos)) {
+        fileList = await getFullRepoContext(availableRepoIds);
+        await db.conversation.update({
+          where: { id },
+          data: {
+            fullRepoContext: formatFullRepoContextForStorage(fileList) as Prisma.InputJsonValue,
+          },
+        });
       }
-    } else {
-      // Indexed mode: Vector search (default)
-      const newContext = repositoryIds.length === 1
-        ? await retrieveContext(repositoryIds[0]!, content, {
-            maxChunks: 15,
-            scoreThreshold: 0.1,
-            filters: searchFilters,
-          })
-        : await retrieveMultiRepoContext(repositoryIds, content, {
-            maxChunks: 15,
-            scoreThreshold: 0.1,
-            filters: searchFilters,
-          });
-      formattedContext = newContext.chunks.length > 0 ? formatContextForPrompt(newContext.chunks) : undefined;
-      contextChunksForStorage = newContext.chunks.length > 0
-        ? {
-            chunks: newContext.chunks.map((c) => ({
-              filePath: c.filePath,
-              startLine: c.startLine,
-              endLine: c.endLine,
-              content: c.content.slice(0, 500),
-            })),
-            totalTokens: newContext.totalTokens,
-          }
-        : null;
+      formattedContext = combineFullRepoContext(fileList, retrieval.formatted);
+      contextChunksForStorage = { type: "full_repo", relevantCode: retrieval.storage };
     }
 
-    // Build chat history
-    const chatMessages: ChatMessage[] = conversation.messages.map((m) => ({
-      role: m.role as "user" | "model",
-      content: m.content,
-    }));
-
-    // Add the new user message
-    chatMessages.push({
-      role: "user",
-      content: buildFollowUpMessage(content, formattedContext),
-    });
+    const chatMessages: ChatMessage[] = [
+      ...buildChatHistory(recentMessages),
+      { role: "user", content: buildFollowUpMessage(content, formattedContext) },
+    ];
 
     // Save user message
     const userMessage = await db.message.create({
@@ -176,71 +161,25 @@ export async function POST(request: NextRequest, context: RouteContext) {
       data: { updatedAt: new Date() },
     });
 
+    const saveReply = async (reply: string) => {
+      const assistantMessage = await db.message.create({
+        data: { conversationId: id, role: "assistant", content: reply },
+      });
+      return assistantMessage.id;
+    };
+
     if (isStreaming) {
-      // Return streaming response
-      const stream = await generateChatResponseStream(
-        CHAT_SYSTEM_PROMPT,
-        chatMessages
-      );
-
-      const encoder = new TextEncoder();
-      let fullResponse = "";
-
-      const readableStream = new ReadableStream({
-        async start(controller) {
-          try {
-            for await (const chunk of stream.stream) {
-              const text = chunk.text();
-              fullResponse += text;
-
-              // Send SSE event
-              const data = JSON.stringify({ content: text, done: false });
-              controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-            }
-
-            // Save assistant message
-            const assistantMessage = await db.message.create({
-              data: {
-                conversationId: id,
-                role: "assistant",
-                content: fullResponse,
-              },
-            });
-
-            // Send final event with message ID
-            const finalData = JSON.stringify({
-              done: true,
-              messageId: assistantMessage.id,
-            });
-            controller.enqueue(encoder.encode(`data: ${finalData}\n\n`));
-            controller.close();
-          } catch (error) {
-            console.error("Streaming error:", error);
-            const errorData = JSON.stringify({ error: "Stream error", done: true });
-            controller.enqueue(encoder.encode(`data: ${errorData}\n\n`));
-            controller.close();
-          }
-        },
-      });
-
-      return new NextResponse(readableStream, {
-        headers: {
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache",
-          Connection: "keep-alive",
-        },
-      });
+      return streamChatReply({ messages: chatMessages, saveReply });
     }
 
     // Non-streaming response
     const aiResponse = await generateChatResponse(CHAT_SYSTEM_PROMPT, chatMessages);
-
-    // Save assistant message
+    const replyContent = aiResponse.trim() ? aiResponse : EMPTY_REPLY_TEXT;
     const assistantMessage = await db.message.create({
       data: {
         conversationId: id,
         role: "assistant",
-        content: aiResponse,
+        content: replyContent,
       },
     });
 

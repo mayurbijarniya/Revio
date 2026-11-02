@@ -145,6 +145,9 @@ export function RepoList() {
     } else {
       void fetchAvailableRepos();
     }
+    // Refetch only when the tab changes. fetchAvailableRepos is recreated every render,
+    // so listing it would refetch on every render; it reads the current filter itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, fetchConnectedRepos]);
 
   useEffect(() => {

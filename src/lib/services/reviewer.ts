@@ -3,11 +3,7 @@ import { logger } from "@/lib/logger";
 import { GitHubService } from "./github";
 import { createBotGitHubService } from "./github-app";
 import { retrieveMultiContext, formatContextForPrompt } from "./retriever";
-import { estimateTokenCount, generateReviewResponse } from "./gemini";
 import {
-  buildReviewSystemPrompt,
-  buildReviewPrompt,
-  parseReviewResponse,
   formatReviewForGitHub,
   createInlineComments,
   type ReviewResult,
@@ -15,37 +11,16 @@ import {
 } from "@/lib/prompts/review";
 import type { BlastRadiusData } from "@/types/blast-radius";
 import type { TestCoverageData } from "@/types/test-coverage";
-import { REVIEW_CONFIG, AI_CONFIG } from "@/lib/constants";
+import { REVIEW_CONFIG } from "@/lib/constants";
 import { parseReviewSettings } from "@/types/review";
 import { logActivity } from "./activity";
-import {
-  scanCode,
-  calculateSecurityScore,
-  getSeverityCounts,
-  type SecurityIssue,
-} from "./security-scanner";
-import { getLanguageFromPath } from "./chunker";
 import { StandardsDetector } from "./standards-detector";
-import { calculateConfidenceScore } from "./confidence-scorer";
-import { getCodeGraph, formatGraphContextForPrompt } from "./code-graph";
-import { generateSequenceDiagram } from "./sequence-diagram";
+import { getCodeGraph } from "./code-graph";
 import { generateDocstringSuggestions } from "./docstrings";
-import { generateBlastRadius } from "./blast-radius";
-import { analyzeTestCoverage } from "./test-coverage";
-import {
-  applyLearningNitpickFiltering,
-  buildLearningPromptSection,
-  getEffectiveLearningContext,
-  updateAdoptionRatesFromRuns,
-  type EffectiveLearningContext,
-} from "./learning";
-import {
-  buildPromptDiff,
-  matchesIgnoredPath,
-  parseUnifiedDiff,
-} from "./diff-parser";
-import { decideReviewVerdict } from "./review-verdict";
-import { baseGraphScope, buildPrGraphScope, type PrGraphScope } from "./pr-graph";
+import { getEffectiveLearningContext, updateAdoptionRatesFromRuns } from "./learning";
+import { parseUnifiedDiff } from "./diff-parser";
+import { baseGraphScope, buildPrGraphScope } from "./pr-graph";
+import { runReviewCore } from "./review-core";
 
 /**
  * PR data for review
@@ -112,226 +87,73 @@ export async function reviewPullRequest(
   const diff = await github.getPrDiff(owner, repo, prData.number);
   console.warn(`[Reviewer] Diff fetched: ${diff.length} bytes`);
 
-  if (diff.length > REVIEW_CONFIG.maxDiffBytes) {
-    console.warn(`[Reviewer] PR ${prData.number} diff too large: ${diff.length} bytes (limit: ${REVIEW_CONFIG.maxDiffBytes}), sending whole files up to the limit`);
-  }
-
-  // Parse the diff once; every later step uses these files and line numbers
-  const changedFiles = parseUnifiedDiff(diff);
-  console.warn(`[Reviewer] Parsed ${changedFiles.length} files from diff`);
-
-  if (changedFiles.length > REVIEW_CONFIG.maxFiles) {
-    console.warn(`[Reviewer] PR ${prData.number} has too many files: ${changedFiles.length} (limit: ${REVIEW_CONFIG.maxFiles})`);
-  }
-
-  // Ignored paths apply to every step of the review
-  const ignoredPaths = repository.ignoredPaths || [];
-  const filteredFiles = changedFiles.filter((file) => !matchesIgnoredPath(file.path, ignoredPaths));
-  const filteredPaths = filteredFiles.map((f) => f.path);
-
-  const promptDiff = buildPromptDiff(filteredFiles, REVIEW_CONFIG.maxDiffBytes);
-
-  // Parse review settings from repository
   const reviewSettings = parseReviewSettings(repository.reviewRules);
 
-  // Load learned team preferences (repo + org)
-  let learningContext: Awaited<ReturnType<typeof getEffectiveLearningContext>> | null = null;
-  try {
-    learningContext = await getEffectiveLearningContext(repositoryId);
-  } catch (learningError) {
-    console.warn("[Reviewer] Failed to load learning context:", learningError);
-  }
-
-  // Run security scanning on added lines, reporting real line numbers in the new file
-  const securityIssues: SecurityIssue[] = [];
-  for (const file of filteredFiles) {
-    const language = getLanguageFromPath(file.path);
-    if (!language || file.addedLines.length === 0) continue;
-    const issues = scanCode(file.path, file.additions, language);
-    for (const issue of issues) {
-      securityIssues.push({ ...issue, line: file.addedLines[issue.line - 1]?.line ?? issue.line });
-    }
-  }
-
-  // Code graph for structural facts (callers, dependents, entry points): the indexed
-  // base-branch graph with the changed files re-parsed at the PR head
-  let graphScope: PrGraphScope | null = null;
-  try {
-    const baseGraph = await getCodeGraph(repositoryId);
-    if (baseGraph && filteredFiles.length > 0) {
-      graphScope = headSha
-        ? await buildPrGraphScope({
-            baseGraph,
-            files: filteredFiles,
-            loadHeadFile: (path) =>
-              github.getFileContent(owner, repo, path, headSha).catch(() => null),
-          })
-        : baseGraphScope(baseGraph, filteredFiles);
-      console.warn(
-        `[Reviewer] Graph scope ready: ${graphScope.headParsedFiles}/${filteredFiles.length} changed files parsed at PR head, ` +
-          `${graphScope.extraChangedNodeIds.length} removed definitions`
-      );
-    }
-  } catch (graphError) {
-    console.warn(`[Reviewer] Failed to prepare code graph:`, graphError);
-  }
-  const codeGraphData = graphScope?.graph ?? null;
-
-  let review: ReviewResult;
-  let tokensUsed = 0;
-  let systemPrompt = "";
-
-  if (filteredFiles.length === 0) {
-    console.warn(`[Reviewer] All ${changedFiles.length} changed files match ignored paths, skipping AI review`);
-    review = {
-      summary:
-        changedFiles.length === 0
-          ? "This PR has no file changes to review."
-          : "All changed files match this repository's ignored paths, so no code was reviewed.",
-      riskLevel: "low",
-      issues: [],
-      positives: [],
-      recommendation: "comment",
-    };
-  } else {
-    // Retrieve codebase context for the reviewed files
-    const contextQueries = filteredFiles.slice(0, 10).map((file) => {
-      return `File changes in ${file.path}: ${file.additions.slice(0, 500)}`;
-    });
-
-    let codebaseContext = "No additional context available.";
-    if (repository.indexStatus === "indexed" && contextQueries.length > 0) {
-      console.warn(`[Reviewer] Retrieving semantic context for ${contextQueries.length} queries`);
-      const context = await retrieveMultiContext(repositoryId, contextQueries, {
-        maxChunksPerQuery: 3,
-        maxTotalChunks: REVIEW_CONFIG.maxContextChunks,
-        maxTokens: REVIEW_CONFIG.maxContextTokens,
-      });
-      codebaseContext = formatContextForPrompt(context.chunks);
-      console.warn(`[Reviewer] Retrieved ${context.chunks.length} context chunks`);
-    }
-
-    let securityContext = "";
-    if (securityIssues.length > 0) {
-      const severityCounts = getSeverityCounts(securityIssues);
-      const securityScore = calculateSecurityScore(securityIssues);
-      securityContext = formatSecurityContext(securityIssues, severityCounts, securityScore);
-    }
-
-    // Get coding standards for this repository
-    const codingStandards = await StandardsDetector.getRepositoryStandards(repositoryId);
-    const standardsContext = StandardsDetector.formatStandardsForPrompt(codingStandards);
-
-    let graphContext = "";
-    if (graphScope) {
-      try {
-        graphContext = formatGraphContextForPrompt(
-          graphScope.graph,
-          graphScope.changedFiles,
-          graphScope.changedLinesByFile,
-          graphScope.extraChangedNodeIds
+  // Shared review pipeline (also used by the offline evaluation), with production data sources
+  const core = await runReviewCore(
+    {
+      title: prData.title,
+      body: prData.body,
+      diff,
+      ignoredPaths: repository.ignoredPaths || [],
+      settings: reviewSettings,
+    },
+    {
+      loadLearning: () => getEffectiveLearningContext(repositoryId),
+      loadSemanticContext: async (files) => {
+        if (repository.indexStatus !== "indexed") return null;
+        const contextQueries = files.slice(0, 10).map((file) => {
+          return `File changes in ${file.path}: ${file.additions.slice(0, 500)}`;
+        });
+        console.warn(`[Reviewer] Retrieving semantic context for ${contextQueries.length} queries`);
+        const context = await retrieveMultiContext(repositoryId, contextQueries, {
+          maxChunksPerQuery: 3,
+          maxTotalChunks: REVIEW_CONFIG.maxContextChunks,
+          maxTokens: REVIEW_CONFIG.maxContextTokens,
+        });
+        console.warn(`[Reviewer] Retrieved ${context.chunks.length} context chunks`);
+        return formatContextForPrompt(context.chunks);
+      },
+      loadStandardsContext: async () =>
+        StandardsDetector.formatStandardsForPrompt(
+          await StandardsDetector.getRepositoryStandards(repositoryId)
+        ),
+      // Indexed base-branch graph with the changed files re-parsed at the PR head
+      loadGraphScope: async (files) => {
+        const baseGraph = await getCodeGraph(repositoryId);
+        if (!baseGraph) return null;
+        const scope = headSha
+          ? await buildPrGraphScope({
+              baseGraph,
+              files,
+              loadHeadFile: (path) =>
+                github.getFileContent(owner, repo, path, headSha).catch(() => null),
+            })
+          : baseGraphScope(baseGraph, files);
+        console.warn(
+          `[Reviewer] Graph scope ready: ${scope.headParsedFiles}/${files.length} changed files parsed at PR head, ` +
+            `${scope.extraChangedNodeIds.length} removed definitions`
         );
-        console.warn(`[Reviewer] Added graph context with impact analysis`);
-      } catch (graphError) {
-        console.warn(`[Reviewer] Failed to build graph context:`, graphError);
-      }
-    }
-
-    const fullContext = [codebaseContext, securityContext, standardsContext, graphContext]
-      .filter(Boolean)
-      .join("\n\n");
-
-    const reviewPrompt = buildReviewPrompt(prData.title, prData.body, promptDiff.text, fullContext);
-
-    // Build system prompt with custom rules + learned preferences
-    const learningPrompt = learningContext ? buildLearningPromptSection(learningContext) : "";
-    systemPrompt = buildReviewSystemPrompt(reviewSettings, learningPrompt);
-
-    const isComplex =
-      filteredFiles.length > AI_CONFIG.review.complexThresholds.changedFiles ||
-      promptDiff.text.length > AI_CONFIG.review.complexThresholds.diffLength;
-
-    console.warn(`[Reviewer] Starting AI generation using ${isComplex ? 'complex' : 'standard'} model`);
-    const generationResult = await generateReviewResponse(systemPrompt, reviewPrompt, { isComplex });
-    const rawResponse = generationResult.text;
-    console.warn(`[Reviewer] AI generation completed, parsing response`);
-
-    const parsed = parseReviewResponse(rawResponse);
-    if (!parsed) {
-      console.error("Failed to parse review response");
-      return null;
-    }
-
-    review = parsed;
-    tokensUsed =
-      generationResult.usageMetadata?.totalTokenCount ??
-      estimateTokenCount(`${systemPrompt}\n\n${reviewPrompt}\n\n${rawResponse}`);
-  }
-
-  // Severity threshold and learned suppressions always apply (empty learning when unavailable)
-  const filteredReview = applyLearningNitpickFiltering(
-    review,
-    learningContext ?? createEmptyLearningContext(repositoryId, repository.organizationId),
-    reviewSettings
+        return scope;
+      },
+    },
+    { repositoryId, organizationId: repository.organizationId }
   );
 
-  // Graph-derived views share the same changed lines as the prompt context
-  const sequenceDiagram = graphScope
-    ? generateSequenceDiagram({
-        changedFiles: graphScope.changedFiles,
-        graphData: graphScope.graph,
-        changedLinesByFile: graphScope.changedLinesByFile,
-        extraChangedNodeIds: graphScope.extraChangedNodeIds,
-      })
-    : null;
-
-  let blastRadius: BlastRadiusData | null = null;
-  try {
-    blastRadius = graphScope
-      ? generateBlastRadius({
-          changedFiles: graphScope.changedFiles,
-          graphData: graphScope.graph,
-          changedLinesByFile: graphScope.changedLinesByFile,
-          extraChangedNodeIds: graphScope.extraChangedNodeIds,
-        })
-      : null;
-  } catch (blastError) {
-    const errorMessage = blastError instanceof Error ? blastError.message : String(blastError);
-    logger.warn("[Reviewer] Blast radius generation failed", {
-      repositoryId,
-      repository: `${owner}/${repo}`,
-      prNumber: prData.number,
-      error: errorMessage,
-    });
+  if (!core) {
+    console.error("Failed to parse review response");
+    return null;
   }
 
-  let testCoverage: TestCoverageData | null = null;
-  try {
-    testCoverage = analyzeTestCoverage({
-      changedFiles: filteredPaths,
-      graphData: codeGraphData,
-    });
-  } catch (coverageError) {
-    const errorMessage = coverageError instanceof Error ? coverageError.message : String(coverageError);
-    logger.warn("[Reviewer] Test coverage analysis failed", {
-      repositoryId,
-      repository: `${owner}/${repo}`,
-      prNumber: prData.number,
-      error: errorMessage,
-    });
-  }
-
-  // One final verdict: risk and recommendation used everywhere below
-  const verdict = decideReviewVerdict({
-    review: filteredReview,
-    graphImpact: blastRadius?.riskLevel ?? null,
-    settings: reviewSettings,
-  });
-  const finalReview: ReviewResult = { ...filteredReview, ...verdict };
-  console.warn(
-    `[Reviewer] Verdict: ${finalReview.recommendation}, risk ${finalReview.riskLevel} ` +
-      `(model: ${review.recommendation}/${review.riskLevel}, graph impact: ${blastRadius?.riskLevel ?? "n/a"})`
-  );
+  const {
+    filteredFiles,
+    review: finalReview,
+    sequenceDiagram,
+    blastRadius,
+    testCoverage,
+    confidence: confidenceResult,
+    tokensUsed,
+  } = core;
 
   // Generate docstring suggestions (best-effort, limited)
   let docstringSuggestions: DocstringSuggestion[] = [];
@@ -353,29 +175,12 @@ export async function reviewPullRequest(
 
   const processingTime = Date.now() - startTime;
 
-  // Calculate confidence score for merge readiness
-  const linesChanged = filteredFiles.reduce((sum, f) => sum + f.addedCount + f.deletedCount, 0);
-
-  // Count standards violations from review issues
-  const standardsViolations = (finalReview.issues || []).filter((issue) =>
-    issue.description?.toLowerCase().includes("coding standard") ||
-    issue.description?.toLowerCase().includes("standard violation")
-  ).length;
-
-  const confidenceResult = calculateConfidenceScore(
-    finalReview,
-    securityIssues,
-    filteredFiles.length,
-    linesChanged,
-    standardsViolations
-  );
-
   console.warn(`[Reviewer] Confidence score: ${confidenceResult.score}/5 (${confidenceResult.level})`);
   console.warn(`[Reviewer] Reasoning: ${confidenceResult.reasoning.join(", ")}`);
 
   // Transform positives (strings) to suggestions format (objects with title/description)
   const formattedSuggestions = (finalReview.positives || []).map((positive: string, idx: number) => ({
-    title: `Positive #${idx + 1}`,
+    title: `Highlight ${idx + 1}`,
     description: positive,
   }));
 
@@ -702,72 +507,4 @@ export async function postReviewToGitHub(
   });
 
   return commentId;
-}
-
-function createEmptyLearningContext(
-  repositoryId: string,
-  organizationId: string | null
-): EffectiveLearningContext {
-  return {
-    repositoryId,
-    organizationId,
-    suppressedCategories: [],
-    suppressedIssueTypes: [],
-    suppressedText: [],
-    suppressedPatterns: [],
-    suggestedRules: [],
-    feedbackStats: {},
-    adoptionRates: {},
-  };
-}
-
-/**
- * Format security issues for inclusion in the review prompt
- */
-function formatSecurityContext(
-  issues: SecurityIssue[],
-  severityCounts: Record<SecurityIssue["severity"], number>,
-  score: number
-): string {
-  const lines: string[] = [
-    "## Automated Security Scan Results",
-    `Security Score: ${score}/100`,
-    "",
-    "### Issue Summary",
-    `- Critical: ${severityCounts.critical}`,
-    `- High: ${severityCounts.high}`,
-    `- Medium: ${severityCounts.medium}`,
-    `- Low: ${severityCounts.low}`,
-    "",
-    "### Detected Issues",
-  ];
-
-  // Group by severity
-  const criticalHighIssues = issues.filter(
-    (i) => i.severity === "critical" || i.severity === "high"
-  );
-
-  for (const issue of criticalHighIssues.slice(0, 10)) {
-    lines.push(`
-**[${issue.severity.toUpperCase()}] ${issue.title}**
-- File: \`${issue.file}\` (line ${issue.line})
-- Description: ${issue.description}
-- CWE: ${issue.cwe || "N/A"}
-- OWASP: ${issue.owasp || "N/A"}
-- Code: \`${issue.code.slice(0, 100)}\`
-- Suggestion: ${issue.suggestion || "Review and fix manually"}
-`);
-  }
-
-  if (issues.length > 10) {
-    lines.push(`\n*... and ${issues.length - 10} more issues*`);
-  }
-
-  lines.push(`
-IMPORTANT: The automated security scan has detected potential vulnerabilities.
-Please include these findings in your review with appropriate severity ratings.
-Critical and high severity issues should typically block approval.
-`);
-
-  return lines.join("\n");
 }

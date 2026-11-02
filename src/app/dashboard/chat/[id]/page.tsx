@@ -89,26 +89,36 @@ export default async function ConversationPage({ params }: PageProps) {
     repositoryIds.includes(r.id)
   );
 
-  // Get recent conversations for sidebar
-  const recentConversations = await db.conversation.findMany({
-    where: {
-      userId: session.userId,
+  // Sidebar: recent conversations, plus every pinned one and the open one even if older
+  const sidebarInclude = {
+    repository: {
+      select: { fullName: true },
     },
-    include: {
-      repository: {
-        select: { fullName: true },
-      },
-      messages: {
-        orderBy: { createdAt: "desc" },
-        take: 1,
-        select: { content: true },
-      },
+    messages: {
+      orderBy: { createdAt: "desc" as const },
+      take: 1,
+      select: { content: true },
     },
-    orderBy: { updatedAt: "desc" },
-    take: 20,
-  }) as unknown as ConversationWithExtras[];
+  };
+  const [recentConversations, pinnedOrCurrent] = await Promise.all([
+    db.conversation.findMany({
+      where: { userId: session.userId },
+      include: sidebarInclude,
+      orderBy: { updatedAt: "desc" },
+      take: 20,
+    }),
+    db.conversation.findMany({
+      where: { userId: session.userId, OR: [{ isPinned: true }, { id }] },
+      include: sidebarInclude,
+      orderBy: { updatedAt: "desc" },
+    }),
+  ]);
+  const sidebarConversations = [
+    ...recentConversations,
+    ...pinnedOrCurrent.filter((c) => !recentConversations.some((r) => r.id === c.id)),
+  ] as unknown as ConversationWithExtras[];
 
-  const formattedConversations = recentConversations.map((conv) => ({
+  const formattedConversations = sidebarConversations.map((conv) => ({
     id: conv.id,
     title: conv.title ?? "New conversation",
     repositoryName: conv.repository.fullName,

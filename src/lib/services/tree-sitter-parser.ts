@@ -243,6 +243,7 @@ const LANGUAGE_CONFIGS: Record<string, LanguageConfig> = {
       class: [`(class name: (_) @name) @class`],
       import: [
         `(call method: (identifier) @stmt (#eq? @stmt "require") arguments: (argument_list (string) @source)) @import`,
+        `(call method: (identifier) @stmt (#eq? @stmt "require_relative") arguments: (argument_list (string) @source)) @import`,
       ],
       call: [`(call method: (identifier) @callee) @call`],
     },
@@ -259,7 +260,10 @@ const LANGUAGE_CONFIGS: Record<string, LanguageConfig> = {
         `(class_declaration name: (_) @name) @class`,
         `(interface_declaration name: (_) @name) @class`,
       ],
-      import: [`(namespace_use_clause (name) @source) @import`],
+      import: [
+        `(namespace_use_clause (name) @source) @import`,
+        `(namespace_use_clause (qualified_name) @source) @import`,
+      ],
       call: [
         `(function_call_expression function: (name) @callee) @call`,
         `(method_call_expression name: (name) @callee) @call`,
@@ -327,7 +331,11 @@ export class TreeSitterService {
     if (!parser) return null;
 
     try {
-      return parser.parse(content);
+      // node-tree-sitter rejects inputs over its default 32 KB buffer ("Invalid argument"),
+      // which silently dropped every large file from graphs and chunking
+      return parser.parse(content, undefined, {
+        bufferSize: Math.max(32 * 1024, content.length * 2 + 1),
+      });
     } catch (error) {
       logger.warn(`[TreeSitter] Failed to parse ${language} content`, { error });
       return null;

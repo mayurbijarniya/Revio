@@ -65,7 +65,15 @@ interface ImportResolverOptions {
   knownFiles: Set<string>;
   /** Python module suffix ("pkg.mod", "mod") -> files, for src/-style layouts */
   pythonModules: Map<string, string[]>;
+  /** File name -> repository paths, for suffix lookups (Java packages, C includes, Rust modules) */
+  filesByBaseName: Map<string, string[]>;
 }
+
+/**
+ * Languages where files in the same directory (package/module) see each other's
+ * top-level definitions without an import
+ */
+const SAME_DIRECTORY_SCOPE_EXTENSIONS = /\.(go|java|kt|cs|swift)$/;
 
 /**
  * Build code graph for a repository
@@ -404,6 +412,86 @@ function resolveTreeSitterImport(
   if (language === "python") {
     return resolvePythonImport(fromFile, imp.source, imp.names ?? [], resolverOptions);
   }
+
+  const fromDir = fromFile.split("/").slice(0, -1).join("/");
+  const found = (path: string | null) => (path ? [path] : []);
+
+  switch (language) {
+    case "java": {
+      // com.app.util.Helper, or com.app.util.Math.add for static imports; package wildcards have no file
+      if (imp.source.endsWith(".*")) return [];
+      const segments = imp.source.split(".");
+      for (let length = segments.length; length > 0; length--) {
+        const match = findFileBySuffix(`${segments.slice(0, length).join("/")}.java`, resolverOptions);
+        if (match) return [match];
+      }
+      return [];
+    }
+    case "cpp": {
+      // #include "util/helper.h": relative to the file first, then anywhere; <system> headers are skipped
+      if (imp.source.startsWith("<")) return [];
+      const relative = normalizeRepoPath(`${fromDir}/${imp.source}`);
+      if (resolverOptions.knownFiles.has(relative)) return [relative];
+      return found(findFileBySuffix(imp.source, resolverOptions));
+    }
+    case "ruby": {
+      // require_relative "lib/util" or require "util"
+      const withExtension = imp.source.endsWith(".rb") ? imp.source : `${imp.source}.rb`;
+      const relative = normalizeRepoPath(`${fromDir}/${withExtension}`);
+      if (resolverOptions.knownFiles.has(relative)) return [relative];
+      return found(findFileBySuffix(withExtension, resolverOptions));
+    }
+    case "php": {
+      // use App\Models\User -> .../Models/User.php (PSR-4 roots vary, so match by suffix)
+      const segments = imp.source.replace(/^\\/, "").split("\\").filter(Boolean);
+      for (let start = 0; start < segments.length; start++) {
+        const match = findFileBySuffix(`${segments.slice(start).join("/")}.php`, resolverOptions);
+        if (match) return [match];
+      }
+      return [];
+    }
+    case "rust":
+      return resolveRustUse(imp.source, resolverOptions);
+    default:
+      return [];
+  }
+}
+
+/**
+ * The single repository file whose path ends with the given suffix (null when none or ambiguous)
+ */
+function findFileBySuffix(suffix: string, resolverOptions: ImportResolverOptions): string | null {
+  const normalized = normalizeRepoPath(suffix);
+  const baseName = normalized.split("/").pop() ?? normalized;
+  const matches = (resolverOptions.filesByBaseName.get(baseName) ?? []).filter(
+    (path) => path === normalized || path.endsWith(`/${normalized}`)
+  );
+  return matches.length === 1 ? (matches[0] ?? null) : null;
+}
+
+/**
+ * Resolve "use crate::models::user::{User, Role};" to src/models/user.rs (or .../mod.rs)
+ */
+function resolveRustUse(source: string, resolverOptions: ImportResolverOptions): string[] {
+  const path = source
+    .replace(/^\s*(pub(\([^)]*\))?\s+)?use\s+/, "")
+    .replace(/;\s*$/, "")
+    .split("::{")[0]
+    ?.trim();
+  if (!path) return [];
+
+  const segments = path
+    .split("::")
+    .map((s) => s.trim())
+    .filter((s) => s && !["crate", "self", "super"].includes(s) && !s.includes(" "));
+
+  for (let length = segments.length; length > 0; length--) {
+    const modulePath = segments.slice(0, length).join("/");
+    const match =
+      findFileBySuffix(`${modulePath}.rs`, resolverOptions) ??
+      findFileBySuffix(`${modulePath}/mod.rs`, resolverOptions);
+    if (match) return [match];
+  }
   return [];
 }
 
@@ -487,7 +575,8 @@ function buildPythonModuleIndex(files: Array<{ path: string }>): Map<string, str
 
 /**
  * Point each call edge at the real definition it refers to.
- * Lookup order: the caller's own file, then files it imports (and, for Go, its package directory).
+ * Lookup order: the caller's own file, then files it imports (and, for package-scoped languages,
+ * its directory), then a repo-wide definition with a unique, distinctive name.
  * Calls that cannot be matched to a known definition (library/builtin calls) are dropped,
  * so the graph only contains edges between real nodes.
  */
@@ -495,6 +584,7 @@ function resolveCallEdges(nodes: GraphNode[], edges: GraphEdge[]): GraphEdge[] {
   const nodeById = new Map(nodes.map((n) => [n.id, n]));
 
   const definitionsByFile = new Map<string, Map<string, string[]>>();
+  const definitionsByName = new Map<string, string[]>();
   for (const node of nodes) {
     if (node.type !== "function" && node.type !== "class") continue;
     const byName = definitionsByFile.get(node.file) ?? new Map<string, string[]>();
@@ -502,6 +592,9 @@ function resolveCallEdges(nodes: GraphNode[], edges: GraphEdge[]): GraphEdge[] {
     ids.push(node.id);
     byName.set(node.name, ids);
     definitionsByFile.set(node.file, byName);
+    if (!isTestNode(node)) {
+      definitionsByName.set(node.name, [...(definitionsByName.get(node.name) ?? []), node.id]);
+    }
   }
 
   const importTargets = new Map<string, string[]>();
@@ -523,12 +616,15 @@ function resolveCallEdges(nodes: GraphNode[], edges: GraphEdge[]): GraphEdge[] {
     }
   }
 
-  // Go functions are visible across all files of the same package (directory)
-  const goFilesByDir = new Map<string, string[]>();
+  // Go/Java/Kotlin/C#/Swift definitions are visible across files of the same package
+  // (approximated as: same directory, same file extension)
+  const packageKey = (file: string) =>
+    `${file.split("/").slice(0, -1).join("/")}|${file.slice(file.lastIndexOf("."))}`;
+  const packageFiles = new Map<string, string[]>();
   for (const node of nodes) {
-    if (node.type !== "file" || !node.file.endsWith(".go")) continue;
-    const dir = node.file.split("/").slice(0, -1).join("/");
-    goFilesByDir.set(dir, [...(goFilesByDir.get(dir) ?? []), node.file]);
+    if (node.type !== "file" || !SAME_DIRECTORY_SCOPE_EXTENSIONS.test(node.file)) continue;
+    const key = packageKey(node.file);
+    packageFiles.set(key, [...(packageFiles.get(key) ?? []), node.file]);
   }
 
   const MAX_AMBIGUOUS_TARGETS = 3;
@@ -569,9 +665,8 @@ function resolveCallEdges(nodes: GraphNode[], edges: GraphEdge[]): GraphEdge[] {
     }
 
     const scopeFiles = new Set<string>(importedFilesByFile.get(callerFile) ?? []);
-    if (callerFile.endsWith(".go")) {
-      const dir = callerFile.split("/").slice(0, -1).join("/");
-      for (const sibling of goFilesByDir.get(dir) ?? []) {
+    if (SAME_DIRECTORY_SCOPE_EXTENSIONS.test(callerFile)) {
+      for (const sibling of packageFiles.get(packageKey(callerFile)) ?? []) {
         if (sibling !== callerFile) scopeFiles.add(sibling);
       }
     }
@@ -581,11 +676,53 @@ function resolveCallEdges(nodes: GraphNode[], edges: GraphEdge[]): GraphEdge[] {
       candidates.push(...(definitionsByFile.get(file)?.get(calleeName) ?? []));
     }
     // Common names (get, run, ...) defined in many imported files are too ambiguous to link
-    if (candidates.length === 0 || candidates.length > MAX_AMBIGUOUS_TARGETS) continue;
-    for (const id of candidates) pushCall(edge, id);
+    if (candidates.length > MAX_AMBIGUOUS_TARGETS) continue;
+    if (candidates.length > 0) {
+      for (const id of candidates) pushCall(edge, id);
+      continue;
+    }
+
+    // Fallback for calls imports could not explain (re-exports, dynamic imports, implicit
+    // packages): link when exactly one definition in the repo, in the same language, has a
+    // distinctive name
+    const unique = findUniqueDefinition(calleeName, callerFile);
+    if (unique) pushCall(edge, unique);
   }
 
   return result;
+
+  function findUniqueDefinition(name: string, callerFile: string): string | null {
+    if (!isDistinctiveName(name)) return null;
+    const matches = (definitionsByName.get(name) ?? []).filter(
+      (id) => fileExtension(nodeById.get(id)?.file ?? "") === fileExtension(callerFile)
+    );
+    return matches.length === 1 ? (matches[0] ?? null) : null;
+  }
+}
+
+/**
+ * Names generic enough that a single repo-wide definition is probably not the one being called
+ * (it is more likely a library/builtin method with the same name)
+ */
+const COMMON_CALL_NAMES = new Set([
+  "get", "set", "put", "post", "patch", "delete", "remove", "add", "save", "load", "run", "exec",
+  "execute", "call", "apply", "bind", "init", "initialize", "setup", "start", "stop", "close", "open",
+  "read", "write", "send", "fetch", "parse", "format", "render", "update", "create", "build", "make",
+  "handle", "process", "validate", "check", "test", "main", "map", "filter", "reduce", "find", "sort",
+  "push", "pop", "shift", "join", "split", "toString", "valueOf", "equals", "hashCode", "compareTo",
+  "length", "size", "count", "keys", "values", "items", "next", "then", "catch", "finally", "resolve",
+  "reject", "emit", "on", "off", "log", "print", "debug", "info", "warn", "error", "clear", "reset",
+  "copy", "clone", "merge", "append", "insert", "contains", "has", "includes", "index", "default",
+  "constructor", "__init__", "__call__", "__str__", "__repr__", "super", "require", "import",
+]);
+
+function isDistinctiveName(name: string): boolean {
+  return name.length >= 4 && !COMMON_CALL_NAMES.has(name) && !COMMON_CALL_NAMES.has(name.toLowerCase());
+}
+
+function fileExtension(file: string): string {
+  const dot = file.lastIndexOf(".");
+  return dot === -1 ? "" : file.slice(dot).toLowerCase();
 }
 
 /**
@@ -1001,8 +1138,13 @@ function buildImportResolverOptions(
   const knownFiles = new Set(files.map((file) => normalizeRepoPath(file.path)));
   const aliases = buildImportAliases(files);
   const pythonModules = buildPythonModuleIndex(files);
+  const filesByBaseName = new Map<string, string[]>();
+  for (const path of knownFiles) {
+    const baseName = path.split("/").pop() ?? path;
+    filesByBaseName.set(baseName, [...(filesByBaseName.get(baseName) ?? []), path]);
+  }
 
-  return { aliases, knownFiles, pythonModules };
+  return { aliases, knownFiles, pythonModules, filesByBaseName };
 }
 
 function buildImportAliases(

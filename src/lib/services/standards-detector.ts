@@ -2,6 +2,9 @@ import { GitHubService } from "./github";
 import { db } from "../db";
 import { logger } from "../logger";
 
+/** ruleId the model sets on issues that violate a detected coding standard */
+export const CODING_STANDARD_RULE_ID = "coding-standard";
+
 export interface ParsedRule {
   category: string;
   rule: string;
@@ -303,7 +306,8 @@ export class StandardsDetector {
     prompt +=
       "The following coding standards have been detected in this repository. ";
     prompt +=
-      "Please ensure the PR follows these standards and flag any violations:\n\n";
+      "Please ensure the PR follows these standards and flag any violations. " +
+      `For every issue that violates one of these standards, set "ruleId" to "${CODING_STANDARD_RULE_ID}":\n\n`;
 
     for (const standard of standards) {
       prompt += `### ${standard.source} (${standard.filePath})\n\n`;

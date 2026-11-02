@@ -70,6 +70,34 @@ export function formatFullRepoContextForStorage(context: string) {
 }
 
 /**
+ * True when any repository was re-indexed after the stored file list was generated
+ */
+export function isFullRepoContextStale(
+  storedContext: unknown,
+  repositories: Array<{ indexedAt: Date | null }>
+): boolean {
+  const generatedAt =
+    storedContext && typeof storedContext === "object"
+      ? (storedContext as { generatedAt?: string }).generatedAt
+      : undefined;
+  if (!generatedAt) return true;
+
+  const generatedTime = new Date(generatedAt).getTime();
+  if (Number.isNaN(generatedTime)) return true;
+
+  return repositories.some((r) => r.indexedAt && r.indexedAt.getTime() > generatedTime);
+}
+
+/**
+ * Full repo mode prompt context: the repository structure plus the code relevant to the question.
+ * The structure alone has no code, so answers about logic need the retrieved chunks too.
+ */
+export function combineFullRepoContext(fileList: string, relevantCode?: string): string {
+  if (!relevantCode) return fileList;
+  return `${fileList}\n\n# Relevant Code\n\n${relevantCode}`;
+}
+
+/**
  * Extract context string from stored JSON
  */
 export function extractFullRepoContext(storedContext: unknown): string | null {

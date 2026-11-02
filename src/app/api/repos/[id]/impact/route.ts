@@ -3,6 +3,13 @@ import { getSession } from "@/lib/session";
 import { jsonError, jsonSuccess } from "@/lib/api-utils";
 import { db } from "@/lib/db";
 import { getCodeGraph, analyzeChangeImpact } from "@/lib/services/code-graph";
+import { z } from "zod";
+
+const impactRequestSchema = z.object({
+  files: z.array(z.string().min(1)).min(1, "Missing or invalid 'files' array in request body").max(500),
+  /** Optional changed line numbers per file; limits impact to the functions on those lines */
+  changedLines: z.record(z.string(), z.array(z.number().int().positive()).max(10_000)).optional(),
+});
 
 /**
  * POST /api/repos/[id]/impact
@@ -10,8 +17,10 @@ import { getCodeGraph, analyzeChangeImpact } from "@/lib/services/code-graph";
  *
  * Request body:
  * {
- *   "files": ["src/lib/services/example.ts", "src/app/api/route.ts"]
+ *   "files": ["src/lib/services/example.ts", "src/app/api/route.ts"],
+ *   "changedLines": { "src/lib/services/example.ts": [12, 13, 40] }   // optional
  * }
+ * Without changedLines, every function in the listed files counts as changed.
  */
 export async function POST(
   request: NextRequest,
@@ -40,15 +49,16 @@ export async function POST(
     }
 
     // Parse request body
-    const body = (await request.json()) as { files?: string[] };
+    const parsed = impactRequestSchema.safeParse(await request.json().catch(() => null));
 
-    if (!body.files || !Array.isArray(body.files) || body.files.length === 0) {
+    if (!parsed.success) {
       return jsonError(
         "VALIDATION_001",
-        "Missing or invalid 'files' array in request body",
+        parsed.error.errors[0]?.message ?? "Missing or invalid 'files' array in request body",
         400
       );
     }
+    const body = parsed.data;
 
     // Get code graph
     const graphData = await getCodeGraph(repositoryId);
@@ -62,7 +72,7 @@ export async function POST(
     }
 
     // Analyze impact
-    const impactAnalysis = analyzeChangeImpact(graphData, body.files);
+    const impactAnalysis = analyzeChangeImpact(graphData, body.files, body.changedLines);
 
     return jsonSuccess({
       impact: impactAnalysis,

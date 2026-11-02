@@ -1,12 +1,22 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { jsonSuccess, jsonError } from "@/lib/api-utils";
+import { jsonSuccess, jsonError, checkPlanLimit } from "@/lib/api-utils";
 import { createConversationSchema } from "@/types/chat";
-import { retrieveContext, retrieveMultiRepoContext, formatContextForPrompt } from "@/lib/services/retriever";
-import { generateChatResponse, generateChatResponseStream, type ChatMessage } from "@/lib/services/gemini";
+import { generateChatResponse, type ChatMessage } from "@/lib/services/gemini";
 import { CHAT_SYSTEM_PROMPT, buildChatUserMessage } from "@/lib/prompts/chat";
-import { getFullRepoContext, formatFullRepoContextForStorage } from "@/lib/services/full-repo-context";
+import {
+  combineFullRepoContext,
+  getFullRepoContext,
+  formatFullRepoContextForStorage,
+} from "@/lib/services/full-repo-context";
+import {
+  EMPTY_REPLY_TEXT,
+  checkChatRateLimit,
+  isRepositoryChatReady,
+  retrieveChatContext,
+  streamChatReply,
+} from "@/lib/services/chat-service";
 import { Prisma } from "@prisma/client";
 
 /**
@@ -24,7 +34,10 @@ export async function GET(request: NextRequest) {
 
   const where = {
     userId: session.userId,
-    ...(repositoryId && { repositoryId }),
+    // Multi-repo conversations list the repository in repositoryIds
+    ...(repositoryId && {
+      OR: [{ repositoryId }, { repositoryIds: { has: repositoryId } }],
+    }),
   };
 
   const conversations = await db.conversation.findMany({
@@ -51,6 +64,8 @@ export async function GET(request: NextRequest) {
     repositoryIds: conv.repositoryIds,
     repositoryName: conv.repository.fullName,
     title: conv.title,
+    isPinned: conv.isPinned,
+    mode: conv.mode,
     lastMessage: conv.messages[0]?.content?.slice(0, 100),
     messageCount: conv._count.messages,
     createdAt: conv.createdAt,
@@ -84,6 +99,11 @@ export async function POST(request: NextRequest) {
 
     const { repositoryIds, message, title, mode } = parsed.data;
 
+    const limit = await checkPlanLimit(session.userId, "messages");
+    if (!limit.allowed) return limit.error!;
+    const rateLimitError = await checkChatRateLimit(session.userId);
+    if (rateLimitError) return rateLimitError;
+
     // Verify all repositories are accessible
     const repositories = await db.repository.findMany({
       where: {
@@ -96,10 +116,10 @@ export async function POST(request: NextRequest) {
       return jsonError("REPO_001", "One or more repositories not found", 404);
     }
 
-    // Check if all repositories are indexed
-    const notIndexed = repositories.filter((r) => r.indexStatus !== "indexed");
-    if (notIndexed.length > 0) {
-      const names = notIndexed.map((r) => r.fullName).join(", ");
+    // Repositories need an index (an older index is fine while re-indexing)
+    const notReady = repositories.filter((r) => !isRepositoryChatReady(r));
+    if (notReady.length > 0) {
+      const names = notReady.map((r) => r.fullName).join(", ");
       return jsonError(
         "INDEX_003",
         `The following repos must be indexed before chatting: ${names}`,
@@ -107,31 +127,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get context based on mode
-    let formattedContext: string;
+    // Relevant code for the question (same settings as follow-up messages)
+    const retrieval = await retrieveChatContext(repositoryIds, message);
+
+    let formattedContext = retrieval.formatted ?? "No relevant code was found for this question.";
     let fullRepoContextData = null;
-    let contextChunksForStorage: unknown = null;
+    let contextChunksForStorage: unknown = retrieval.storage;
 
     if (mode === "full_repo") {
-      // Full repo mode: Get complete file list
-      const fullContext = await getFullRepoContext(repositoryIds);
-      formattedContext = fullContext;
-      fullRepoContextData = formatFullRepoContextForStorage(fullContext);
-      contextChunksForStorage = { type: "full_repo", fileCount: repositories.reduce((acc, r) => acc + r.fileCount, 0) };
-    } else {
-      // Indexed mode: Vector search (default)
-      const context = repositoryIds.length === 1
-        ? await retrieveContext(repositoryIds[0]!, message)
-        : await retrieveMultiRepoContext(repositoryIds, message);
-      formattedContext = formatContextForPrompt(context.chunks);
+      // Full repo mode: repository structure + relevant code
+      const fileList = await getFullRepoContext(repositoryIds);
+      formattedContext = combineFullRepoContext(fileList, retrieval.formatted);
+      fullRepoContextData = formatFullRepoContextForStorage(fileList);
       contextChunksForStorage = {
-        chunks: context.chunks.map((c) => ({
-          filePath: c.filePath,
-          startLine: c.startLine,
-          endLine: c.endLine,
-          content: c.content.slice(0, 500),
-        })),
-        totalTokens: context.totalTokens,
+        type: "full_repo",
+        fileCount: repositories.reduce((acc, r) => acc + r.fileCount, 0),
+        relevantCode: retrieval.storage,
       };
     }
 
@@ -160,53 +171,21 @@ export async function POST(request: NextRequest) {
             }],
           },
         },
-        include: {
-          messages: { orderBy: { createdAt: "asc" } },
-          repository: { select: { id: true, fullName: true, language: true } },
-        },
       });
 
-      const encoder = new TextEncoder();
-      let fullResponse = "";
-
-      const readableStream = new ReadableStream({
-        async start(controller) {
-          try {
-            // Send conversation metadata first so frontend can set selectedConversation
-            const meta = JSON.stringify({
-              conversationId: conversation.id,
-              title: conversation.title,
-              repositoryIds: conversation.repositoryIds,
-            });
-            controller.enqueue(encoder.encode(`data: ${meta}\n\n`));
-
-            const stream = await generateChatResponseStream(CHAT_SYSTEM_PROMPT, chatMessages);
-
-            for await (const chunk of stream.stream) {
-              const text = chunk.text();
-              fullResponse += text;
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: text, done: false })}\n\n`));
-            }
-
-            const assistantMessage = await db.message.create({
-              data: { conversationId: conversation.id, role: "assistant", content: fullResponse },
-            });
-
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, messageId: assistantMessage.id })}\n\n`));
-            controller.close();
-          } catch (error) {
-            console.error("Streaming error:", error);
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: "Stream error", done: true })}\n\n`));
-            controller.close();
-          }
+      return streamChatReply({
+        messages: chatMessages,
+        // Sent first so the frontend can select the conversation immediately
+        meta: {
+          conversationId: conversation.id,
+          title: conversation.title,
+          repositoryIds: conversation.repositoryIds,
         },
-      });
-
-      return new NextResponse(readableStream, {
-        headers: {
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache",
-          Connection: "keep-alive",
+        saveReply: async (reply) => {
+          const assistantMessage = await db.message.create({
+            data: { conversationId: conversation.id, role: "assistant", content: reply },
+          });
+          return assistantMessage.id;
         },
       });
     }
@@ -225,7 +204,7 @@ export async function POST(request: NextRequest) {
         messages: {
           create: [
             { role: "user", content: message, contextChunks: (contextChunksForStorage ?? Prisma.JsonNull) as Prisma.InputJsonValue },
-            { role: "assistant", content: aiResponse },
+            { role: "assistant", content: aiResponse.trim() ? aiResponse : EMPTY_REPLY_TEXT },
           ],
         },
       },
@@ -245,7 +224,7 @@ export async function POST(request: NextRequest) {
           title: conversation.title,
           createdAt: conversation.createdAt,
           updatedAt: conversation.updatedAt,
-          messages: (conversation as never as { messages: {id: string; conversationId: string; role: string; content: string; contextChunks: unknown; createdAt: Date}[] }).messages.map((m) => ({
+          messages: conversation.messages.map((m) => ({
             id: m.id,
             conversationId: m.conversationId,
             role: m.role,
@@ -253,7 +232,7 @@ export async function POST(request: NextRequest) {
             contextChunks: m.contextChunks,
             createdAt: m.createdAt,
           })),
-          repository: (conversation as never as { repository: {id: string; fullName: string; language: string | null} }).repository,
+          repository: conversation.repository,
         },
       },
       201
