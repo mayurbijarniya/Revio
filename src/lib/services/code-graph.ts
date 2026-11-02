@@ -11,6 +11,7 @@ import traverse, { type NodePath } from "@babel/traverse";
 import type { File } from "@babel/types";
 import type Parser from "tree-sitter";
 import { treeSitterService } from "./tree-sitter-parser";
+import { isTestFile, isTestFunctionName } from "./test-files";
 
 export interface GraphNode {
   id: string;
@@ -62,6 +63,8 @@ interface ImportAlias {
 interface ImportResolverOptions {
   aliases: ImportAlias[];
   knownFiles: Set<string>;
+  /** Python module suffix ("pkg.mod", "mod") -> files, for src/-style layouts */
+  pythonModules: Map<string, string[]>;
 }
 
 /**
@@ -107,6 +110,11 @@ export async function buildCodeGraph(
 
   nodes.push(...Array.from(nodeMap.values()));
 
+  // Link call edges to the real definitions (same file first, then imported files)
+  const resolvedEdges = resolveCallEdges(nodes, edges);
+  edges.length = 0;
+  edges.push(...resolvedEdges);
+
   // Calculate metadata
   const metadata = calculateMetadata(nodes, edges);
 
@@ -117,6 +125,85 @@ export async function buildCodeGraph(
   });
 
   return { nodes, edges, metadata };
+}
+
+/**
+ * Replace the base-branch entries of the given files with their PR-head versions.
+ *
+ * - Nodes and outgoing edges of each replaced file are rebuilt from headFiles.
+ * - Edges from unchanged files into the replaced files are kept, so existing callers
+ *   of a modified function stay linked (node ids are stable when names are unchanged).
+ * - Definitions the PR removed are kept as line-less nodes and returned as removedNodeIds,
+ *   so their existing callers still show up as impacted.
+ *
+ * configFiles (e.g. tsconfig.json at the PR head) are only used for import alias resolution.
+ */
+export function overlayFilesOnGraph(params: {
+  baseGraph: CodeGraphData;
+  headFiles: Array<{ path: string; content: string; language: string }>;
+  /** Base-branch paths these head files replace (old paths for renames) */
+  replacedPaths: string[];
+  configFiles?: Array<{ path: string; content: string }>;
+}): { graph: CodeGraphData; removedNodeIds: string[] } {
+  const { baseGraph, headFiles, configFiles = [] } = params;
+  const replaced = new Set([...params.replacedPaths, ...headFiles.map((f) => f.path)]);
+
+  // Resolver sees every file of the repository as it looks in the PR
+  const repoFiles = new Set<string>();
+  for (const node of baseGraph.nodes) {
+    if (node.type === "file") repoFiles.add(node.file);
+  }
+  for (const path of params.replacedPaths) repoFiles.delete(path);
+  for (const file of headFiles) repoFiles.add(file.path);
+  const resolverOptions = buildImportResolverOptions([
+    ...Array.from(repoFiles).map((path) => ({ path, content: "" })),
+    ...configFiles,
+  ]);
+
+  const nodeMap = new Map<string, GraphNode>();
+  const headEdges: GraphEdge[] = [];
+  for (const file of headFiles) {
+    if (!isSupportedLanguage(file.language)) {
+      nodeMap.set(`file:${file.path}`, { id: `file:${file.path}`, type: "file", name: file.path, file: file.path });
+      continue;
+    }
+    try {
+      const { fileNodes, fileEdges } = parseFile(file.path, file.content, file.language, resolverOptions);
+      for (const node of fileNodes) nodeMap.set(node.id, node);
+      headEdges.push(...fileEdges);
+    } catch (error) {
+      logger.warn(`[CodeGraph] Failed to parse PR head version of ${file.path}`, { error });
+    }
+  }
+
+  const keptNodes: GraphNode[] = [];
+  const removedNodeIds: string[] = [];
+  for (const node of baseGraph.nodes) {
+    if (!replaced.has(node.file)) {
+      keptNodes.push(node);
+      continue;
+    }
+    const isDefinition = node.type === "function" || node.type === "class";
+    if (isDefinition && !nodeMap.has(node.id)) {
+      // Removed or renamed in the PR: keep it without line info so callers stay linked
+      removedNodeIds.push(node.id);
+      keptNodes.push({ ...node, line: undefined, endLine: undefined });
+    }
+  }
+
+  const fileOfNode = new Map(baseGraph.nodes.map((n) => [n.id, n.file]));
+  const keptEdges = baseGraph.edges.filter((edge) => {
+    const fromFile = fileOfNode.get(edge.from);
+    return fromFile !== undefined && !replaced.has(fromFile);
+  });
+
+  const nodes = [...keptNodes, ...nodeMap.values()];
+  const edges = resolveCallEdges(nodes, [...keptEdges, ...headEdges]);
+
+  return {
+    graph: { nodes, edges, metadata: calculateMetadata(nodes, edges) },
+    removedNodeIds,
+  };
 }
 
 /**
@@ -147,7 +234,14 @@ function parseFile(
   // Primary parser path: Tree-Sitter for all supported languages.
   const tree = treeSitterService.parseCode(content, normalizedLanguage);
   if (tree) {
-    extractFromTreeSitterAST(tree, normalizedLanguage, filePath, fileNodes, fileEdges);
+    extractFromTreeSitterAST(
+      tree,
+      normalizeLanguage(normalizedLanguage),
+      filePath,
+      fileNodes,
+      fileEdges,
+      resolverOptions
+    );
   }
 
   const treeSitterExtracted =
@@ -178,91 +272,320 @@ function extractFromTreeSitterAST(
   language: string,
   filePath: string,
   nodes: GraphNode[],
-  edges: GraphEdge[]
+  edges: GraphEdge[],
+  resolverOptions: ImportResolverOptions
 ) {
-  // 1. Extract Functions
-  const functions = treeSitterService.getFunctions(ast, language);
-  for (const fn of functions) {
-    if (!fn) continue;
-    const nodeId = `function:${filePath}:${fn.name}`;
-    nodes.push({
-      id: nodeId,
-      type: "function",
-      name: fn.name,
-      file: filePath,
-      line: fn.startLine,
-      endLine: fn.endLine,
-      exported: true, // Simplified: assume exported for global functions in non-JS
-    });
-    edges.push({
-      from: `file:${filePath}`,
-      to: nodeId,
-      type: "exports",
-      file: filePath,
-      line: fn.startLine,
-    });
-  }
+  const fileNodeId = `file:${filePath}`;
 
-  // 2. Extract Classes
-  const classes = treeSitterService.getClasses(ast, language);
-  for (const cls of classes) {
+  // 1. Classes
+  const classNodes: GraphNode[] = [];
+  for (const cls of treeSitterService.getClasses(ast, language)) {
     if (!cls) continue;
-    const nodeId = `class:${filePath}:${cls.name}`;
-    nodes.push({
-      id: nodeId,
+    const node: GraphNode = {
+      id: `class:${filePath}:${cls.name}`,
       type: "class",
       name: cls.name,
       file: filePath,
       line: cls.startLine,
       endLine: cls.endLine,
-      exported: true,
-    });
+      exported: isTreeSitterSymbolExported(language, cls.name, cls.exported, false),
+    };
+    nodes.push(node);
+    classNodes.push(node);
+    edges.push({ from: fileNodeId, to: node.id, type: "exports", file: filePath, line: cls.startLine });
+  }
+
+  // 2. Functions / methods (methods are qualified by their class to avoid id collisions)
+  const functions = treeSitterService.getFunctions(ast, language).filter(Boolean);
+  const functionNodes: GraphNode[] = [];
+  for (const fn of functions) {
+    const owner = findInnermostContaining(classNodes, fn.startLine, fn.endLine);
+    const isNested = functions.some(
+      (other) =>
+        other !== fn &&
+        other.startLine <= fn.startLine &&
+        other.endLine >= fn.endLine &&
+        (other.startLine !== fn.startLine || other.endLine !== fn.endLine)
+    );
+    const qualifiedName = owner ? `${owner.name}.${fn.name}` : fn.name;
+    const node: GraphNode = {
+      id: `function:${filePath}:${qualifiedName}`,
+      type: "function",
+      name: fn.name,
+      file: filePath,
+      line: fn.startLine,
+      endLine: fn.endLine,
+      exported: isTreeSitterSymbolExported(language, fn.name, fn.exported, Boolean(owner) || isNested),
+    };
+    nodes.push(node);
+    functionNodes.push(node);
     edges.push({
-      from: `file:${filePath}`,
-      to: nodeId,
+      from: owner ? owner.id : fileNodeId,
+      to: node.id,
       type: "exports",
       file: filePath,
-      line: cls.startLine,
+      line: fn.startLine,
     });
   }
 
-  // 3. Extract Imports
-  const imports = treeSitterService.getImports(ast, language);
-  for (const imp of imports) {
+  // 3. Imports, resolved to repository files where possible
+  for (const imp of treeSitterService.getImports(ast, language)) {
     if (!imp) continue;
-    // We don't always know what's imported, but we know the source module
     const nodeId = `import:${filePath}:${imp.source}`;
-    nodes.push({
-      id: nodeId,
-      type: "import",
-      name: imp.source,
-      file: filePath,
-      line: imp.startLine,
-    });
-    edges.push({
-      from: `file:${filePath}`,
-      to: nodeId,
-      type: "imports",
-      file: filePath,
-      line: imp.startLine,
-    });
+    nodes.push({ id: nodeId, type: "import", name: imp.source, file: filePath, line: imp.startLine });
+    edges.push({ from: fileNodeId, to: nodeId, type: "imports", file: filePath, line: imp.startLine });
+
+    for (const targetFile of resolveTreeSitterImport(filePath, imp, language, resolverOptions)) {
+      if (targetFile === filePath) continue;
+      edges.push({ from: nodeId, to: `file:${targetFile}`, type: "imports", file: filePath, line: imp.startLine });
+    }
   }
 
-  // 4. Extract Calls
-  const calls = treeSitterService.getCalls(ast, language);
-  for (const call of calls) {
+  // 4. Calls, attributed to the innermost enclosing function (module-level calls stay on the file).
+  // Targets are provisional; resolveCallEdges links them to real definitions after all files are parsed.
+  for (const call of treeSitterService.getCalls(ast, language)) {
     if (!call) continue;
-    // Simplified: attach calls to the file level since context tracking is hard cross-language
-    const callerId = `file:${filePath}`;
-    const calleeId = `function:${filePath}:${call.callee}`;
+    const caller = findInnermostContaining(functionNodes, call.startLine, call.startLine);
     edges.push({
-      from: callerId,
-      to: calleeId,
+      from: caller?.id ?? fileNodeId,
+      to: `function:${filePath}:${call.callee}`,
       type: "calls",
       file: filePath,
       line: call.startLine,
     });
   }
+}
+
+/**
+ * Smallest node whose line range contains [start, end]
+ */
+function findInnermostContaining(
+  candidates: GraphNode[],
+  start: number,
+  end: number
+): GraphNode | null {
+  let best: GraphNode | null = null;
+  for (const node of candidates) {
+    if (typeof node.line !== "number" || typeof node.endLine !== "number") continue;
+    if (node.line > start || node.endLine < end) continue;
+    if (!best || node.endLine - node.line < (best.endLine ?? 0) - (best.line ?? 0)) {
+      best = node;
+    }
+  }
+  return best;
+}
+
+/**
+ * Whether a symbol is part of a module's public surface (used for entry-point detection)
+ */
+function isTreeSitterSymbolExported(
+  language: string,
+  name: string,
+  syntaxExported: boolean | undefined,
+  isMemberOrNested: boolean
+): boolean {
+  if (isMemberOrNested) return false;
+  if (syntaxExported !== undefined) return syntaxExported;
+  if (language === "python") return !name.startsWith("_");
+  if (language === "go") return /^[A-Z]/.test(name);
+  return true;
+}
+
+function resolveTreeSitterImport(
+  fromFile: string,
+  imp: { source: string; names?: string[] },
+  language: string,
+  resolverOptions: ImportResolverOptions
+): string[] {
+  if (isBabelLanguage(language)) {
+    const target = resolveImportPath(fromFile, imp.source, resolverOptions);
+    return target ? [target] : [];
+  }
+  if (language === "python") {
+    return resolvePythonImport(fromFile, imp.source, imp.names ?? [], resolverOptions);
+  }
+  return [];
+}
+
+/**
+ * Resolve "import a.b", "from a.b import c" and "from ..a import b" to repository files
+ */
+function resolvePythonImport(
+  fromFile: string,
+  source: string,
+  names: string[],
+  resolverOptions: ImportResolverOptions
+): string[] {
+  const results = new Set<string>();
+  const { knownFiles, pythonModules } = resolverOptions;
+
+  const tryModule = (modulePath: string, dottedName: string | null): boolean => {
+    if (modulePath) {
+      for (const candidate of [`${modulePath}.py`, `${modulePath}/__init__.py`]) {
+        const normalized = normalizeRepoPath(candidate);
+        if (knownFiles.has(normalized)) {
+          results.add(normalized);
+          return true;
+        }
+      }
+    }
+    // Absolute imports in src/-style layouts: match by module suffix when unambiguous
+    if (dottedName) {
+      const matches = pythonModules.get(dottedName) ?? [];
+      if (matches.length === 1 && matches[0]) {
+        results.add(matches[0]);
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const leadingDots = source.match(/^\.+/)?.[0].length ?? 0;
+  const rest = source.slice(leadingDots);
+
+  if (leadingDots > 0) {
+    const dirParts = fromFile.split("/").slice(0, -1);
+    const baseParts = dirParts.slice(0, Math.max(0, dirParts.length - (leadingDots - 1)));
+    const modulePath = [...baseParts, ...(rest ? rest.split(".") : [])].join("/");
+
+    const moduleFound = rest ? tryModule(modulePath, null) : false;
+    let submoduleFound = false;
+    for (const name of names) {
+      submoduleFound = tryModule(`${modulePath}/${name.replace(/\./g, "/")}`, null) || submoduleFound;
+    }
+    if (!moduleFound && !submoduleFound) tryModule(modulePath, null);
+  } else {
+    const modulePath = rest.replace(/\./g, "/");
+    tryModule(modulePath, rest);
+    for (const name of names) {
+      tryModule(`${modulePath}/${name.replace(/\./g, "/")}`, `${rest}.${name}`);
+    }
+  }
+
+  return Array.from(results);
+}
+
+function buildPythonModuleIndex(files: Array<{ path: string }>): Map<string, string[]> {
+  const index = new Map<string, string[]>();
+  for (const file of files) {
+    const normalized = normalizeRepoPath(file.path);
+    if (!normalized.endsWith(".py")) continue;
+
+    const parts = normalized.slice(0, -3).split("/");
+    if (parts[parts.length - 1] === "__init__") parts.pop();
+
+    for (let i = 0; i < parts.length; i++) {
+      const key = parts.slice(i).join(".");
+      if (!key) continue;
+      const existing = index.get(key) ?? [];
+      if (!existing.includes(normalized)) existing.push(normalized);
+      index.set(key, existing);
+    }
+  }
+  return index;
+}
+
+/**
+ * Point each call edge at the real definition it refers to.
+ * Lookup order: the caller's own file, then files it imports (and, for Go, its package directory).
+ * Calls that cannot be matched to a known definition (library/builtin calls) are dropped,
+ * so the graph only contains edges between real nodes.
+ */
+function resolveCallEdges(nodes: GraphNode[], edges: GraphEdge[]): GraphEdge[] {
+  const nodeById = new Map(nodes.map((n) => [n.id, n]));
+
+  const definitionsByFile = new Map<string, Map<string, string[]>>();
+  for (const node of nodes) {
+    if (node.type !== "function" && node.type !== "class") continue;
+    const byName = definitionsByFile.get(node.file) ?? new Map<string, string[]>();
+    const ids = byName.get(node.name) ?? [];
+    ids.push(node.id);
+    byName.set(node.name, ids);
+    definitionsByFile.set(node.file, byName);
+  }
+
+  const importTargets = new Map<string, string[]>();
+  for (const edge of edges) {
+    if (edge.type === "imports" && edge.from.startsWith("import:") && edge.to.startsWith("file:")) {
+      const targets = importTargets.get(edge.from) ?? [];
+      targets.push(edge.to.substring(5));
+      importTargets.set(edge.from, targets);
+    }
+  }
+
+  const importedFilesByFile = new Map<string, Set<string>>();
+  for (const edge of edges) {
+    if (edge.type === "imports" && edge.from.startsWith("file:") && edge.to.startsWith("import:")) {
+      const file = edge.from.substring(5);
+      const set = importedFilesByFile.get(file) ?? new Set<string>();
+      for (const target of importTargets.get(edge.to) ?? []) set.add(target);
+      importedFilesByFile.set(file, set);
+    }
+  }
+
+  // Go functions are visible across all files of the same package (directory)
+  const goFilesByDir = new Map<string, string[]>();
+  for (const node of nodes) {
+    if (node.type !== "file" || !node.file.endsWith(".go")) continue;
+    const dir = node.file.split("/").slice(0, -1).join("/");
+    goFilesByDir.set(dir, [...(goFilesByDir.get(dir) ?? []), node.file]);
+  }
+
+  const MAX_AMBIGUOUS_TARGETS = 3;
+  const result: GraphEdge[] = [];
+  const seenCalls = new Set<string>();
+
+  const pushCall = (edge: GraphEdge, to: string) => {
+    if (to === edge.from) return; // ignore direct recursion
+    const key = `${edge.from}->${to}`;
+    if (seenCalls.has(key)) return;
+    seenCalls.add(key);
+    result.push({ ...edge, to });
+  };
+
+  for (const edge of edges) {
+    if (edge.type !== "calls") {
+      result.push(edge);
+      continue;
+    }
+
+    const callerNode = nodeById.get(edge.from);
+    if (!callerNode) continue;
+
+    if (nodeById.has(edge.to)) {
+      pushCall(edge, edge.to);
+      continue;
+    }
+
+    const rawName = edge.to.substring(edge.to.lastIndexOf(":") + 1);
+    const calleeName = rawName.substring(rawName.lastIndexOf(".") + 1);
+    if (!calleeName) continue;
+
+    const callerFile = callerNode.file;
+    const local = definitionsByFile.get(callerFile)?.get(calleeName) ?? [];
+    if (local.length > 0) {
+      for (const id of local.slice(0, MAX_AMBIGUOUS_TARGETS)) pushCall(edge, id);
+      continue;
+    }
+
+    const scopeFiles = new Set<string>(importedFilesByFile.get(callerFile) ?? []);
+    if (callerFile.endsWith(".go")) {
+      const dir = callerFile.split("/").slice(0, -1).join("/");
+      for (const sibling of goFilesByDir.get(dir) ?? []) {
+        if (sibling !== callerFile) scopeFiles.add(sibling);
+      }
+    }
+
+    const candidates: string[] = [];
+    for (const file of scopeFiles) {
+      candidates.push(...(definitionsByFile.get(file)?.get(calleeName) ?? []));
+    }
+    // Common names (get, run, ...) defined in many imported files are too ambiguous to link
+    if (candidates.length === 0 || candidates.length > MAX_AMBIGUOUS_TARGETS) continue;
+    for (const id of candidates) pushCall(edge, id);
+  }
+
+  return result;
 }
 
 /**
@@ -653,23 +976,8 @@ function resolveImportPath(
   let basePaths: string[] = [];
 
   if (importPath.startsWith(".") || importPath.startsWith("/")) {
-    let resolvedPath: string | null = null;
-
-    if (importPath.startsWith("./")) {
-      resolvedPath = `${fromDir}/${importPath.slice(2)}`;
-    } else if (importPath.startsWith("../")) {
-      const parts = fromDir.split("/");
-      const upLevels = importPath.match(/\.\.\//g)?.length || 0;
-      const newPath = parts.slice(0, parts.length - upLevels).join("/");
-      const relativePath = importPath.replace(/\.\.\//g, "");
-      resolvedPath = `${newPath}/${relativePath}`;
-    } else if (importPath.startsWith("/")) {
-      resolvedPath = importPath.slice(1);
-    }
-
-    if (resolvedPath) {
-      basePaths = [resolvedPath];
-    }
+    // normalizeRepoPath collapses "./" and "../" segments
+    basePaths = [importPath.startsWith("/") ? importPath.slice(1) : `${fromDir}/${importPath}`];
   } else {
     basePaths = resolveAliasImportCandidates(importPath, resolverOptions.aliases);
   }
@@ -692,8 +1000,9 @@ function buildImportResolverOptions(
 ): ImportResolverOptions {
   const knownFiles = new Set(files.map((file) => normalizeRepoPath(file.path)));
   const aliases = buildImportAliases(files);
+  const pythonModules = buildPythonModuleIndex(files);
 
-  return { aliases, knownFiles };
+  return { aliases, knownFiles, pythonModules };
 }
 
 function buildImportAliases(
@@ -912,12 +1221,16 @@ function calculateMetadata(nodes: GraphNode[], edges: GraphEdge[]): GraphMetadat
   const classNodes = nodes.filter((n) => n.type === "class");
   const fileNodes = nodes.filter((n) => n.type === "file");
 
-  // Find entry points (exported functions/classes with no incoming calls)
+  // Find entry points (exported functions/classes nothing in the repo calls).
+  // Tests are never entry points: nothing calls them by design.
   const calledNodeIds = new Set(edges.filter((e) => e.type === "calls").map((e) => e.to));
   const entryPoints = nodes
     .filter(
       (n) =>
-        (n.type === "function" || n.type === "class") && n.exported && !calledNodeIds.has(n.id)
+        (n.type === "function" || n.type === "class") &&
+        n.exported &&
+        !calledNodeIds.has(n.id) &&
+        !isTestNode(n)
     )
     .map((n) => n.id);
 
@@ -1190,73 +1503,125 @@ export function findDependentFiles(graphData: CodeGraphData, fileId: string): Gr
 }
 
 /**
- * Calculate impact radius for changed files
- * Returns files and functions affected by changes
+ * Test files and test functions are excluded from impact: nothing depends on them.
+ */
+export function isTestNode(node: GraphNode): boolean {
+  if (isTestFile(node.file)) return true;
+  return (node.type === "function" || node.type === "class") && isTestFunctionName(node.name);
+}
+
+/**
+ * Functions/classes touched by a change.
+ * With changedLinesByFile (diff line numbers in the graph's coordinates), only the innermost
+ * definition containing each changed line counts. Without it, every definition in the
+ * file counts (legacy whole-file behaviour, used by the impact API).
+ * extraChangedNodeIds adds definitions that cannot be found by line, such as functions
+ * the PR removed (see overlayFilesOnGraph).
+ */
+export function findChangedNodes(
+  graphData: CodeGraphData,
+  changedFiles: string[],
+  changedLinesByFile?: Record<string, number[]>,
+  extraChangedNodeIds: string[] = []
+): GraphNode[] {
+  const changed = new Map<string, GraphNode>();
+
+  if (extraChangedNodeIds.length > 0) {
+    const extraIds = new Set(extraChangedNodeIds);
+    for (const node of graphData.nodes) {
+      if (extraIds.has(node.id)) changed.set(node.id, node);
+    }
+  }
+
+  for (const changedFile of changedFiles) {
+    const definitions = graphData.nodes.filter(
+      (n) => n.file === changedFile && (n.type === "function" || n.type === "class")
+    );
+    if (definitions.length === 0) continue;
+
+    if (!changedLinesByFile) {
+      for (const node of definitions) changed.set(node.id, node);
+      continue;
+    }
+
+    for (const line of changedLinesByFile[changedFile] ?? []) {
+      const node = findInnermostContaining(definitions, line, line);
+      if (node) changed.set(node.id, node);
+    }
+  }
+
+  return Array.from(changed.values()).filter((n) => !isTestNode(n));
+}
+
+/**
+ * Structural impact of a change on the rest of the codebase
  */
 export interface ImpactAnalysis {
-  directlyAffectedFiles: string[]; // Files that import changed files
-  directlyAffectedFunctions: string[]; // Functions in changed files
-  indirectlyAffectedFunctions: string[]; // Functions that call changed functions
-  totalImpactRadius: number; // Total unique affected entities
-  riskLevel: "low" | "medium" | "high" | "critical";
+  directlyAffectedFiles: string[]; // Other files that import or call into the changed code
+  directlyAffectedFunctions: string[]; // Functions/classes the change touches
+  indirectlyAffectedFunctions: string[]; // Functions/classes elsewhere that call the changed ones
+  affectedEntryPoints: string[]; // Public entry points among the changed functions and their callers
+  totalImpactRadius: number; // Downstream size: dependent files + callers
+  riskLevel: "low" | "medium" | "high" | "critical"; // Structural impact only, not a code-quality verdict
 }
 
 export function analyzeChangeImpact(
   graphData: CodeGraphData,
-  changedFiles: string[]
+  changedFiles: string[],
+  changedLinesByFile?: Record<string, number[]>,
+  extraChangedNodeIds: string[] = []
 ): ImpactAnalysis {
-  const directlyAffectedFiles = new Set<string>();
-  const directlyAffectedFunctions = new Set<string>();
-  const indirectlyAffectedFunctions = new Set<string>();
+  const changedFileSet = new Set(changedFiles);
+  const changedNodes = findChangedNodes(graphData, changedFiles, changedLinesByFile, extraChangedNodeIds);
+  const changedIds = new Set(changedNodes.map((n) => n.id));
 
-  // For each changed file
+  const dependentFiles = new Set<string>();
+  const callerIds = new Set<string>();
+
+  const addDependentFile = (file: string) => {
+    if (!changedFileSet.has(file) && !isTestFile(file)) dependentFiles.add(file);
+  };
+
+  // Files importing a changed file (only when the file actually has changed lines)
   for (const changedFile of changedFiles) {
-    const fileId = changedFile.startsWith("file:")
-      ? changedFile
-      : `file:${changedFile}`;
-
-    // Find files that depend on this file
-    const dependents = findDependentFiles(graphData, fileId);
-    for (const dep of dependents) {
-      directlyAffectedFiles.add(dep.id);
+    const hasChangedLines = !changedLinesByFile || (changedLinesByFile[changedFile]?.length ?? 0) > 0;
+    if (!hasChangedLines) continue;
+    for (const dep of findDependentFiles(graphData, `file:${changedFile}`)) {
+      addDependentFile(dep.file);
     }
+  }
 
-    // Find all functions in the changed file
-    const functionsInFile = graphData.nodes.filter(
-      (n) => n.file === changedFile && (n.type === "function" || n.type === "class")
-    );
-
-    for (const func of functionsInFile) {
-      directlyAffectedFunctions.add(func.id);
-
-      // Find all callers of this function
-      const callers = findCallers(graphData, func.id);
-      for (const caller of callers) {
-        indirectlyAffectedFunctions.add(caller.id);
+  // Callers of the changed functions outside the changed set
+  for (const node of changedNodes) {
+    for (const caller of findCallers(graphData, node.id)) {
+      if (changedIds.has(caller.id) || isTestNode(caller)) continue;
+      if (caller.type === "file") {
+        addDependentFile(caller.file);
+      } else {
+        callerIds.add(caller.id);
       }
     }
   }
 
-  const totalImpactRadius =
-    directlyAffectedFiles.size +
-    directlyAffectedFunctions.size +
-    indirectlyAffectedFunctions.size;
+  const entryPointSet = new Set(graphData.metadata.entryPoints);
+  const nodeById = new Map(graphData.nodes.map((n) => [n.id, n]));
+  const affectedEntryPoints = [...changedIds, ...callerIds].filter((id) => {
+    const node = nodeById.get(id);
+    return entryPointSet.has(id) && node !== undefined && !isTestNode(node);
+  });
 
-  // Determine risk level
-  let riskLevel: "low" | "medium" | "high" | "critical" = "low";
-  if (totalImpactRadius > 50) {
+  const downstream = dependentFiles.size + callerIds.size;
+
+  let riskLevel: ImpactAnalysis["riskLevel"] = "low";
+  if (downstream > 30) {
     riskLevel = "critical";
-  } else if (totalImpactRadius > 20) {
+  } else if (downstream > 12) {
     riskLevel = "high";
-  } else if (totalImpactRadius > 10) {
+  } else if (downstream > 3) {
     riskLevel = "medium";
   }
 
-  // If any entry points are affected, increase risk
-  const affectedEntryPoints = graphData.metadata.entryPoints.filter(
-    (ep) =>
-      directlyAffectedFunctions.has(ep) || indirectlyAffectedFunctions.has(ep)
-  );
+  // Touching public entry points (routes, CLI mains, exported APIs) raises impact
   if (affectedEntryPoints.length > 0 && riskLevel === "low") {
     riskLevel = "medium";
   }
@@ -1265,12 +1630,11 @@ export function analyzeChangeImpact(
   }
 
   return {
-    directlyAffectedFiles: Array.from(directlyAffectedFiles).map((id) =>
-      id.startsWith("file:") ? id.substring(5) : id
-    ),
-    directlyAffectedFunctions: Array.from(directlyAffectedFunctions),
-    indirectlyAffectedFunctions: Array.from(indirectlyAffectedFunctions),
-    totalImpactRadius,
+    directlyAffectedFiles: Array.from(dependentFiles),
+    directlyAffectedFunctions: Array.from(changedIds),
+    indirectlyAffectedFunctions: Array.from(callerIds),
+    affectedEntryPoints,
+    totalImpactRadius: downstream,
     riskLevel,
   };
 }
@@ -1316,87 +1680,64 @@ export function findCallPath(
 }
 
 /**
- * Format graph context for AI review prompt
+ * Format graph context for AI review prompt.
+ * Only structural facts are given; the model decides the review risk itself.
  */
 export function formatGraphContextForPrompt(
   graphData: CodeGraphData,
-  changedFiles: string[]
+  changedFiles: string[],
+  changedLinesByFile?: Record<string, number[]>,
+  extraChangedNodeIds: string[] = []
 ): string {
-  const impact = analyzeChangeImpact(graphData, changedFiles);
+  const impact = analyzeChangeImpact(graphData, changedFiles, changedLinesByFile, extraChangedNodeIds);
+  const nodeById = new Map(graphData.nodes.map((n) => [n.id, n]));
+  const describe = (id: string) => {
+    const node = nodeById.get(id);
+    return node ? `\`${node.name}\` (${node.file}${node.line ? `:${node.line}` : ""})` : id;
+  };
 
-  let context = "\n## Codebase Graph Analysis\n\n";
+  let context = "\n## Codebase Graph Analysis\n";
+  context += "Structural facts from the repository code graph, with the changed files parsed at the PR head when available.\n\n";
 
-  context += `**Impact Radius:**\n`;
-  context += `- ${impact.directlyAffectedFiles.length} files directly depend on changed files\n`;
-  context += `- ${impact.directlyAffectedFunctions.length} functions/classes in changed files\n`;
-  context += `- ${impact.indirectlyAffectedFunctions.length} functions call the changed functions\n`;
-  context += `- **Risk Level:** ${impact.riskLevel.toUpperCase()}\n\n`;
-
-  // Show entry points if affected
-  const affectedEntryPoints = graphData.metadata.entryPoints.filter(
-    (ep) =>
-      impact.directlyAffectedFunctions.includes(ep) ||
-      impact.indirectlyAffectedFunctions.includes(ep)
-  );
-
-  if (affectedEntryPoints.length > 0) {
-    context += `**[WARNING] Entry Points Affected:** ${affectedEntryPoints.length}\n`;
-    context += affectedEntryPoints
-      .slice(0, 5)
-      .map((ep) => {
-        const node = graphData.nodes.find((n) => n.id === ep);
-        return `- ${node?.name || ep} (${node?.file || "unknown"})`;
-      })
-      .join("\n");
-    context += "\n\n";
+  context += `- Changed functions/classes found in the graph: ${impact.directlyAffectedFunctions.length}\n`;
+  for (const id of impact.directlyAffectedFunctions.slice(0, 8)) {
+    context += `  - ${describe(id)} - ${findCallers(graphData, id).length} caller(s)\n`;
   }
+
+  context += `- Other files that import or call the changed code: ${impact.directlyAffectedFiles.length}\n`;
+  for (const file of impact.directlyAffectedFiles.slice(0, 8)) {
+    context += `  - ${file}\n`;
+  }
+
+  context += `- Functions elsewhere that call the changed functions: ${impact.indirectlyAffectedFunctions.length}\n`;
+  for (const id of impact.indirectlyAffectedFunctions.slice(0, 8)) {
+    context += `  - ${describe(id)}\n`;
+  }
+
+  if (impact.affectedEntryPoints.length > 0) {
+    context += `- Public entry points touched: ${impact.affectedEntryPoints.length}\n`;
+    for (const id of impact.affectedEntryPoints.slice(0, 5)) {
+      context += `  - ${describe(id)}\n`;
+    }
+  }
+
+  context += `- Structural impact: ${impact.riskLevel.toUpperCase()} (size of downstream code only, not a judgement of code quality)\n\n`;
 
   // Show circular dependencies if any involve changed files
   const relevantCycles = graphData.metadata.circularDeps.filter((cycle) =>
     cycle.some((nodeId) => {
-      const node = graphData.nodes.find((n) => n.id === nodeId);
+      const node = nodeById.get(nodeId);
       return node && changedFiles.includes(node.file);
     })
   );
 
   if (relevantCycles.length > 0) {
     context += `**[WARNING] Circular Dependencies Detected:** ${relevantCycles.length}\n`;
-    for (let i = 0; i < Math.min(3, relevantCycles.length); i++) {
-      const cycle = relevantCycles[i];
-      if (!cycle) continue;
-
-      const cycleNames = cycle
-        .map((id) => {
-          const node = graphData.nodes.find((n) => n.id === id);
-          return node?.name || id;
-        })
-        .join(" → ");
+    for (const cycle of relevantCycles.slice(0, 3)) {
+      const cycleNames = cycle.map((id) => nodeById.get(id)?.name || id).join(" → ");
       context += `- ${cycleNames} → (cycle)\n`;
     }
     context += "\n";
-  }
-
-  // Show top high-importance functions in changed files
-  const changedFunctions = graphData.nodes.filter(
-    (n) =>
-      changedFiles.includes(n.file) &&
-      (n.type === "function" || n.type === "class")
-  );
-
-  const functionsWithImportance = changedFunctions
-    .map((func) => ({
-      ...func,
-      importance: calculateFunctionImportance(graphData, func.id),
-    }))
-    .sort((a, b) => b.importance - a.importance)
-    .slice(0, 5);
-
-  if (functionsWithImportance.length > 0) {
-    context += `**Key Changed Functions (by importance):**\n`;
-    for (const func of functionsWithImportance) {
-      const callers = findCallers(graphData, func.id);
-      context += `- \`${func.name}\` (${func.file}:${func.line}) - ${callers.length} callers\n`;
-    }
   }
 
   return context;

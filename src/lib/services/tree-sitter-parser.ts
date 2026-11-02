@@ -74,12 +74,19 @@ export interface TreeSitterSymbol {
   name: string;
   startLine: number;
   endLine: number;
+  /** Only set for JS/TS, where export status is visible in the syntax tree */
+  exported?: boolean;
 }
 
 export interface TreeSitterImport {
   source: string;
   startLine: number;
+  /** Names imported by a Python "from x import a, b" statement */
+  names?: string[];
 }
+
+const JS_LANGUAGES = new Set(["javascript", "typescript", "tsx"]);
+const ANONYMOUS_FUNCTION_TYPES = new Set(["arrow_function", "function_expression", "function"]);
 
 export interface TreeSitterCall {
   callee: string;
@@ -169,7 +176,9 @@ const LANGUAGE_CONFIGS: Record<string, LanguageConfig> = {
       class: [`(class_definition name: (_) @name) @class`],
       import: [
         `(import_statement name: (dotted_name) @source) @import`,
+        `(import_statement name: (aliased_import name: (dotted_name) @source)) @import`,
         `(import_from_statement module_name: (dotted_name) @source) @import`,
+        `(import_from_statement module_name: (relative_import) @source) @import`,
       ],
       call: [
         `(call function: (identifier) @callee) @call`,
@@ -354,26 +363,41 @@ export class TreeSitterService {
   }
 
   public getFunctions(tree: Parser.Tree, language: string): TreeSitterSymbol[] {
+    const langKey = this.normalizeLanguage(language);
     const matches = this.query(tree, language, "function");
     return matches
-      .map((match) => {
+      .map((match): TreeSitterSymbol | null => {
         const node = this.getCapture(match, "function");
         if (!node) return null;
 
         const nameNode = this.getCapture(match, "name");
+        let name: string | null = nameNode?.text ?? null;
+
+        if (!name && ANONYMOUS_FUNCTION_TYPES.has(node.type)) {
+          // Only keep anonymous functions bound to a name (const fn = () => {}).
+          // Inline callbacks are not functions anyone can call or depend on.
+          name = this.getBoundFunctionName(node);
+          if (!name) return null;
+        }
+
+        name = name ?? this.inferName(node);
+        if (!name) return null;
+
         return {
-          name: this.normalizeText(nameNode?.text ?? this.inferName(node) ?? "anonymous"),
+          name: this.normalizeText(name),
           startLine: node.startPosition.row + 1,
           endLine: node.endPosition.row + 1,
+          exported: JS_LANGUAGES.has(langKey) ? this.isJsExported(node) : undefined,
         };
       })
       .filter((result): result is TreeSitterSymbol => result !== null);
   }
 
   public getClasses(tree: Parser.Tree, language: string): TreeSitterSymbol[] {
+    const langKey = this.normalizeLanguage(language);
     const matches = this.query(tree, language, "class");
     return matches
-      .map((match) => {
+      .map((match): TreeSitterSymbol | null => {
         const node = this.getCapture(match, "class");
         if (!node) return null;
 
@@ -382,6 +406,7 @@ export class TreeSitterService {
           name: this.normalizeText(nameNode?.text ?? this.inferName(node) ?? "Unknown"),
           startLine: node.startPosition.row + 1,
           endLine: node.endPosition.row + 1,
+          exported: JS_LANGUAGES.has(langKey) ? this.isJsExported(node) : undefined,
         };
       })
       .filter((result): result is TreeSitterSymbol => result !== null);
@@ -390,16 +415,85 @@ export class TreeSitterService {
   public getImports(tree: Parser.Tree, language: string): TreeSitterImport[] {
     const matches = this.query(tree, language, "import");
     return matches
-      .map((match) => {
+      .map((match): TreeSitterImport | null => {
         const sourceNode = this.getCapture(match, "source");
         if (!sourceNode) return null;
+
+        const importNode = this.getCapture(match, "import");
+        const names =
+          importNode?.type === "import_from_statement"
+            ? this.getPythonImportedNames(importNode)
+            : undefined;
 
         return {
           source: this.normalizeText(sourceNode.text),
           startLine: sourceNode.startPosition.row + 1,
+          names,
         };
       })
       .filter((result): result is TreeSitterImport => result !== null);
+  }
+
+  /**
+   * Name of the variable/property an anonymous function is assigned to, if any
+   */
+  private getBoundFunctionName(node: Parser.SyntaxNode): string | null {
+    const ownName = node.childForFieldName("name");
+    if (ownName?.text) return ownName.text;
+
+    const parent = node.parent;
+    if (!parent) return null;
+
+    const pickName = (target: Parser.SyntaxNode | null): string | null => {
+      if (!target) return null;
+      if (target.type === "member_expression") {
+        return target.childForFieldName("property")?.text ?? null;
+      }
+      return /^[A-Za-z_$][\w$]*$/.test(target.text) ? target.text : null;
+    };
+
+    switch (parent.type) {
+      case "variable_declarator":
+        return pickName(parent.childForFieldName("name"));
+      case "pair":
+        return pickName(parent.childForFieldName("key"));
+      case "assignment_expression":
+        return pickName(parent.childForFieldName("left"));
+      case "public_field_definition":
+      case "field_definition":
+        return pickName(parent.childForFieldName("name") ?? parent.childForFieldName("property"));
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * True when a JS/TS declaration is part of an export statement
+   */
+  private isJsExported(node: Parser.SyntaxNode): boolean {
+    const passThrough = new Set(["variable_declarator", "lexical_declaration", "variable_declaration"]);
+    let current = node.parent;
+    for (let depth = 0; current && depth < 4; depth++) {
+      if (current.type === "export_statement") return true;
+      if (!passThrough.has(current.type)) return false;
+      current = current.parent;
+    }
+    return false;
+  }
+
+  private getPythonImportedNames(importNode: Parser.SyntaxNode): string[] {
+    const moduleNode = importNode.childForFieldName("module_name");
+    const names: string[] = [];
+    for (const child of importNode.namedChildren) {
+      if (moduleNode && child.startIndex === moduleNode.startIndex) continue;
+      if (child.type === "dotted_name") {
+        names.push(child.text);
+      } else if (child.type === "aliased_import") {
+        const original = child.childForFieldName("name")?.text;
+        if (original) names.push(original);
+      }
+    }
+    return names;
   }
 
   public getCalls(tree: Parser.Tree, language: string): TreeSitterCall[] {
