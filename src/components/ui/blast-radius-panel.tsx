@@ -58,15 +58,15 @@ export function BlastRadiusPanel({ blastRadius }: { blastRadius: BlastRadiusData
             Blast Radius
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Impact radius based on code graph dependencies
+            Downstream code that depends on the changed functions
           </p>
         </div>
         <div className="flex items-center gap-2">
           <span className={cn("px-2 py-1 rounded text-xs font-medium", styles.badge)}>
-            {blastRadius.riskLevel.toUpperCase()}
+            {blastRadius.riskLevel.toUpperCase()} IMPACT
           </span>
           <span className="text-xs text-gray-500 dark:text-gray-400">
-            {blastRadius.totalImpactRadius} affected nodes
+            {blastRadius.totalImpactRadius} downstream
           </span>
         </div>
       </div>
@@ -85,7 +85,7 @@ export function BlastRadiusPanel({ blastRadius }: { blastRadius: BlastRadiusData
                   {blastRadius.totalImpactRadius}
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
-                  total affected
+                  downstream
                 </div>
               </div>
             </div>
@@ -111,7 +111,7 @@ export function BlastRadiusPanel({ blastRadius }: { blastRadius: BlastRadiusData
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-gray-600 dark:text-gray-300">Indirect callers</span>
+              <span className="text-gray-600 dark:text-gray-300">Callers</span>
               <span className="font-medium text-gray-900 dark:text-white">
                 {blastRadius.indirectCallers.total}
               </span>
@@ -167,7 +167,7 @@ export function BlastRadiusPanel({ blastRadius }: { blastRadius: BlastRadiusData
 
           <div>
             <div className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-              Indirect callers (sample)
+              Callers (sample)
             </div>
             <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
               <ul className="space-y-1 text-xs text-gray-700 dark:text-gray-200">

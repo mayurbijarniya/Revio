@@ -1,163 +1,99 @@
-import type { CodeGraphData } from "./code-graph";
+import type { CodeGraphData, GraphNode } from "./code-graph";
+import { findCallees, findCallers, findChangedNodes, isTestNode } from "./code-graph";
 
-function fileCategory(filePath: string): "frontend" | "api" | "service" | "db" | "infra" | "other" {
-  if (filePath.startsWith("src/app/dashboard/") || filePath.startsWith("src/components/")) return "frontend";
-  if (filePath.startsWith("src/app/api/")) return "api";
-  if (filePath.startsWith("src/lib/services/")) return "service";
-  if (filePath.startsWith("prisma/") || filePath === "src/lib/db.ts") return "db";
-  if (filePath.includes("qdrant") || filePath.includes("webhooks")) return "infra";
-  return "other";
+const MAX_CHANGED_FUNCTIONS = 6;
+const MAX_LINKS_PER_FUNCTION = 3;
+const MAX_STEPS = 14;
+
+function sanitizeMessage(text: string): string {
+  // ";" ends a statement and "#" starts an entity in Mermaid sequence diagrams
+  return text.replace(/[;#]/g, " ");
 }
 
-function getImportedFiles(graphData: CodeGraphData, filePath: string): string[] {
-  const fileNodeId = `file:${filePath}`;
-  const importNodeIds = graphData.edges
-    .filter((e) => e.type === "imports" && e.from === fileNodeId && e.to.startsWith("import:"))
-    .map((e) => e.to);
-
-  const importedFileIds = new Set<string>();
-  for (const importNodeId of importNodeIds) {
-    for (const edge of graphData.edges) {
-      if (edge.type === "imports" && edge.from === importNodeId && edge.to.startsWith("file:")) {
-        importedFileIds.add(edge.to.substring(5));
-      }
-    }
+/**
+ * Build participant labels from file paths; use the parent folder when basenames collide
+ */
+function buildParticipantLabels(files: string[]): Map<string, string> {
+  const baseCounts = new Map<string, number>();
+  for (const file of files) {
+    const base = file.split("/").pop() || file;
+    baseCounts.set(base, (baseCounts.get(base) ?? 0) + 1);
   }
 
-  return Array.from(importedFileIds);
-}
-
-function participantLabel(kind: string): string {
-  switch (kind) {
-    case "frontend":
-      return "Frontend";
-    case "api":
-      return "API";
-    case "service":
-      return "Service";
-    case "db":
-      return "Database";
-    case "github":
-      return "GitHub";
-    case "vector":
-      return "VectorDB";
-    default:
-      return "System";
+  const labels = new Map<string, string>();
+  for (const file of files) {
+    const parts = file.split("/");
+    const base = parts[parts.length - 1] || file;
+    labels.set(file, (baseCounts.get(base) ?? 0) > 1 ? parts.slice(-2).join("/") : base);
   }
+  return labels;
 }
 
-function addParticipant(participants: Set<string>, label: string): void {
-  participants.add(label);
-}
-
-function shortFileLabel(filePath: string): string {
-  const parts = filePath.split("/");
-  return parts[parts.length - 1] || filePath;
-}
-
+/**
+ * Sequence diagram of the real cross-file calls around the changed functions:
+ * who calls the changed code, and what the changed code calls in other files.
+ * Returns null when the graph shows no cross-file interaction worth drawing.
+ */
 export function generateSequenceDiagram(params: {
   changedFiles: string[];
   graphData?: CodeGraphData | null;
+  /** Changed line numbers per file, in the graph's coordinates (from the diff) */
+  changedLinesByFile?: Record<string, number[]>;
+  /** Definitions removed by the PR */
+  extraChangedNodeIds?: string[];
 }): string | null {
-  const { changedFiles, graphData } = params;
-  if (changedFiles.length === 0) return null;
+  const { changedFiles, graphData, changedLinesByFile, extraChangedNodeIds } = params;
+  if (!graphData || changedFiles.length === 0) return null;
 
-  const hasFrontend = changedFiles.some((f) => fileCategory(f) === "frontend");
-  const hasApi = changedFiles.some((f) => fileCategory(f) === "api");
-  const hasService = changedFiles.some((f) => fileCategory(f) === "service");
-  const hasDb = changedFiles.some((f) => fileCategory(f) === "db");
-  const hasWebhook = changedFiles.some((f) => f.includes("src/app/api/webhooks/"));
-  const hasQdrant =
-    changedFiles.some((f) => f.includes("qdrant")) ||
-    changedFiles.some((f) => f.includes("src/lib/services/retriever")) ||
-    changedFiles.some((f) => f.includes("src/lib/services/indexer"));
+  const changedNodes = findChangedNodes(graphData, changedFiles, changedLinesByFile, extraChangedNodeIds).slice(
+    0,
+    MAX_CHANGED_FUNCTIONS
+  );
+  if (changedNodes.length === 0) return null;
 
-  const participants = new Set<string>();
-  const steps: string[] = [];
+  const isExternal = (node: GraphNode, from: GraphNode) =>
+    node.file !== from.file && (node.type === "function" || node.type === "class") && !isTestNode(node);
 
-  if (hasWebhook) addParticipant(participants, participantLabel("github"));
-  if (hasFrontend) addParticipant(participants, participantLabel("frontend"));
-  if (hasApi) addParticipant(participants, participantLabel("api"));
-  if (hasService) addParticipant(participants, participantLabel("service"));
-  if (hasDb) addParticipant(participants, participantLabel("db"));
-  if (hasQdrant) addParticipant(participants, participantLabel("vector"));
+  const participantOrder: string[] = [];
+  const addParticipant = (file: string) => {
+    if (!participantOrder.includes(file)) participantOrder.push(file);
+  };
 
-  // If we only touched one layer, a sequence diagram usually isn't helpful.
-  if (participants.size < 2) return null;
+  const steps: Array<{ from: string; to: string; message: string }> = [];
+  for (const node of changedNodes) {
+    const callers = findCallers(graphData, node.id).filter((c) => isExternal(c, node)).slice(0, MAX_LINKS_PER_FUNCTION);
+    const callees = findCallees(graphData, node.id).filter((c) => isExternal(c, node)).slice(0, MAX_LINKS_PER_FUNCTION);
 
-  // High-level flow
-  if (hasWebhook) {
-    steps.push("GitHub->>API: Webhook event (pull_request / issue_comment)");
-  }
-  if (hasFrontend && hasApi) {
-    steps.push("Frontend->>API: Request data / trigger action");
-  }
-
-  // Add a couple of concrete file-based steps when graph is available.
-  if (graphData) {
-    const apiFiles = changedFiles.filter((f) => fileCategory(f) === "api");
-    for (const apiFile of apiFiles.slice(0, 3)) {
-      const imported = getImportedFiles(graphData, apiFile);
-      const serviceDeps = imported.filter((p) => fileCategory(p) === "service").slice(0, 4);
-
-      for (const svc of serviceDeps) {
-        addParticipant(participants, participantLabel("service"));
-        steps.push(`API->>Service: ${shortFileLabel(svc)}`);
-
-        const svcImports = getImportedFiles(graphData, svc);
-        const touchesDb = svcImports.some((p) => fileCategory(p) === "db");
-        const touchesGitHub = svcImports.some((p) => p.includes("/github"));
-        const touchesVector = svcImports.some((p) => p.includes("qdrant"));
-
-        if (touchesDb) {
-          addParticipant(participants, participantLabel("db"));
-          steps.push("Service->>Database: Read/write data (Prisma)");
-        }
-        if (touchesGitHub) {
-          addParticipant(participants, participantLabel("github"));
-          steps.push("Service->>GitHub: GitHub API call");
-        }
-        if (touchesVector) {
-          addParticipant(participants, participantLabel("vector"));
-          steps.push("Service->>VectorDB: Semantic search / indexing");
-        }
-      }
+    for (const caller of callers) {
+      addParticipant(caller.file);
+      addParticipant(node.file);
+      steps.push({ from: caller.file, to: node.file, message: `${node.name}()` });
     }
-  } else {
-    if (hasApi && hasService) steps.push("API->>Service: Domain logic");
-    if (hasService && hasDb) steps.push("Service->>Database: Read/write data");
-    if (hasService && hasQdrant) steps.push("Service->>VectorDB: Embeddings/search");
+    for (const callee of callees) {
+      addParticipant(node.file);
+      addParticipant(callee.file);
+      steps.push({ from: node.file, to: callee.file, message: `${callee.name}()` });
+    }
   }
 
-  if (hasService && hasApi) {
-    steps.push("Service-->>API: Result");
-  }
-  if (hasApi && hasFrontend) {
-    steps.push("API-->>Frontend: Response");
-  }
-  if (hasWebhook) {
-    steps.push("API-->>GitHub: Post review/comment");
+  if (participantOrder.length < 2 || steps.length === 0) return null;
+
+  const labels = buildParticipantLabels(participantOrder);
+  const aliasOf = new Map(participantOrder.map((file, index) => [file, `P${index}`]));
+
+  const lines = ["sequenceDiagram"];
+  for (const file of participantOrder) {
+    lines.push(`    participant ${aliasOf.get(file)} as ${sanitizeMessage(labels.get(file) ?? file)}`);
   }
 
-  // Deduplicate while preserving order
   const seen = new Set<string>();
-  const uniqueSteps = steps.filter((s) => {
-    if (seen.has(s)) return false;
-    seen.add(s);
-    return true;
-  });
-
-  const orderedParticipants = Array.from(participants);
-  const diagramLines: string[] = ["sequenceDiagram"];
-  for (const p of orderedParticipants) {
-    diagramLines.push(`    participant ${p}`);
+  for (const step of steps) {
+    const line = `    ${aliasOf.get(step.from)}->>${aliasOf.get(step.to)}: ${sanitizeMessage(step.message)}`;
+    if (seen.has(line)) continue;
+    seen.add(line);
+    lines.push(line);
+    if (seen.size >= MAX_STEPS) break;
   }
 
-  diagramLines.push("");
-  for (const step of uniqueSteps.slice(0, 14)) {
-    diagramLines.push(`    ${step}`);
-  }
-
-  return diagramLines.join("\n");
+  return lines.join("\n");
 }
-

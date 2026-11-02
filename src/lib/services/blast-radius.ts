@@ -31,92 +31,109 @@ function toFunctionSummary(graphData: CodeGraphData, node: GraphNode): BlastRadi
   };
 }
 
+function summarize(graphData: CodeGraphData, ids: string[]): BlastRadiusFunctionSummary[] {
+  const nodeById = new Map(graphData.nodes.map((n) => [n.id, n]));
+  return ids
+    .map((id) => nodeById.get(id))
+    .filter((n): n is GraphNode => Boolean(n))
+    .map((n) => toFunctionSummary(graphData, n))
+    .filter((n): n is BlastRadiusFunctionSummary => Boolean(n))
+    .sort((a, b) => b.importance - a.importance);
+}
+
+/**
+ * Mermaid label text: entity-encode characters that break quoted labels
+ */
 function escapeMermaidLabel(text: string): string {
-  return text.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return text
+    .replace(/&/g, "#amp;")
+    .replace(/"/g, "#quot;")
+    .replace(/</g, "#lt;")
+    .replace(/>/g, "#gt;");
+}
+
+function baseName(filePath: string): string {
+  return filePath.split("/").pop() || filePath;
 }
 
 function buildMermaidList(title: string, lines: string[], maxLines: number): string {
   const shown = lines.slice(0, maxLines);
   const remaining = Math.max(0, lines.length - shown.length);
-  const parts = [title];
+  // "•" never wraps onto its own line the way "- " does
+  const parts = [title, ...shown.map((l) => `• ${l}`)];
+  if (remaining > 0) parts.push(`… +${remaining} more`);
+  return parts.map(escapeMermaidLabel).join("<br/>");
+}
 
-  if (shown.length > 0) {
-    parts.push(...shown.map((l) => `- ${l}`));
-  } else {
-    parts.push("- (none)");
-  }
-
-  if (remaining > 0) {
-    parts.push(`- … +${remaining} more`);
-  }
-
-  return escapeMermaidLabel(parts.join("<br/>"));
+function functionLabel(f: BlastRadiusFunctionSummary): string {
+  return `${f.name} (${baseName(f.file)}${f.line ? `:${f.line}` : ""})`;
 }
 
 export function generateBlastRadius(args: {
   changedFiles: string[];
   graphData: CodeGraphData | null;
+  /** Changed line numbers per file, in the graph's coordinates (from the diff) */
+  changedLinesByFile?: Record<string, number[]>;
+  /** Definitions removed by the PR */
+  extraChangedNodeIds?: string[];
   maxDirectFiles?: number;
   maxFunctions?: number;
 }): BlastRadiusData | null {
-  const { graphData, changedFiles } = args;
+  const { graphData, changedFiles, changedLinesByFile, extraChangedNodeIds } = args;
   if (!graphData || changedFiles.length === 0) return null;
 
   const maxDirectFiles = args.maxDirectFiles ?? 20;
   const maxFunctions = args.maxFunctions ?? 15;
 
-  const impact = analyzeChangeImpact(graphData, changedFiles);
+  const impact = analyzeChangeImpact(graphData, changedFiles, changedLinesByFile, extraChangedNodeIds);
 
-  const changedFunctions = impact.directlyAffectedFunctions
-    .map((id) => graphData.nodes.find((n) => n.id === id))
-    .filter((n): n is GraphNode => Boolean(n))
-    .map((n) => toFunctionSummary(graphData, n))
-    .filter((n): n is BlastRadiusFunctionSummary => Boolean(n))
-    .sort((a, b) => b.importance - a.importance);
-
-  const indirectCallers = impact.indirectlyAffectedFunctions
-    .map((id) => graphData.nodes.find((n) => n.id === id))
-    .filter((n): n is GraphNode => Boolean(n))
-    .map((n) => toFunctionSummary(graphData, n))
-    .filter((n): n is BlastRadiusFunctionSummary => Boolean(n))
-    .sort((a, b) => b.importance - a.importance);
-
-  const affectedEntryPoints = graphData.metadata.entryPoints
-    .filter(
-      (id) =>
-        impact.directlyAffectedFunctions.includes(id) ||
-        impact.indirectlyAffectedFunctions.includes(id)
-    )
-    .map((id) => graphData.nodes.find((n) => n.id === id))
-    .filter((n): n is GraphNode => Boolean(n))
-    .map((n) => toFunctionSummary(graphData, n))
-    .filter((n): n is BlastRadiusFunctionSummary => Boolean(n))
-    .sort((a, b) => b.importance - a.importance);
-
+  const changedFunctions = summarize(graphData, impact.directlyAffectedFunctions);
+  const indirectCallers = summarize(graphData, impact.indirectlyAffectedFunctions);
+  const affectedEntryPoints = summarize(graphData, impact.affectedEntryPoints);
   const directlyAffectedFiles = [...impact.directlyAffectedFiles].sort((a, b) => a.localeCompare(b));
 
   const risk = impact.riskLevel;
-  const riskClass = risk;
+  const changedEntryPointIds = new Set(
+    affectedEntryPoints.filter((ep) => impact.directlyAffectedFunctions.includes(ep.id)).map((ep) => ep.id)
+  );
+  const callerEntryPointCount = affectedEntryPoints.length - changedEntryPointIds.size;
 
-  const changedFileNames = changedFiles.map((f) => f);
-  const directFileNames = directlyAffectedFiles.map((f) => f);
-  const callerNames = indirectCallers.map((f) => `${f.name} (${f.file}${f.line ? `:${f.line}` : ""})`);
-  const entryPointNames = affectedEntryPoints.map((f) => `${f.name} (${f.file}${f.line ? `:${f.line}` : ""})`);
-
-  const mermaid = [
+  const lines = [
     "flowchart LR",
     "  classDef low fill:#ECFDF5,stroke:#10B981,color:#065F46;",
     "  classDef medium fill:#FFFBEB,stroke:#F59E0B,color:#92400E;",
     "  classDef high fill:#FFF7ED,stroke:#F97316,color:#9A3412;",
     "  classDef critical fill:#FEF2F2,stroke:#EF4444,color:#991B1B;",
-    `  CF["${buildMermaidList(`Changed Files (${changedFiles.length})`, changedFileNames, 6)}"]:::${riskClass}`,
-    `  DF["${buildMermaidList(`Direct Dependents (${directlyAffectedFiles.length})`, directFileNames, 6)}"]:::${riskClass}`,
-    `  IC["${buildMermaidList(`Indirect Callers (${indirectCallers.length})`, callerNames, 6)}"]:::${riskClass}`,
-    `  EP["${buildMermaidList(`Entry Points Affected (${affectedEntryPoints.length})`, entryPointNames, 4)}"]:::${riskClass}`,
-    "  CF --> DF",
-    "  CF --> IC",
-    "  IC --> EP",
-  ].join("\n");
+    `  CF["${buildMermaidList(
+      `Changed (${changedFiles.length} file${changedFiles.length === 1 ? "" : "s"}, ${changedFunctions.length} function${changedFunctions.length === 1 ? "" : "s"})`,
+      changedFunctions.length > 0 ? changedFunctions.map(functionLabel) : changedFiles.map(baseName),
+      6
+    )}"]:::${risk}`,
+  ];
+
+  // Only draw boxes and edges that exist, so the diagram never implies a path that isn't there
+  if (directlyAffectedFiles.length > 0) {
+    lines.push(
+      `  DF["${buildMermaidList(`Dependent Files (${directlyAffectedFiles.length})`, directlyAffectedFiles.map(baseName), 6)}"]:::${risk}`,
+      "  CF --> DF"
+    );
+  }
+  if (indirectCallers.length > 0) {
+    lines.push(
+      `  IC["${buildMermaidList(`Callers (${indirectCallers.length})`, indirectCallers.map(functionLabel), 6)}"]:::${risk}`,
+      "  CF --> IC"
+    );
+  }
+  if (affectedEntryPoints.length > 0) {
+    lines.push(
+      `  EP["${buildMermaidList(`Entry Points Affected (${affectedEntryPoints.length})`, affectedEntryPoints.map(functionLabel), 4)}"]:::${risk}`
+    );
+    if (changedEntryPointIds.size > 0) lines.push("  CF --> EP");
+    if (callerEntryPointCount > 0 && indirectCallers.length > 0) lines.push("  IC --> EP");
+  }
+  if (directlyAffectedFiles.length === 0 && indirectCallers.length === 0 && affectedEntryPoints.length === 0) {
+    lines.push(`  NONE["${escapeMermaidLabel("No downstream code depends on the changed functions")}"]:::low`, "  CF -.- NONE");
+  }
 
   return {
     riskLevel: risk,
@@ -126,7 +143,6 @@ export function generateBlastRadius(args: {
     changedFunctions: takeSample(changedFunctions, maxFunctions),
     indirectCallers: takeSample(indirectCallers, maxFunctions),
     affectedEntryPoints: takeSample(affectedEntryPoints, maxFunctions),
-    mermaid,
+    mermaid: lines.join("\n"),
   };
 }
-

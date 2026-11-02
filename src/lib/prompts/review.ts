@@ -73,6 +73,8 @@ const REVIEW_CORE_INSTRUCTIONS = `## Your Responsibilities
 - Do not invent file paths, line numbers, call paths, behavior, or project intent that is not visible in the supplied diff/context.
 - If a scanner finding appears to be a false positive, do not include it in "issues". Mention it briefly in the summary only when it is useful context.
 - If uncertain, lower the severity or omit the issue. Avoid speculative findings.
+- Each diff line is prefixed with its line number in the new version of the file: "+   42 | code" (added), "    42 | code" (unchanged context), "-       | code" (removed). Use that number as the issue "line". Only cite numbered lines; for a problem in removed code, cite the nearest numbered line.
+- The "Codebase Graph Analysis" section lists real callers and dependents of the changed code. Use it to judge breaking-change risk, but do not report graph facts as issues on their own.
 
 ## Review Format
 You MUST respond with valid JSON in the following format:
@@ -89,66 +91,6 @@ You MUST respond with valid JSON in the following format:
       "description": "Detailed explanation of the issue",
       "suggestion": "How to fix or improve (with code example if applicable)",
       "ruleId": "optional-custom-rule-id-if-matched"
-    }
-  ],
-  "positives": ["List of good practices or improvements noticed in the PR"],
-  "recommendation": "approve" | "request_changes" | "comment"
-}
-
-## Recommendation Rules
-- Use "approve" only when there are no critical/warning issues, no unresolved security concerns, no correctness risk, and no meaningful missing-test risk.
-- Use "request_changes" for security flaws, correctness bugs, data loss risk, auth/permission issues, broken user flows, or production reliability regressions.
-- Use "comment" for non-blocking improvements, test suggestions, maintainability concerns, or low-risk follow-up items.
-- The "riskLevel" must match the highest real impact in the review. Do not mark risk as low when warning or critical issues are present.
-
-## Issue Wording Rules
-- Titles must be specific, evidence-based, and under 80 characters.
-- Descriptions must explain impact, not just restate the code.
-- Suggestions must describe the concrete fix. Include a small code example only when it makes the fix clearer.
-- Keep positives specific and limited to meaningful engineering choices. Do not praise obvious or cosmetic changes.
-
-## Guidelines
-- Be specific and actionable. Include file paths and line numbers for all issues.
-- Prioritize issues by impact: security > bugs > performance > style
-- Provide code examples in suggestions when helpful
-- Be constructive, not harsh. Frame feedback positively.
-- Consider the context of the codebase when making suggestions
-- Don't flag minor style issues unless they impact readability
-- Limit to the most important issues (max 10) to avoid overwhelming reviewers`;
-
-/**
- * System prompt for PR code review (legacy - use buildReviewSystemPrompt for custom rules)
- */
-export const REVIEW_SYSTEM_PROMPT = `You are an expert code reviewer for the Revio AI code review platform. Your role is to provide comprehensive, actionable feedback on pull requests.
-
-## Your Responsibilities
-1. Identify bugs, security vulnerabilities, and logic errors
-2. Suggest performance improvements and optimizations
-3. Ensure code follows best practices and design patterns
-4. Check for proper error handling and edge cases
-5. Verify code readability and maintainability
-6. Identify potential breaking changes
-
-## Evidence Standard
-- Only report an issue when the diff or provided codebase context gives enough evidence.
-- Do not invent file paths, line numbers, call paths, behavior, or project intent that is not visible in the supplied diff/context.
-- If a scanner finding appears to be a false positive, do not include it in "issues". Mention it briefly in the summary only when it is useful context.
-- If uncertain, lower the severity or omit the issue. Avoid speculative findings.
-
-## Review Format
-You MUST respond with valid JSON in the following format:
-{
-  "summary": "A concise 2-3 sentence summary of the overall PR quality and main findings",
-  "riskLevel": "low" | "medium" | "high" | "critical",
-  "issues": [
-    {
-      "file": "path/to/file.ts",
-      "line": 42,
-      "severity": "critical" | "warning" | "suggestion" | "info",
-      "category": "bug" | "security" | "performance" | "style" | "logic" | "error_handling",
-      "title": "Brief issue title",
-      "description": "Detailed explanation of the issue",
-      "suggestion": "How to fix or improve (with code example if applicable)"
     }
   ],
   "positives": ["List of good practices or improvements noticed in the PR"],
@@ -491,7 +433,7 @@ function sanitizeIssue(issue: Partial<ReviewIssue>): ReviewIssue | null {
 
   // Required fields
   if (!issue.file || typeof issue.file !== 'string') return null;
-  if (typeof issue.line !== 'number' || issue.line < 0) {
+  if (typeof issue.line !== 'number' || !Number.isFinite(issue.line) || issue.line < 1) {
     issue.line = 1; // Default to line 1 if invalid
   }
 
@@ -755,36 +697,32 @@ function getMissingTestCount(testCoverage?: TestCoverageData | null): number {
   return Array.isArray(testCoverage?.missingTests) ? testCoverage.missingTests.length : 0;
 }
 
-function hasBroadImpact(blastRadius?: BlastRadiusData | null): boolean {
-  return blastRadius?.riskLevel === "high" || blastRadius?.riskLevel === "critical";
-}
-
+/**
+ * Recommendation text derived only from the final recommendation (see review-verdict.ts),
+ * so it always matches the GitHub review event.
+ */
 function formatRecommendation(review: ReviewResult, options: {
-  blastRadius?: BlastRadiusData | null;
   testCoverage?: TestCoverageData | null;
 }): string {
-  const hasBlockingIssues = review.issues.some((issue) =>
-    issue.severity === "critical" || issue.severity === "warning"
-  );
+  const hasWarnings = review.issues.some((issue) => issue.severity === "warning");
   const missingTestCount = getMissingTestCount(options.testCoverage);
-  const broadImpact = hasBroadImpact(options.blastRadius);
 
-  if (review.recommendation === "request_changes" || hasBlockingIssues) {
-    return "This PR requires changes before merging.";
+  let text: string;
+  if (review.recommendation === "request_changes") {
+    text = "This PR requires changes before merging.";
+  } else if (review.recommendation === "approve") {
+    text = "This PR looks good and is ready to merge.";
+  } else if (hasWarnings) {
+    text = "This PR has issues worth fixing before merging, but none are blocking.";
+  } else {
+    text = "This PR has some non-blocking items to address but may be mergeable.";
   }
 
-  if (broadImpact || missingTestCount > 0) {
-    const reasons = [
-      broadImpact ? "broad impact radius" : null,
-      missingTestCount > 0 ? "potential test gaps" : null,
-    ].filter(Boolean);
-
-    return `This PR has no blocking code issues, but should be reviewed before merging because of ${reasons.join(" and ")}.`;
+  if (missingTestCount > 0 && review.recommendation !== "request_changes") {
+    text += " Consider adding tests for the files listed under Test Coverage.";
   }
 
-  return review.recommendation === "approve"
-    ? "This PR looks good and is ready to merge."
-    : "This PR has some non-blocking items to address but may be mergeable.";
+  return text;
 }
 
 export function formatReviewForGitHub(
@@ -824,7 +762,7 @@ export function formatReviewForGitHub(
 
   if (blastRadius?.mermaid) {
     comment += `### Blast Radius\n`;
-    comment += `<details>\n<summary>View impact diagram (${blastRadius.riskLevel.toUpperCase()} risk, ${blastRadius.totalImpactRadius} affected nodes)</summary>\n\n`;
+    comment += `<details>\n<summary>View impact diagram (structural impact: ${blastRadius.riskLevel.toUpperCase()}, ${blastRadius.totalImpactRadius} downstream)</summary>\n\n`;
     comment += "```mermaid\n";
     comment += `${blastRadius.mermaid}\n`;
     comment += "```\n\n";
@@ -901,7 +839,7 @@ export function formatReviewForGitHub(
   }
 
   comment += `### Recommendation\n`;
-  comment += formatRecommendation(review, { blastRadius, testCoverage });
+  comment += formatRecommendation(review, { testCoverage });
 
   comment += `\n\n---\n*Powered by [Revio](https://revio.mayur.app) AI Code Review*`;
 
@@ -909,26 +847,32 @@ export function formatReviewForGitHub(
 }
 
 /**
- * Create inline comments for GitHub PR review
+ * Create inline comments for GitHub PR review.
+ * When commentableLines is given, issues on lines GitHub cannot anchor to are skipped
+ * (they still appear in the main review body), so one bad line never drops every comment.
  */
 export function createInlineComments(
-  review: ReviewResult
+  review: ReviewResult,
+  commentableLines?: Map<string, Set<number>>
 ): Array<{ path: string; line: number; body: string }> {
-  return review.issues.map((issue) => {
-    const { severity } = TEXT_INDICATORS;
-    const badge = severity[issue.severity as keyof typeof severity] || severity.info;
+  const { severity } = TEXT_INDICATORS;
 
-    let body = `${badge} **${issue.title}**\n\n`;
-    body += `${issue.description}\n\n`;
+  return review.issues
+    .filter((issue) => !commentableLines || commentableLines.get(issue.file)?.has(issue.line))
+    .map((issue) => {
+      const badge = severity[issue.severity as keyof typeof severity] || severity.info;
 
-    if (issue.suggestion) {
-      body += `**Suggestion:** ${issue.suggestion}`;
-    }
+      let body = `${badge} **${issue.title}**\n\n`;
+      body += `${issue.description}\n\n`;
 
-    return {
-      path: issue.file,
-      line: issue.line,
-      body,
-    };
-  });
+      if (issue.suggestion) {
+        body += `**Suggestion:** ${issue.suggestion}`;
+      }
+
+      return {
+        path: issue.file,
+        line: issue.line,
+        body,
+      };
+    });
 }

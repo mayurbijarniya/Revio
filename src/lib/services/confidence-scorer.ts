@@ -176,8 +176,24 @@ function calculateScore(factors: ConfidenceFactors): ConfidenceResult {
     aiConfidence +
     standardsImpact;
 
-  // Clamp to 1-5 range
-  const score = Math.max(1, Math.min(5, Math.round(rawScore)));
+  // Caps keep the score consistent with the final verdict: bonuses can never
+  // lift a PR with blocking problems into the "safe to merge" range.
+  let cap = 5;
+  if (factors.aiRecommendation === "request_changes" || factors.criticalIssues > 0) {
+    cap = 2;
+    reasoning.push("Capped at 2: changes are required before merging");
+  } else if (factors.riskLevel === "critical") {
+    cap = 2;
+    reasoning.push("Capped at 2: critical risk");
+  } else if (factors.riskLevel === "high") {
+    cap = 3;
+    reasoning.push("Capped at 3: high risk");
+  } else if (factors.aiRecommendation === "comment" || factors.highSeverityIssues > 0) {
+    cap = 4;
+  }
+
+  // Clamp to 1-cap range
+  const score = Math.max(1, Math.min(cap, Math.round(rawScore)));
 
   // Determine level
   const level = getConfidenceLevel(score);

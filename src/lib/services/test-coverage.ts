@@ -1,21 +1,16 @@
 import path from "path";
 import type { CodeGraphData } from "@/lib/services/code-graph";
 import type { TestCoverageData, TestCoverageMissingTest } from "@/types/test-coverage";
+import { isTestFile } from "./test-files";
 
-function isTestFile(filePath: string): boolean {
-  const p = filePath.toLowerCase();
-  return (
-    p.includes("/__tests__/") ||
-    p.includes("/__test__/") ||
-    /(^|\/)(tests?|e2e)\//.test(p) ||
-    /\.test\.[a-z0-9]+$/.test(p) ||
-    /\.spec\.[a-z0-9]+$/.test(p)
-  );
-}
+const JS_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx"];
 
 function isSupportedCodeFile(filePath: string): boolean {
   const ext = path.posix.extname(filePath).toLowerCase();
-  return [".ts", ".tsx", ".js", ".jsx"].includes(ext);
+  const base = path.posix.basename(filePath);
+  if (ext === ".py") return base !== "__init__.py" && base !== "setup.py";
+  if (ext === ".go") return true;
+  return JS_EXTENSIONS.includes(ext);
 }
 
 function uniqueStrings(items: string[]): string[] {
@@ -28,6 +23,20 @@ function buildSuggestedTestFiles(filePath: string): string[] {
   const ext = path.posix.extname(filePath);
   const base = path.posix.basename(filePath, ext);
   const dir = path.posix.dirname(filePath);
+
+  if (ext === ".go") {
+    return [path.posix.join(dir, `${base}_test.go`)];
+  }
+
+  if (ext === ".py") {
+    return uniqueStrings([
+      path.posix.join(dir, `test_${base}.py`),
+      path.posix.join(dir, `${base}_test.py`),
+      path.posix.join("tests", `test_${base}.py`),
+      path.posix.join("tests", dir === "." ? "" : dir, `test_${base}.py`),
+      path.posix.join("test", `test_${base}.py`),
+    ]);
+  }
 
   const candidates: string[] = [
     path.posix.join(dir, `${base}.test${ext}`),
@@ -48,6 +57,15 @@ function buildSuggestedTestFiles(filePath: string): string[] {
   }
 
   return uniqueStrings(candidates);
+}
+
+/**
+ * Python test layouts vary a lot (tests/, tests/unit/, pkg/tests/); match test_<name>.py anywhere
+ */
+function hasPythonTestAnywhere(filePath: string, files: string[]): boolean {
+  const base = path.posix.basename(filePath, ".py");
+  const testNames = new Set([`test_${base}.py`, `${base}_test.py`]);
+  return files.some((f) => testNames.has(path.posix.basename(f)));
 }
 
 function getRepoFileSet(graphData: CodeGraphData): Set<string> {
@@ -83,8 +101,11 @@ export function analyzeTestCoverage(params: {
       ? suggested.filter((cand) => repoFileSet.has(cand))
       : [];
     const matchedInChange = suggested.filter((cand) => changedFiles.includes(cand));
+    const matchedByName = path.posix.extname(file) === ".py"
+      ? hasPythonTestAnywhere(file, [...(repoFileSet ?? []), ...changedFiles])
+      : false;
 
-    const hasRelatedTest = matchedInRepo.length > 0 || matchedInChange.length > 0;
+    const hasRelatedTest = matchedInRepo.length > 0 || matchedInChange.length > 0 || matchedByName;
     if (hasRelatedTest) continue;
 
     missingTests.push({
