@@ -3,6 +3,7 @@ import { generateChatResponse, type ChatMessage } from "./gemini";
 import { logger } from "@/lib/logger";
 import type { DocstringSuggestion } from "@/lib/prompts/review";
 import { getLanguageFromPath } from "./chunker";
+import { isTestFile } from "./test-files";
 import * as parser from "@babel/parser";
 import traverse from "@babel/traverse";
 import type { File, Node } from "@babel/types";
@@ -187,104 +188,156 @@ export async function generateDocstringSuggestions(params: {
   const out: DocstringSuggestion[] = [];
   const comments: Array<{ path: string; line: number; body: string }> = [];
 
-  for (const [filePath, ranges] of rangesByFile) {
-    if (out.length >= maxSuggestions) break;
+  // Application code first; tests and type declarations never need docstring suggestions
+  const files = Array.from(rangesByFile.entries())
+    .filter(([filePath]) => {
+      const language = getLanguageFromPath(filePath);
+      return (
+        (language === "typescript" || language === "javascript") &&
+        !isTestFile(filePath) &&
+        !filePath.endsWith(".d.ts")
+      );
+    })
+    .sort(([a], [b]) => filePriority(a) - filePriority(b))
+    .slice(0, MAX_FILES_TO_SCAN);
 
-    const language = getLanguageFromPath(filePath);
-    if (!language || (language !== "typescript" && language !== "javascript")) continue;
-
+  const candidates: DocstringCandidate[] = [];
+  for (const [filePath, ranges] of files) {
     let content: string;
     try {
       content = await github.getFileContent(owner, repo, filePath, headSha);
     } catch {
       continue;
     }
+    candidates.push(...findDocstringCandidates(filePath, content, ranges));
+  }
 
-    const lines = content.split("\n");
-    const ast = parseTypeScriptOrJavaScript(content);
-    if (!ast) continue;
+  // Exported (public) definitions are the ones other people read and call
+  const ranked = candidates
+    .map((candidate, order) => ({ candidate, order }))
+    .sort(
+      (a, b) =>
+        Number(b.candidate.exported) - Number(a.candidate.exported) ||
+        filePriority(a.candidate.filePath) - filePriority(b.candidate.filePath) ||
+        a.order - b.order
+    )
+    .map((r) => r.candidate);
 
-    const candidates: Array<{
-      startLine: number;
-      endLine?: number;
-      signatureLine: string;
-      snippet: string;
-    }> = [];
+  for (const candidate of ranked) {
+    if (out.length >= maxSuggestions) break;
+    const language = getLanguageFromPath(candidate.filePath) ?? "typescript";
 
-    const addCandidate = (node: Node) => {
-      const loc = (node as { loc?: { start: { line: number }; end: { line: number } } }).loc;
-      if (!loc) return;
-      const startLine = loc.start.line;
-      const endLine = loc.end.line;
-      if (!isLineInRanges(startLine, ranges)) return;
-      if (hasJsDoc(lines, startLine)) return;
+    try {
+      const docstring = await generateJsDoc({
+        filePath: candidate.filePath,
+        signatureLine: candidate.signatureLine,
+        snippet: candidate.snippet,
+      });
+      if (!docstring) continue;
 
-      const signatureLine = lines[startLine - 1] || "";
-      const snippet = nodeSnippet({ lines, startLine, endLine, maxLines: 80 });
-      candidates.push({ startLine, endLine, signatureLine, snippet });
-    };
+      const indent = (candidate.signatureLine.match(/^\s*/) || [""])[0] || "";
+      const indentedDocstring = indentBlock(docstring, indent);
+      const replacement = `${indentedDocstring}\n${candidate.signatureLine}`;
 
-    traverse(ast, {
-      FunctionDeclaration(path) {
-        addCandidate(path.node);
-      },
-      ClassDeclaration(path) {
-        addCandidate(path.node);
-      },
-      VariableDeclarator(path) {
-        const init = path.node.init;
-        if (
-          init &&
-          (init.type === "ArrowFunctionExpression" || init.type === "FunctionExpression")
-        ) {
-          addCandidate(path.node);
-        }
-      },
-      ExportDefaultDeclaration(path) {
-        const decl = path.node.declaration;
-        if (decl && (decl.type === "FunctionDeclaration" || decl.type === "ClassDeclaration")) {
-          addCandidate(decl);
-        }
-      },
-    });
+      const body =
+        `📝 **Docstring suggestion**\n\n` +
+        "```suggestion\n" +
+        replacement +
+        "\n```";
 
-    for (const candidate of candidates.slice(0, Math.max(1, maxSuggestions - out.length))) {
-      if (out.length >= maxSuggestions) break;
-
-      try {
-        const docstring = await generateJsDoc({
-          filePath,
-          signatureLine: candidate.signatureLine,
-          snippet: candidate.snippet,
-        });
-        if (!docstring) continue;
-
-        const indent = (candidate.signatureLine.match(/^\s*/) || [""])[0] || "";
-        const indentedDocstring = indentBlock(docstring, indent);
-        const replacement = `${indentedDocstring}\n${candidate.signatureLine}`;
-
-        const body =
-          `📝 **Docstring suggestion**\n\n` +
-          "```suggestion\n" +
-          replacement +
-          "\n```";
-
-        out.push({
-          path: filePath,
-          line: candidate.startLine,
-          language,
-          docstring: indentedDocstring,
-          signatureLine: candidate.signatureLine,
-        });
-        comments.push({ path: filePath, line: candidate.startLine, body });
-      } catch (error) {
-        logger.warn("[Docstrings] Failed to generate docstring", {
-          filePath,
-          error,
-        });
-      }
+      out.push({
+        path: candidate.filePath,
+        line: candidate.startLine,
+        language,
+        docstring: indentedDocstring,
+        signatureLine: candidate.signatureLine,
+      });
+      comments.push({ path: candidate.filePath, line: candidate.startLine, body });
+    } catch (error) {
+      logger.warn("[Docstrings] Failed to generate docstring", {
+        filePath: candidate.filePath,
+        error,
+      });
     }
   }
 
   return { suggestions: out, inlineComments: comments };
+}
+
+const MAX_FILES_TO_SCAN = 10;
+
+interface DocstringCandidate {
+  filePath: string;
+  startLine: number;
+  endLine?: number;
+  signatureLine: string;
+  snippet: string;
+  exported: boolean;
+}
+
+/** Lower is better: application code, then other code, then scripts/examples */
+function filePriority(filePath: string): number {
+  if (/(^|\/)(scripts?|examples?|tools)\//.test(filePath)) return 2;
+  if (/(^|\/)(src|lib|app|packages)\//.test(filePath)) return 0;
+  return 1;
+}
+
+/**
+ * Top-level functions/classes (plain or exported) on changed lines that have no JSDoc yet.
+ * Helpers nested inside other functions are skipped: they are implementation details.
+ */
+export function findDocstringCandidates(
+  filePath: string,
+  content: string,
+  ranges: LineRange[]
+): DocstringCandidate[] {
+  const ast = parseTypeScriptOrJavaScript(content);
+  if (!ast) return [];
+
+  const lines = content.split("\n");
+  const seen = new Set<number>();
+  const candidates: DocstringCandidate[] = [];
+
+  const addCandidate = (node: Node, exported: boolean) => {
+    const loc = (node as { loc?: { start: { line: number }; end: { line: number } } }).loc;
+    if (!loc) return;
+    const startLine = loc.start.line;
+    if (seen.has(startLine) || !isLineInRanges(startLine, ranges) || hasJsDoc(lines, startLine)) return;
+    seen.add(startLine);
+
+    candidates.push({
+      filePath,
+      startLine,
+      endLine: loc.end.line,
+      signatureLine: lines[startLine - 1] || "",
+      snippet: nodeSnippet({ lines, startLine, endLine: loc.end.line, maxLines: 80 }),
+      exported,
+    });
+  };
+
+  /** "program" for top-level, "export" for exported top-level, null for nested */
+  const placement = (parentType: string | undefined): "program" | "export" | null => {
+    if (parentType === "Program") return "program";
+    if (parentType === "ExportNamedDeclaration" || parentType === "ExportDefaultDeclaration") return "export";
+    return null;
+  };
+
+  traverse(ast, {
+    FunctionDeclaration(path) {
+      const where = placement(path.parent.type);
+      if (where) addCandidate(path.node, where === "export");
+    },
+    ClassDeclaration(path) {
+      const where = placement(path.parent.type);
+      if (where) addCandidate(path.node, where === "export");
+    },
+    VariableDeclarator(path) {
+      const init = path.node.init;
+      if (!init || (init.type !== "ArrowFunctionExpression" && init.type !== "FunctionExpression")) return;
+      const where = placement(path.parentPath.parent?.type);
+      if (where) addCandidate(path.node, where === "export");
+    },
+  });
+
+  return candidates;
 }

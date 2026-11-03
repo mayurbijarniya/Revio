@@ -76,6 +76,8 @@ export interface TreeSitterSymbol {
   endLine: number;
   /** Only set for JS/TS, where export status is visible in the syntax tree */
   exported?: boolean;
+  /** Interface / protocol / trait: a type contract, never an entry point */
+  isInterface?: boolean;
 }
 
 export interface TreeSitterImport {
@@ -117,6 +119,10 @@ const LANGUAGE_CONFIGS: Record<string, LanguageConfig> = {
       call: [
         `(call_expression function: (identifier) @callee) @call`,
         `(call_expression function: (member_expression property: (property_identifier) @callee)) @call`,
+        `(new_expression constructor: (identifier) @callee) @call`,
+        // <Component /> uses a component the same way a call does
+        `(jsx_opening_element name: (identifier) @callee) @call`,
+        `(jsx_self_closing_element name: (identifier) @callee) @call`,
       ],
     },
   },
@@ -132,10 +138,8 @@ const LANGUAGE_CONFIGS: Record<string, LanguageConfig> = {
         `(arrow_function) @function`,
         `(method_definition name: (_) @name) @function`,
       ],
-      class: [
-        `(class_declaration name: (_) @name) @class`,
-        `(interface_declaration name: (_) @name) @class`,
-      ],
+      // Interfaces are types, not runnable code: they get no graph nodes
+      class: [`(class_declaration name: (_) @name) @class`],
       import: [
         `(import_statement source: (string) @source) @import`,
         `(call_expression function: (import) arguments: (arguments (string) @source)) @import`,
@@ -143,6 +147,7 @@ const LANGUAGE_CONFIGS: Record<string, LanguageConfig> = {
       call: [
         `(call_expression function: (identifier) @callee) @call`,
         `(call_expression function: (member_expression property: (property_identifier) @callee)) @call`,
+        `(new_expression constructor: (identifier) @callee) @call`,
       ],
     },
   },
@@ -158,14 +163,14 @@ const LANGUAGE_CONFIGS: Record<string, LanguageConfig> = {
         `(arrow_function) @function`,
         `(method_definition name: (_) @name) @function`,
       ],
-      class: [
-        `(class_declaration name: (_) @name) @class`,
-        `(interface_declaration name: (_) @name) @class`,
-      ],
+      class: [`(class_declaration name: (_) @name) @class`],
       import: [`(import_statement source: (string) @source) @import`],
       call: [
         `(call_expression function: (identifier) @callee) @call`,
         `(call_expression function: (member_expression property: (property_identifier) @callee)) @call`,
+        `(new_expression constructor: (identifier) @callee) @call`,
+        `(jsx_opening_element name: (identifier) @callee) @call`,
+        `(jsx_self_closing_element name: (identifier) @callee) @call`,
       ],
     },
   },
@@ -233,7 +238,10 @@ const LANGUAGE_CONFIGS: Record<string, LanguageConfig> = {
         `(interface_declaration name: (_) @name) @class`,
       ],
       import: [`(import_declaration (scoped_identifier) @source) @import`],
-      call: [`(method_invocation name: (_) @callee) @call`],
+      call: [
+        `(method_invocation name: (_) @callee) @call`,
+        `(object_creation_expression type: (type_identifier) @callee) @call`,
+      ],
     },
   },
   ruby: {
@@ -282,6 +290,7 @@ const LANGUAGE_CONFIGS: Record<string, LanguageConfig> = {
       call: [
         `(invocation_expression function: (identifier) @callee) @call`,
         `(invocation_expression function: (member_access_expression name: (identifier) @callee)) @call`,
+        `(object_creation_expression type: (identifier) @callee) @call`,
       ],
     },
   },
@@ -415,6 +424,7 @@ export class TreeSitterService {
           startLine: node.startPosition.row + 1,
           endLine: node.endPosition.row + 1,
           exported: JS_LANGUAGES.has(langKey) ? this.isJsExported(node) : undefined,
+          isInterface: /interface|protocol|trait/.test(node.type),
         };
       })
       .filter((result): result is TreeSitterSymbol => result !== null);

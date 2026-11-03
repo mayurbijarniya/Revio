@@ -108,14 +108,21 @@ export function buildRetrievalQuery(content: string, previousUserMessage?: strin
 }
 
 /**
- * Convert stored messages to Gemini history: skips empty messages, merges consecutive
- * messages from the same role, and makes sure history starts with a user turn.
+ * Convert stored messages to Gemini history: skips empty messages and Revio's own failure
+ * notes (they are for the user, not the model), merges consecutive messages from the same
+ * role, and makes sure history starts with a user turn.
  */
 export function buildChatHistory(messages: Array<{ role: string; content: string }>): ChatMessage[] {
   const history: ChatMessage[] = [];
   for (const message of messages) {
-    const content = message.content?.trim();
+    let content = message.content?.trim();
     if (!content) continue;
+    if (message.role !== "user") {
+      if (content === FAILED_REPLY_TEXT || content === EMPTY_REPLY_TEXT) continue;
+      // Keep a partial answer, without the "interrupted" note added for the user
+      content = content.replace(INTERRUPTED_NOTE, "").trim();
+      if (!content) continue;
+    }
     const role: ChatMessage["role"] = message.role === "user" ? "user" : "model";
     const last = history[history.length - 1];
     if (last && last.role === role) {

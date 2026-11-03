@@ -7,7 +7,7 @@ vi.mock("@/lib/logger", () => ({
 
 import { analyzeChangeImpact, buildCodeGraph } from "./code-graph";
 import { parseUnifiedDiff } from "./diff-parser";
-import { buildPrGraphScope } from "./pr-graph";
+import { baseGraphScope, buildPrGraphScope } from "./pr-graph";
 import { generateBlastRadius } from "./blast-radius";
 import { generateSequenceDiagram } from "./sequence-diagram";
 
@@ -154,6 +154,45 @@ describe("PR-head graph overlay", () => {
     expect(sequence).toContain("participant");
     expect(sequence).toContain("agent_logic()");
     expect(sequence).toContain("helper()");
+  });
+
+  it("does not count importers as dependents when a file only gains new code", async () => {
+    const baseGraph = await buildCodeGraph("repo", [
+      { path: "src/constants.ts", language: "typescript", content: "export const LIMIT = 5;\nexport const NAME = \"x\";\n" },
+      { path: "src/billing.ts", language: "typescript", content: 'import { LIMIT } from "./constants";\nexport function quota() { return LIMIT; }\n' },
+    ]);
+    const impactFor = (diff: string) => {
+      const scope = baseGraphScope(baseGraph, parseUnifiedDiff(diff));
+      return analyzeChangeImpact(
+        scope.graph,
+        scope.changedFiles,
+        scope.changedLinesByFile,
+        scope.extraChangedNodeIds,
+        scope.filesWithRemovals
+      );
+    };
+
+    const additive = [
+      "diff --git a/src/constants.ts b/src/constants.ts",
+      "--- a/src/constants.ts",
+      "+++ b/src/constants.ts",
+      "@@ -1,2 +1,3 @@",
+      " export const LIMIT = 5;",
+      ' export const NAME = "x";',
+      "+export const RETRIES = 3;",
+    ].join("\n");
+    expect(impactFor(additive).directlyAffectedFiles).toEqual([]);
+
+    const modifying = [
+      "diff --git a/src/constants.ts b/src/constants.ts",
+      "--- a/src/constants.ts",
+      "+++ b/src/constants.ts",
+      "@@ -1,2 +1,2 @@",
+      "-export const LIMIT = 5;",
+      "+export const LIMIT = 50;",
+      ' export const NAME = "x";',
+    ].join("\n");
+    expect(impactFor(modifying).directlyAffectedFiles).toEqual(["src/billing.ts"]);
   });
 
   it("falls back to the base graph when head files cannot be loaded", async () => {

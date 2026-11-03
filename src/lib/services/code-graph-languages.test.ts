@@ -97,6 +97,45 @@ describe("cross-file call linking beyond TS/JS and Python", () => {
     ]);
   });
 
+  it("treats JSX usage and `new` as calls, and keeps interfaces out of entry points", async () => {
+    const graph = await buildCodeGraph("repo", [
+      {
+        path: "src/components/ChatLayout.tsx",
+        language: "tsx",
+        content: "export interface ChatLayoutProps { title: string }\nexport function ChatLayout(props: ChatLayoutProps) {\n  return <div>{props.title}</div>;\n}\n",
+      },
+      {
+        path: "src/app/chat/page.tsx",
+        language: "tsx",
+        content: 'import { ChatLayout } from "../../components/ChatLayout";\nexport default function ChatPage() {\n  return <ChatLayout title="hi" />;\n}\n',
+      },
+      { path: "src/lib/store.ts", language: "typescript", content: "export class Store {\n  get() { return 1; }\n}\n" },
+      {
+        path: "src/lib/use-store.ts",
+        language: "typescript",
+        content: 'import { Store } from "./store";\nexport function makeStore() {\n  return new Store();\n}\n',
+      },
+      {
+        path: "src/main/java/app/Repo.java",
+        language: "java",
+        content: "package app;\npublic interface Repo {\n  int load();\n}\n",
+      },
+    ]);
+
+    expect(findCallers(graph, "function:src/components/ChatLayout.tsx:ChatLayout").map((n) => n.id)).toEqual([
+      "function:src/app/chat/page.tsx:ChatPage",
+    ]);
+    expect(findCallers(graph, "class:src/lib/store.ts:Store").map((n) => n.id)).toEqual([
+      "function:src/lib/use-store.ts:makeStore",
+    ]);
+    // TS interfaces are types: no node at all
+    expect(graph.nodes.some((n) => n.name === "ChatLayoutProps")).toBe(false);
+    // Components used elsewhere and interfaces are not entry points
+    expect(graph.metadata.entryPoints).not.toContain("function:src/components/ChatLayout.tsx:ChatLayout");
+    expect(graph.metadata.entryPoints).not.toContain("class:src/main/java/app/Repo.java:Repo");
+    expect(graph.metadata.entryPoints).toContain("function:src/app/chat/page.tsx:ChatPage");
+  });
+
   it("does not link files from different languages in the same folder", async () => {
     const graph = await buildCodeGraph("repo", [
       { path: "pkg/a.go", language: "go", content: "package pkg\nfunc Shared() int { return 1 }\n" },

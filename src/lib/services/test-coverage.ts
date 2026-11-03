@@ -13,6 +13,24 @@ function isSupportedCodeFile(filePath: string): boolean {
   return JS_EXTENSIONS.includes(ext);
 }
 
+/**
+ * Files that are normally covered by integration/e2e tests or none at all; suggesting a
+ * unit test file next to them is noise (Next.js route files, scripts, config, type files,
+ * migrations).
+ */
+function isRarelyUnitTested(filePath: string): boolean {
+  const p = filePath.toLowerCase();
+  const fileName = p.split("/").pop() ?? p;
+  return (
+    /(^|\/)(scripts?|examples?|tools|migrations)\//.test(p) ||
+    /(^|\/)app\/(.+\/)?(page|layout|loading|error|not-found|template|default|route)\.[jt]sx?$/.test(p) ||
+    /^middleware\.[jt]s$/.test(fileName) ||
+    /\.config\.[cm]?[jt]s$/.test(fileName) ||
+    p.endsWith(".d.ts") ||
+    fileName === "manage.py"
+  );
+}
+
 function uniqueStrings(items: string[]): string[] {
   return Array.from(new Set(items.filter(Boolean)));
 }
@@ -94,7 +112,7 @@ export function analyzeTestCoverage(params: {
   const missingTests: TestCoverageMissingTest[] = [];
 
   for (const file of nonTestFilesChanged) {
-    if (!isSupportedCodeFile(file)) continue;
+    if (!isSupportedCodeFile(file) || isRarelyUnitTested(file)) continue;
 
     const suggested = buildSuggestedTestFiles(file);
     const matchedInRepo = repoFileSet

@@ -161,7 +161,8 @@ export async function runReviewCore(
           graphScope.graph,
           graphScope.changedFiles,
           graphScope.changedLinesByFile,
-          graphScope.extraChangedNodeIds
+          graphScope.extraChangedNodeIds,
+          graphScope.filesWithRemovals
         );
       } catch (graphError) {
         console.warn("[ReviewCore] Failed to build graph context:", graphError);
@@ -219,6 +220,7 @@ export async function runReviewCore(
           graphData: graphScope.graph,
           changedLinesByFile: graphScope.changedLinesByFile,
           extraChangedNodeIds: graphScope.extraChangedNodeIds,
+          filesWithRemovals: graphScope.filesWithRemovals,
         })
       : null;
   } catch (blastError) {

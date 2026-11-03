@@ -60,10 +60,10 @@ export default function IntegrationsPage() {
                         Revio v3.0 brings intelligent code understanding directly into your review workflow.
                     </p>
 
-                    <h2 className="text-2xl font-bold mb-6 mt-12">[ RELIABILITY_UPDATES ]</h2>
+                    <h2 className="text-2xl font-bold mb-6 mt-12">[ LATEST_UPDATES ]</h2>
                     <p className="text-lg text-[var(--foreground)]/70 mb-8">
-                        v3.0.1 improved runtime reliability with stronger indexing cleanup, safer queue dispatch IDs,
-                        and live indexing progress updates in dashboard views.
+                        v3.3 made PR analysis more accurate with cross-file call linking for TypeScript, Python,
+                        Java, Rust, C/C++, Ruby, PHP and Go, PR-aware impact analysis, and a single review verdict.
                     </p>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

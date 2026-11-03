@@ -296,7 +296,7 @@ function extractFromTreeSitterAST(
       file: filePath,
       line: cls.startLine,
       endLine: cls.endLine,
-      exported: isTreeSitterSymbolExported(language, cls.name, cls.exported, false),
+      exported: !cls.isInterface && isTreeSitterSymbolExported(language, cls.name, cls.exported, false),
     };
     nodes.push(node);
     classNodes.push(node);
@@ -1081,6 +1081,33 @@ function extractFromTypeScriptAST(
       }
     },
 
+    // `new Foo()` uses the class Foo
+    NewExpression(path) {
+      const caller = currentScope[currentScope.length - 1];
+      if (!caller || path.node.callee.type !== "Identifier") return;
+      edges.push({
+        from: caller,
+        to: `function:${filePath}:${path.node.callee.name}`,
+        type: "calls",
+        file: filePath,
+        line: path.node.loc?.start.line,
+      });
+    },
+
+    // `<Foo />` uses the component Foo (lowercase names are HTML elements)
+    JSXOpeningElement(path) {
+      const caller = currentScope[currentScope.length - 1];
+      const name = path.node.name;
+      if (!caller || name.type !== "JSXIdentifier" || !/^[A-Z]/.test(name.name)) return;
+      edges.push({
+        from: caller,
+        to: `function:${filePath}:${name.name}`,
+        type: "calls",
+        file: filePath,
+        line: path.node.loc?.start.line,
+      });
+    },
+
     exit(path) {
       // Clean up scope when exiting function/class/method
       if (
@@ -1711,11 +1738,18 @@ export function analyzeChangeImpact(
   graphData: CodeGraphData,
   changedFiles: string[],
   changedLinesByFile?: Record<string, number[]>,
-  extraChangedNodeIds: string[] = []
+  extraChangedNodeIds: string[] = [],
+  /**
+   * Files where the change modifies or removes existing lines. When given, a file whose change
+   * only adds new code outside its exported definitions (e.g. a new constant) does not make
+   * its importers dependents: purely added code cannot break existing users.
+   */
+  filesWithRemovals?: string[]
 ): ImpactAnalysis {
   const changedFileSet = new Set(changedFiles);
   const changedNodes = findChangedNodes(graphData, changedFiles, changedLinesByFile, extraChangedNodeIds);
   const changedIds = new Set(changedNodes.map((n) => n.id));
+  const removalFiles = filesWithRemovals ? new Set(filesWithRemovals) : null;
 
   const dependentFiles = new Set<string>();
   const callerIds = new Set<string>();
@@ -1728,6 +1762,13 @@ export function analyzeChangeImpact(
   for (const changedFile of changedFiles) {
     const hasChangedLines = !changedLinesByFile || (changedLinesByFile[changedFile]?.length ?? 0) > 0;
     if (!hasChangedLines) continue;
+    if (
+      removalFiles &&
+      !removalFiles.has(changedFile) &&
+      !changedNodes.some((n) => n.file === changedFile && n.exported)
+    ) {
+      continue;
+    }
     for (const dep of findDependentFiles(graphData, `file:${changedFile}`)) {
       addDependentFile(dep.file);
     }
@@ -1829,9 +1870,16 @@ export function formatGraphContextForPrompt(
   graphData: CodeGraphData,
   changedFiles: string[],
   changedLinesByFile?: Record<string, number[]>,
-  extraChangedNodeIds: string[] = []
+  extraChangedNodeIds: string[] = [],
+  filesWithRemovals?: string[]
 ): string {
-  const impact = analyzeChangeImpact(graphData, changedFiles, changedLinesByFile, extraChangedNodeIds);
+  const impact = analyzeChangeImpact(
+    graphData,
+    changedFiles,
+    changedLinesByFile,
+    extraChangedNodeIds,
+    filesWithRemovals
+  );
   const nodeById = new Map(graphData.nodes.map((n) => [n.id, n]));
   const describe = (id: string) => {
     const node = nodeById.get(id);

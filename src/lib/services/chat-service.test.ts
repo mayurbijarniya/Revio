@@ -44,6 +44,22 @@ describe("chat history", () => {
   });
 });
 
+describe("chat history with failed replies", () => {
+  it("leaves failure notes out of the model history and strips the interrupted note", () => {
+    expect(
+      buildChatHistory([
+        { role: "user", content: "first question" },
+        { role: "assistant", content: FAILED_REPLY_TEXT },
+        { role: "user", content: "asked again" },
+        { role: "assistant", content: "partial answer\n\n_(Response interrupted. Please try again for the full answer.)_" },
+      ])
+    ).toEqual([
+      { role: "user", content: "first question\n\nasked again" },
+      { role: "model", content: "partial answer" },
+    ]);
+  });
+});
+
 describe("retrieval query", () => {
   it("keeps the previous topic for short follow-ups only", () => {
     expect(buildRetrievalQuery("what about the second one?", "how does auth work")).toBe(
