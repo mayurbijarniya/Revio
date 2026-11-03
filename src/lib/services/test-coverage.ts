@@ -15,8 +15,8 @@ function isSupportedCodeFile(filePath: string): boolean {
 
 /**
  * Files that are normally covered by integration/e2e tests or none at all; suggesting a
- * unit test file next to them is noise (Next.js route files, scripts, config, type files,
- * migrations).
+ * unit test file next to them is noise (Next.js route files, scripts, config and constants,
+ * type files, migrations).
  */
 function isRarelyUnitTested(filePath: string): boolean {
   const p = filePath.toLowerCase();
@@ -26,6 +26,8 @@ function isRarelyUnitTested(filePath: string): boolean {
     /(^|\/)app\/(.+\/)?(page|layout|loading|error|not-found|template|default|route)\.[jt]sx?$/.test(p) ||
     /^middleware\.[jt]s$/.test(fileName) ||
     /\.config\.[cm]?[jt]s$/.test(fileName) ||
+    // Plain configuration / constant modules (config.ts, constants.py, settings.py)
+    /^(config|constants|settings)\.([cm]?[jt]sx?|py)$/.test(fileName) ||
     p.endsWith(".d.ts") ||
     fileName === "manage.py"
   );
@@ -77,13 +79,54 @@ function buildSuggestedTestFiles(filePath: string): string[] {
   return uniqueStrings(candidates);
 }
 
+/** Names too generic to identify a file's test by name alone (index.test.ts could test anything) */
+const GENERIC_BASE_NAMES = new Set(["index", "main", "utils", "util", "helpers", "types", "mod", "__init__"]);
+
 /**
- * Python test layouts vary a lot (tests/, tests/unit/, pkg/tests/); match test_<name>.py anywhere
+ * Test layouts vary a lot (tests/, test/unit/, pkg/tests/, flat or mirrored), so a test file
+ * named after the changed file anywhere in the repo counts: pricing.test.ts, pricing.spec.js,
+ * test_pricing.py, pricing_test.py.
  */
-function hasPythonTestAnywhere(filePath: string, files: string[]): boolean {
-  const base = path.posix.basename(filePath, ".py");
-  const testNames = new Set([`test_${base}.py`, `${base}_test.py`]);
+function hasNamedTestAnywhere(filePath: string, files: string[]): boolean {
+  const ext = path.posix.extname(filePath).toLowerCase();
+  const base = path.posix.basename(filePath, path.posix.extname(filePath));
+  if (GENERIC_BASE_NAMES.has(base.toLowerCase())) return false;
+
+  const testNames = new Set<string>();
+  if (ext === ".py") {
+    testNames.add(`test_${base}.py`);
+    testNames.add(`${base}_test.py`);
+  } else if (JS_EXTENSIONS.includes(ext)) {
+    for (const kind of ["test", "spec"]) {
+      for (const testExt of JS_EXTENSIONS) testNames.add(`${base}.${kind}${testExt}`);
+    }
+  } else {
+    return false;
+  }
   return files.some((f) => testNames.has(path.posix.basename(f)));
+}
+
+/**
+ * Changed file -> test files that import it, from the code graph's import edges
+ * (file -> import node -> imported file). Catches tests not named after the file,
+ * e.g. tests/bulk-discount.test.ts importing src/services/pricing.ts.
+ */
+function findImportingTests(graphData: CodeGraphData, targets: Set<string>): Map<string, string[]> {
+  const fileOfNode = new Map(graphData.nodes.map((n) => [n.id, n.file]));
+  const result = new Map<string, string[]>();
+
+  for (const edge of graphData.edges) {
+    if (edge.type !== "imports" || !edge.from.startsWith("import:") || !edge.to.startsWith("file:")) continue;
+    const target = edge.to.substring(5);
+    if (!targets.has(target)) continue;
+
+    const importer = fileOfNode.get(edge.from);
+    if (!importer || !isTestFile(importer)) continue;
+    const tests = result.get(target) ?? [];
+    if (!tests.includes(importer)) tests.push(importer);
+    result.set(target, tests);
+  }
+  return result;
 }
 
 function getRepoFileSet(graphData: CodeGraphData): Set<string> {
@@ -110,6 +153,10 @@ export function analyzeTestCoverage(params: {
     : null;
 
   const missingTests: TestCoverageMissingTest[] = [];
+  const knownFiles = [...(repoFileSet ?? []), ...changedFiles];
+  const importingTests = params.graphData
+    ? findImportingTests(params.graphData, new Set(nonTestFilesChanged))
+    : new Map<string, string[]>();
 
   for (const file of nonTestFilesChanged) {
     if (!isSupportedCodeFile(file) || isRarelyUnitTested(file)) continue;
@@ -119,11 +166,12 @@ export function analyzeTestCoverage(params: {
       ? suggested.filter((cand) => repoFileSet.has(cand))
       : [];
     const matchedInChange = suggested.filter((cand) => changedFiles.includes(cand));
-    const matchedByName = path.posix.extname(file) === ".py"
-      ? hasPythonTestAnywhere(file, [...(repoFileSet ?? []), ...changedFiles])
-      : false;
 
-    const hasRelatedTest = matchedInRepo.length > 0 || matchedInChange.length > 0 || matchedByName;
+    const hasRelatedTest =
+      matchedInRepo.length > 0 ||
+      matchedInChange.length > 0 ||
+      hasNamedTestAnywhere(file, knownFiles) ||
+      (importingTests.get(file)?.length ?? 0) > 0;
     if (hasRelatedTest) continue;
 
     missingTests.push({
