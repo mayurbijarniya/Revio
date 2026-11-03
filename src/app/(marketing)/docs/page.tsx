@@ -326,11 +326,11 @@ export default function DocsPage() {
 
               <DocSubHeading>Key Features</DocSubHeading>
               <DocList items={[
-                "AI-Powered PR Reviews - Instant feedback with graph-based code understanding",
+                "AI-Powered PR Reviews - Instant feedback with graph-based code understanding and one clear verdict",
                 "Confidence Scoring (1-5) - Multi-factor merge readiness assessment",
-                "Blast Radius Analysis - Visual impact analysis of changed code",
+                "Blast Radius Analysis - Callers, dependent files and entry points affected by the changed code",
                 "Interactive @revio-bot - Natural language conversations in PR comments",
-                "Learning System - Auto-adapts to your team&apos;s feedback patterns",
+                "Learning System - Auto-adapts to your team's feedback patterns",
                 "Auto Docstrings - AI-generated documentation with one-click apply",
                 "Codebase Indexing - Vector embeddings for semantic code search",
                 "Natural Language Chat - Ask questions about your code in plain English",
@@ -472,8 +472,18 @@ export default function DocsPage() {
                 "Code is chunked into logical segments (functions, classes, etc.)",
                 "Each chunk is converted to vector embeddings using OpenAI",
                 "Embeddings are stored in Qdrant vector database",
+                "A code graph of functions, classes, imports and calls is built for impact analysis",
                 "File hashes are tracked for incremental updates",
               ]} />
+
+              <DocSubHeading>Code Graph</DocSubHeading>
+              <DocParagraph>
+                The code graph lets reviews show who calls the changed code and which files depend on it.
+                Calls are linked across files through resolved imports for TypeScript/JavaScript, Python,
+                Java, Rust, C/C++, Ruby and PHP. In Go, Java, Kotlin, C# and Swift, files in the same
+                package also see each other&apos;s definitions. JSX usage (&lt;Component /&gt;) and
+                constructors (new Class()) count as calls.
+              </DocParagraph>
 
               <DocSubHeading>Supported Languages</DocSubHeading>
               <DocParagraph>
@@ -529,6 +539,11 @@ export default function DocsPage() {
                 Incremental indexing only processes changed files, and the dashboard now updates index progress
                 live without requiring a page refresh.
               </DocNote>
+
+              <DocNote type="warning">
+                After upgrading to v3.3, re-index existing repositories once so their code graph is rebuilt
+                with cross-file call linking and files larger than 32 KB.
+              </DocNote>
             </div>
           )}
 
@@ -546,11 +561,12 @@ export default function DocsPage() {
                 When a PR is opened or updated, Revio automatically:
               </DocParagraph>
               <DocList items={[
-                "Fetches the PR diff from GitHub",
+                "Fetches the PR diff from GitHub (ignored paths are skipped in every step)",
                 "Retrieves relevant codebase context from vector DB",
-                "Runs security scanning on changed files",
+                "Re-parses the changed files at the PR head and checks the code graph for callers and dependent files",
+                "Runs security scanning on the added lines",
                 "Generates a comprehensive review using the configured AI model",
-                "Posts the review as a GitHub comment",
+                "Decides one final verdict and posts the review on GitHub, with inline comments on the changed lines",
               ]} />
 
               <DocSubHeading>Review Contents</DocSubHeading>
@@ -559,12 +575,33 @@ export default function DocsPage() {
               </DocParagraph>
               <DocList items={[
                 "Summary - Overall assessment of the PR",
-                "Issues - Bugs, security flaws, and problems found",
-                "Positives - Good practices observed in the code",
-                "Suggestions - Recommendations for improvement",
+                "Issues - Bugs, security flaws, and problems found, each with a suggested fix",
+                "Highlights - Good practices observed in the code",
                 "Risk Level - Low, Medium, High, or Critical",
                 "Recommendation - Approve, Comment, or Request Changes",
+                "Confidence Score - 1 to 5 stars for merge readiness",
+                "Blast Radius - Changed functions, their callers, dependent files, and affected entry points",
+                "Sequence Diagram - Real calls between the changed code and other files, when there are any",
+                "Test Coverage - Changed source files that may need tests",
+                "Docstring Suggestions - JSDoc for new exported functions, applied with one click on GitHub",
               ]} />
+
+              <DocSubHeading>How the Verdict Is Decided</DocSubHeading>
+              <DocParagraph>
+                Every review has exactly one verdict, shown the same way on GitHub and in the dashboard:
+              </DocParagraph>
+              <DocList items={[
+                "Risk is never lower than the issues imply: a critical issue means at least High, a warning at least Medium",
+                "A wide structural impact (many callers or dependent files) can raise the risk by one level",
+                "Revio never approves a PR with critical or warning issues, or with High risk",
+                "With Block on Critical / Block on Security enabled, those issues always mean Request Changes",
+                "The confidence score is capped by the verdict: Request Changes means at most 2 stars, High risk at most 3",
+              ]} />
+
+              <DocNote type="info">
+                Blast radius measures structural impact only: how much other code depends on what changed.
+                It is shown next to the verdict as a note, not as a second risk rating.
+              </DocNote>
 
               <DocSubHeading>Manual Reviews</DocSubHeading>
               <DocParagraph>
@@ -668,17 +705,38 @@ export default function DocsPage() {
                 language="text"
               />
 
+              <DocSubHeading>Chat Modes</DocSubHeading>
+              <DocParagraph>
+                Choose a mode when starting a conversation. The mode stays fixed for that conversation.
+              </DocParagraph>
+              <DocList items={[
+                "Smart - Searches for the code most relevant to each question. Fast and cost-efficient; best for specific questions",
+                "Full - Adds the complete repository file structure to the relevant code. Best for architecture and \"what does this repo do?\" questions; uses more tokens",
+              ]} />
+
               <DocSubHeading>Multi-Repository Context</DocSubHeading>
               <DocParagraph>
                 Select multiple repositories to search across your entire codebase.
                 This is useful for monorepos or microservices architectures.
               </DocParagraph>
 
+              <DocSubHeading>Usage Limits</DocSubHeading>
+              <DocParagraph>
+                Chat messages count toward your plan:
+              </DocParagraph>
+              <DocList items={[
+                "Free - 50 messages per month, 10 per hour",
+                "Pro - 500 messages per month, 100 per hour",
+                "Team - Unlimited",
+              ]} />
+
               <DocSubHeading>Conversation Features</DocSubHeading>
               <DocList items={[
                 "Markdown rendering with syntax highlighting",
                 "Code blocks with copy button",
-                "Conversation history saved automatically",
+                "Conversation history saved automatically, including replies interrupted by a network error",
+                "Follow-up questions keep the topic of the previous question",
+                "Pin, rename and delete conversations",
                 "Export conversations as Markdown",
                 "Share conversations via URL",
               ]} />
@@ -921,10 +979,24 @@ export default function DocsPage() {
 
               <DocSubHeading>Chat Not Finding Code</DocSubHeading>
               <DocList items={[
-                "Ensure the repository is fully indexed (status: 'Indexed')",
+                "Ensure the repository has been indexed at least once (chat keeps working while it re-indexes)",
                 "Try more specific queries",
                 "Check if you've selected the correct repositories",
                 "Re-index if the code was recently changed",
+              ]} />
+
+              <DocSubHeading>Chat Limit Reached</DocSubHeading>
+              <DocList items={[
+                "The message shows whether the monthly or the hourly limit was reached",
+                "Hourly limits reset after an hour; monthly limits reset on the 1st",
+                "Upgrade your plan in Dashboard → Billing for higher or unlimited usage",
+              ]} />
+
+              <DocSubHeading>Blast Radius Shows No Callers</DocSubHeading>
+              <DocList items={[
+                "Re-index the repository so its code graph is rebuilt with the latest analysis",
+                "Callers are linked through imports; calls made through dynamic lookups may not be visible",
+                "A change that only adds new code does not affect existing callers, so a small impact is expected",
               ]} />
 
               <DocSubHeading>Webhook Errors</DocSubHeading>

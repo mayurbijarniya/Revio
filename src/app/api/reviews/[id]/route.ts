@@ -148,32 +148,39 @@ export async function GET(_request: Request, { params }: RouteParams) {
     let mergeMessage = "Review is still in progress.";
 
     if (review.status === "completed") {
-      const criticalCount = severityCounts.critical || 0;
-      const highCount = severityCounts.high || 0;
+      // The stored recommendation is the single final verdict (decided in review-verdict.ts when
+      // the review ran; it already accounts for issues, risk and graph impact). Impact and test
+      // gaps are shown as notes, never as a second verdict.
+      const criticalCount = (severityCounts.critical || 0) + (severityCounts.high || 0);
+      const warningCount = severityCounts.warning || 0;
       const blastRisk = blastRadius?.riskLevel ?? null;
       const missingTestCount = Array.isArray(testCoverage?.missingTests)
         ? testCoverage.missingTests.length
         : 0;
-      const hasCriticalImpact = blastRisk === "critical";
-      const hasHighImpact = blastRisk === "high";
 
-      if (recommendation === "approve" && criticalCount === 0 && highCount === 0 && !hasCriticalImpact && missingTestCount === 0) {
+      const notes = [
+        blastRisk === "critical" || blastRisk === "high"
+          ? `${blastRisk === "critical" ? "Broad" : "High"} structural impact: check the blast radius.`
+          : "",
+        missingTestCount > 0
+          ? `${missingTestCount} changed file${missingTestCount === 1 ? "" : "s"} may need related tests.`
+          : "",
+      ].filter(Boolean);
+      const notesText = notes.length > 0 ? ` Note: ${notes.join(" ")}` : "";
+
+      if (recommendation === "approve") {
         mergeVerdict = "ready";
-        mergeMessage = "This PR looks good and is ready to merge!";
-      } else if (recommendation === "request_changes" || criticalCount > 0 || highCount > 0) {
+        mergeMessage = `This PR looks good and is ready to merge.${notesText}`;
+      } else if (recommendation === "request_changes") {
         mergeVerdict = "needs_changes";
-        mergeMessage = `This PR requires changes before merging. Found ${criticalCount} critical and ${highCount} high severity issues.`;
+        mergeMessage =
+          `This PR requires changes before merging. Found ${criticalCount} critical and ${warningCount} warning issue${warningCount === 1 ? "" : "s"}.`;
       } else {
         mergeVerdict = "review";
-        const testText = missingTestCount > 0
-          ? ` ${missingTestCount} changed file${missingTestCount === 1 ? "" : "s"} may need related tests.`
-          : "";
-        const impactText = hasCriticalImpact
-          ? " Broad impact radius detected."
-          : hasHighImpact
-            ? " High impact radius detected."
-            : "";
-        mergeMessage = `This PR has some items to address but may be mergeable after review.${impactText}${testText}`;
+        mergeMessage =
+          warningCount > 0
+            ? `This PR has ${warningCount} issue${warningCount === 1 ? "" : "s"} worth fixing before merging, but none are blocking.${notesText}`
+            : `This PR has some non-blocking items to address but may be mergeable.${notesText}`;
       }
     }
 

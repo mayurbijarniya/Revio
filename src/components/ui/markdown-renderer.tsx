@@ -1,4 +1,4 @@
-import { ComponentPropsWithoutRef, ReactNode, useState, useEffect } from "react";
+import { ComponentPropsWithoutRef, ReactNode, isValidElement, useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { createHighlighter, type BundledLanguage } from "shiki";
 import remarkGfm from "remark-gfm";
@@ -174,6 +174,13 @@ function CodeBlock({ code, language }: CodeBlockProps) {
   const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
   const shikiTheme = resolvedTheme === "dark" ? "vesper" : "github-light";
 
+  const filePath = extractFilePath(code);
+  // If we have a file path from the first line comment, strip it from the code
+  const displayCode = filePath
+    ? code.replace(/^\/\/.*\n?/, '')
+    : code;
+  const displayName = filePath || language || "text";
+
   useEffect(() => {
     let mounted = true;
 
@@ -181,9 +188,12 @@ function CodeBlock({ code, language }: CodeBlockProps) {
       try {
         const highlighter = await getHighlighterInstance();
         const loadedLangs = highlighter.getLoadedLanguages();
-        const lang = loadedLangs.includes(language as BundledLanguage) ? language : 'markdown';
+        const lang = !language
+          ? 'text'
+          : loadedLangs.includes(language as BundledLanguage) ? language : 'markdown';
 
-        const html = highlighter.codeToHtml(code, {
+        // Highlight the same text the fallback shows (without the file-path comment)
+        const html = highlighter.codeToHtml(displayCode, {
           lang,
           theme: shikiTheme
         });
@@ -201,25 +211,18 @@ function CodeBlock({ code, language }: CodeBlockProps) {
     return () => {
       mounted = false;
     };
-  }, [code, language, shikiTheme]);
+  }, [displayCode, language, shikiTheme]);
 
 
   const copyToClipboard = async () => {
     try {
-      await navigator.clipboard.writeText(code);
+      await navigator.clipboard.writeText(displayCode);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error("Failed to copy:", err);
     }
   };
-
-  const filePath = extractFilePath(code);
-  // If we have a file path from the first line comment, strip it from the code
-  const displayCode = filePath
-    ? code.replace(/^\/\/.*\n?/, '')
-    : code;
-  const displayName = filePath || language;
 
   return (
     <div className="my-4 rounded-xl overflow-hidden border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
@@ -280,45 +283,39 @@ export function MarkdownRenderer({ content, className, isStreaming = false }: Ma
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          code({ inline, className, children, ...props }: ComponentPropsWithoutRef<"code"> & { inline?: boolean; children?: ReactNode }) {
-            const match = /language-(\w+)/.exec(className || "");
-            const language = match ? match[1] : "";
-            const codeString = String(children).replace(/\n$/, "");
-
-            // Check if this is a block code (has language) vs inline code
-            const isBlockCode = language && (inline === false || codeString.includes("\n"));
-
-            if (isBlockCode) {
-              if (isStreaming) {
-                return (
-                  <div className="my-4 rounded-xl overflow-hidden border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-                    <div className="px-4 py-2 border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
-                      <span className="font-mono text-xs text-gray-500 dark:text-gray-400 font-medium">{language}</span>
-                    </div>
-                    <pre className="p-4 m-0 font-mono text-sm leading-relaxed text-gray-800 dark:text-gray-300 overflow-auto max-h-[500px] bg-white dark:bg-gray-900">
-                      {codeString}
-                    </pre>
-                  </div>
-                );
-              }
-              return <CodeBlock code={codeString} language={language} />;
-            }
-
-            // Inline code - use globals.css variables by removing specific color classes,
-            // or use explicit dark mode overrides if you prefer Tailwind classes over CSS vars.
-            // Since globals.css has .markdown-renderer code styles, we can trust them OR explicitly match them.
-            // Let's rely on globals.css but ensure base styles don't conflict.
+          // Inline code only: fenced blocks are rendered by `pre` below
+          code({ children, ...props }: ComponentPropsWithoutRef<"code"> & { children?: ReactNode }) {
             return (
               <code
-                className="font-mono font-medium text-[0.85em] text-indigo-600 dark:text-indigo-400"
                 {...props}
+                className="font-mono font-medium text-[0.85em] text-indigo-600 dark:text-indigo-400"
               >
                 {children}
               </code>
             );
           },
+          // Every fenced block (with or without a language, one line or many) is wrapped in <pre>
           pre({ children }) {
-            return <>{children}</>;
+            const codeElement = isValidElement<{ className?: string; children?: ReactNode }>(children)
+              ? children
+              : null;
+            const match = /language-([\w+#-]+)/.exec(codeElement?.props.className || "");
+            const language = match?.[1] ?? "";
+            const codeString = String(codeElement?.props.children ?? "").replace(/\n$/, "");
+
+            if (isStreaming) {
+              return (
+                <div className="my-4 rounded-xl overflow-hidden border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                  <div className="px-4 py-2 border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
+                    <span className="font-mono text-xs text-gray-500 dark:text-gray-400 font-medium">{language || "text"}</span>
+                  </div>
+                  <pre className="p-4 m-0 font-mono text-sm leading-relaxed text-gray-800 dark:text-gray-300 overflow-auto max-h-[500px] bg-white dark:bg-gray-900 whitespace-pre">
+                    {codeString}
+                  </pre>
+                </div>
+              );
+            }
+            return <CodeBlock code={codeString} language={language} />;
           },
           p({ children }) {
             return <p className="mb-3 leading-7 text-gray-800 dark:text-gray-300">{children}</p>;

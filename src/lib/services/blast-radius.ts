@@ -76,16 +76,24 @@ export function generateBlastRadius(args: {
   changedLinesByFile?: Record<string, number[]>;
   /** Definitions removed by the PR */
   extraChangedNodeIds?: string[];
+  /** Files where the change modifies or removes existing lines (see analyzeChangeImpact) */
+  filesWithRemovals?: string[];
   maxDirectFiles?: number;
   maxFunctions?: number;
 }): BlastRadiusData | null {
-  const { graphData, changedFiles, changedLinesByFile, extraChangedNodeIds } = args;
+  const { graphData, changedFiles, changedLinesByFile, extraChangedNodeIds, filesWithRemovals } = args;
   if (!graphData || changedFiles.length === 0) return null;
 
   const maxDirectFiles = args.maxDirectFiles ?? 20;
   const maxFunctions = args.maxFunctions ?? 15;
 
-  const impact = analyzeChangeImpact(graphData, changedFiles, changedLinesByFile, extraChangedNodeIds);
+  const impact = analyzeChangeImpact(
+    graphData,
+    changedFiles,
+    changedLinesByFile,
+    extraChangedNodeIds,
+    filesWithRemovals
+  );
 
   const changedFunctions = summarize(graphData, impact.directlyAffectedFunctions);
   const indirectCallers = summarize(graphData, impact.indirectlyAffectedFunctions);

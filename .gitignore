@@ -48,3 +48,7 @@ logs
 *.log
 
 .*/
+
+# Offline evaluation (scripts/eval): temporary snapshots and local results
+.eval-work/
+eval-results/

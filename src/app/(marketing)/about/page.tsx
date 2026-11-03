@@ -28,8 +28,9 @@ export default function AboutPage() {
                     </ul>
 
                     <p className="mt-6">
-                        In v3.0.1, we focused on reliability: stronger indexing cleanup in Qdrant,
-                        safer queue job dispatch IDs, and live indexing status updates in the dashboard.
+                        In v3.3, we focused on review accuracy: a code graph that links calls across
+                        files and languages, impact analysis that reads the PR&apos;s own code, and one clear
+                        verdict shared by GitHub and the dashboard, alongside a more reliable chat.
                     </p>
 
                     <h2 className="text-2xl font-bold mt-12 mb-6 text-[var(--foreground)]">Enterprise Ready</h2>

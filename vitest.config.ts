@@ -8,6 +8,10 @@ export default defineConfig({
     include: ["src/**/*.test.ts"],
     clearMocks: true,
   },
+  // Same JSX runtime as Next.js, so components can be rendered in tests
+  esbuild: {
+    jsx: "automatic",
+  },
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),

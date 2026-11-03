@@ -54,24 +54,37 @@ export default async function ChatPage({ searchParams }: PageProps) {
     orderBy: { fullName: "asc" },
   });
 
-  // Get recent conversations
-  const conversations = await db.conversation.findMany({
-    where: {
-      userId: session.userId,
+  // Sidebar: recent conversations, plus every pinned one even if older
+  const sidebarInclude = {
+    repository: {
+      select: { fullName: true },
     },
-    include: {
-      repository: {
-        select: { fullName: true },
-      },
-      messages: {
-        orderBy: { createdAt: "desc" },
-        take: 1,
-        select: { content: true },
-      },
+    messages: {
+      orderBy: { createdAt: "desc" as const },
+      take: 1,
+      select: { content: true },
     },
-    orderBy: { updatedAt: "desc" },
-    take: 20,
-  }) as unknown as ConversationWithExtras[];
+  };
+  const [recentConversations, pinnedConversations] = await Promise.all([
+    db.conversation.findMany({
+      where: { userId: session.userId },
+      include: sidebarInclude,
+      orderBy: { updatedAt: "desc" },
+      take: 20,
+    }),
+    db.conversation.findMany({
+      where: {
+        userId: session.userId,
+        OR: [{ isPinned: true }, ...(conversationId ? [{ id: conversationId }] : [])],
+      },
+      include: sidebarInclude,
+      orderBy: { updatedAt: "desc" },
+    }),
+  ]);
+  const conversations = [
+    ...recentConversations,
+    ...pinnedConversations.filter((c) => !recentConversations.some((r) => r.id === c.id)),
+  ] as unknown as ConversationWithExtras[];
 
   const formattedConversations = conversations.map((conv) => ({
     id: conv.id,

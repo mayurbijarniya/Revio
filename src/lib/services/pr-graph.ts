@@ -20,6 +20,8 @@ export interface PrGraphScope {
   changedLinesByFile: Record<string, number[]>;
   /** Definitions the PR removed; their existing callers are impacted */
   extraChangedNodeIds: string[];
+  /** Graph paths of changed files where existing lines were modified or removed */
+  filesWithRemovals: string[];
   /** Number of changed files re-parsed at the PR head */
   headParsedFiles: number;
 }
@@ -37,6 +39,7 @@ export function baseGraphScope(graph: CodeGraphData, files: DiffFile[]): PrGraph
     changedFiles: files.map((f) => f.oldPath),
     changedLinesByFile,
     extraChangedNodeIds: [],
+    filesWithRemovals: files.filter((f) => f.deletedCount > 0).map((f) => f.oldPath),
     headParsedFiles: 0,
   };
 }
@@ -117,6 +120,9 @@ export async function buildPrGraphScope(params: {
     changedFiles,
     changedLinesByFile,
     extraChangedNodeIds: removedNodeIds,
+    filesWithRemovals: files
+      .filter((f) => f.deletedCount > 0)
+      .map((f) => (overlaid.has(f.path) ? f.path : f.oldPath)),
     headParsedFiles: headFiles.length,
   };
 }

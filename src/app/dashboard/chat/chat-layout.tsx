@@ -59,6 +59,178 @@ interface ChatLayoutProps {
   initialMode?: "indexed" | "full_repo";
 }
 
+/** Server-sent event payloads from the chat API (see chat-service.ts) */
+interface StreamPayload {
+  conversationId?: string;
+  title?: string;
+  content?: string;
+  done?: boolean;
+  messageId?: string;
+  finalContent?: string;
+  error?: string;
+}
+
+/**
+ * Read server-sent events from a chat response. Events split across reads are buffered;
+ * malformed lines are skipped instead of aborting the whole stream.
+ */
+async function readChatStream(res: Response, onEvent: (payload: StreamPayload) => void): Promise<void> {
+  if (!res.body) return;
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  const handleLine = (line: string) => {
+    if (!line.startsWith("data: ")) return;
+    try {
+      onEvent(JSON.parse(line.slice(6)) as StreamPayload);
+    } catch {
+      // ignore malformed event
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    lines.forEach(handleLine);
+  }
+  buffer += decoder.decode();
+  if (buffer) handleLine(buffer);
+}
+
+/** Error message from a JSON API error response, e.g. plan limit reached */
+async function getResponseError(res: Response, fallback: string): Promise<string> {
+  try {
+    const data = await res.json();
+    return data?.error?.message || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+/** Enter sends, Shift+Enter adds a newline; Enter while an IME is composing confirms the word */
+function handleSubmitKey(e: React.KeyboardEvent<HTMLTextAreaElement>, submit: () => void) {
+  if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
+  e.preventDefault();
+  submit();
+}
+
+interface ConversationItemProps {
+  conv: Conversation;
+  isSelected: boolean;
+  isMenuOpen: boolean;
+  menuRef: React.Ref<HTMLDivElement>;
+  onSelect: (id: string) => void;
+  onToggleMenu: (id: string) => void;
+  onRename: (id: string) => void;
+  onTogglePin: (id: string) => void;
+  onDelete: (id: string) => void;
+}
+
+/**
+ * Sidebar conversation row. Declared at module level so React keeps the same component
+ * across renders (an inline component remounts every row on each streamed chunk).
+ */
+function ConversationItem({
+  conv,
+  isSelected,
+  isMenuOpen,
+  menuRef,
+  onSelect,
+  onToggleMenu,
+  onRename,
+  onTogglePin,
+  onDelete,
+}: ConversationItemProps) {
+  return (
+    <div
+      className={cn(
+        "group relative w-full text-left p-3 rounded-lg transition-all text-sm",
+        isSelected
+          ? "bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800"
+          : "hover:bg-gray-100 dark:hover:bg-gray-800 border border-transparent"
+      )}
+    >
+      <button
+        onClick={() => onSelect(conv.id)}
+        className="w-full text-left"
+        title={conv.title}
+        aria-current={isSelected ? "page" : undefined}
+      >
+        <div className="font-medium text-sm truncate flex items-center gap-2 pr-12 mb-0.5">
+          {conv.isPinned && <Pin className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" aria-label="Pinned" />}
+          <FolderGit2 className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 shrink-0" />
+          <span className="text-gray-900 dark:text-gray-200 truncate">{conv.title}</span>
+        </div>
+        <div className="text-xs text-gray-500 dark:text-gray-500 truncate pl-5.5">
+          {conv.lastMessage || "No messages yet"}
+        </div>
+      </button>
+
+      <div className="absolute right-2 top-3" ref={isMenuOpen ? menuRef : null}>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleMenu(conv.id);
+          }}
+          className={cn(
+            "p-1 rounded group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-all",
+            isMenuOpen ? "opacity-100" : "opacity-0"
+          )}
+          title="More actions"
+          aria-label={`More actions for ${conv.title}`}
+          aria-haspopup="menu"
+          aria-expanded={isMenuOpen}
+        >
+          <MoreVertical className="w-4 h-4" />
+        </button>
+
+        {isMenuOpen && (
+          <div
+            role="menu"
+            className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50 py-1"
+          >
+            <button
+              role="menuitem"
+              onClick={(e) => { e.stopPropagation(); onRename(conv.id); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+              Rename
+            </button>
+            <button
+              role="menuitem"
+              onClick={(e) => { e.stopPropagation(); onTogglePin(conv.id); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              {conv.isPinned ? (
+                <><PinOff className="w-3.5 h-3.5" />Unpin</>
+              ) : (
+                <><Pin className="w-3.5 h-3.5" />Pin</>
+              )}
+            </button>
+            <button
+              role="menuitem"
+              onClick={(e) => { e.stopPropagation(); onDelete(conv.id); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function ChatLayout({
   repositories,
   conversations: initialConversations,
@@ -88,35 +260,91 @@ export function ChatLayout({
   const [isRenaming, setIsRenaming] = useState(false);
   const [selectedMode, setSelectedMode] = useState<"indexed" | "full_repo">(initialMode || "indexed");
 
+  // Mobile only: show the new-chat composer instead of the conversation list
+  const [isComposingNew, setIsComposingNew] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  // Read by streaming callbacks, which would otherwise see the value from when the send started
+  const isAtBottomRef = useRef(true);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const streamAbortRef = useRef<AbortController | null>(null);
+  const focusAfterSendRef = useRef(false);
 
   const handleScroll = useCallback(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
     const threshold = 100;
     const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+    isAtBottomRef.current = atBottom;
     setIsAtBottom(atBottom);
   }, []);
 
-  // Auto-scroll to bottom when messages change, only if already at bottom
+  // Smooth scroll when a message is added, only if already at bottom (chunks scroll instantly)
   useEffect(() => {
-    if (isAtBottom) {
+    if (isAtBottomRef.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, isAtBottom]);
+  }, [messages.length]);
 
   // Always scroll to bottom on conversation switch
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+    isAtBottomRef.current = true;
     setIsAtBottom(true);
   }, [selectedConversation]);
 
+  // Stop reading an in-flight stream when leaving the page (the server still saves the reply)
+  useEffect(() => {
+    return () => streamAbortRef.current?.abort();
+  }, []);
+
+  // Refocus the input once a reply finishes (it is disabled while streaming)
+  useEffect(() => {
+    if (!isLoading && focusAfterSendRef.current) {
+      focusAfterSendRef.current = false;
+      inputRef.current?.focus();
+    }
+  }, [isLoading]);
+
+  // Escape closes open menus and the rename dialog
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setShowMenuId(null);
+      setShowRepoDropdown(false);
+      setRenameDialogOpen(false);
+      setConversationToRename(null);
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   function scrollToBottom() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    isAtBottomRef.current = true;
     setIsAtBottom(true);
+  }
+
+  function scrollOnChunk() {
+    if (isAtBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+    }
+  }
+
+  function beginStream(): AbortController {
+    streamAbortRef.current?.abort();
+    const controller = new AbortController();
+    streamAbortRef.current = controller;
+    return controller;
+  }
+
+  function endStream(controller: AbortController) {
+    if (streamAbortRef.current === controller) {
+      streamAbortRef.current = null;
+      setIsLoading(false);
+    }
   }
 
   // Auto-dismiss error after 5 seconds
@@ -162,6 +390,11 @@ export function ChatLayout({
   }, []);
 
   async function loadConversation(conversationId: string) {
+    setIsComposingNew(false);
+
+    // Re-selecting the conversation that is streaming would replace the live reply
+    if (conversationId === selectedConversation && streamAbortRef.current) return;
+
     // Navigate to conversation URL if not already there
     if (pathname !== `/dashboard/chat/${conversationId}`) {
       router.push(`/dashboard/chat/${conversationId}`);
@@ -186,13 +419,25 @@ export function ChatLayout({
     }
   }
 
+  /** Move a conversation to the top of the sidebar after a new message */
+  function touchConversation(conversationId: string, lastMessage: string) {
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === conversationId
+          ? { ...c, lastMessage: lastMessage.slice(0, 100), updatedAt: new Date() }
+          : c
+      )
+    );
+  }
+
   async function startNewConversation() {
     if (selectedRepos.length === 0 || !input.trim()) return;
 
+    const content = input.trim();
     const userMessage: Message = {
       id: `temp-${Date.now()}`,
       role: "user",
-      content: input.trim(),
+      content,
       createdAt: new Date(),
     };
     const streamingId = `streaming-${Date.now()}`;
@@ -203,9 +448,12 @@ export function ChatLayout({
     ]);
     setInput("");
     if (inputRef.current) inputRef.current.style.height = "auto";
-    setTimeout(() => inputRef.current?.focus(), 50);
+    focusAfterSendRef.current = true;
     setIsLoading(true);
     setError(null);
+
+    const controller = beginStream();
+    let convId = "";
 
     try {
       const res = await fetch("/api/chat/conversations", {
@@ -216,89 +464,93 @@ export function ChatLayout({
         },
         body: JSON.stringify({
           repositoryIds: selectedRepos.map((r) => r.id),
-          message: userMessage.content,
+          message: content,
           mode: selectedMode,
         }),
+        signal: controller.signal,
       });
 
-      if (!res.ok || !res.body) throw new Error("Stream failed");
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let convId = "";
-      let convTitle = "";
-      let firstEvent = true;
-      let finalId = streamingId;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const payload = JSON.parse(line.slice(6));
-
-          if (firstEvent && payload.conversationId) {
-            // First event — conversation metadata
-            convId = payload.conversationId;
-            convTitle = payload.title;
-            setSelectedConversation(convId);
-            setConversations((prev) => [
-              {
-                id: convId,
-                title: convTitle,
-                repositoryName: selectedRepos.map((r) => r.fullName).join(", "),
-                lastMessage: userMessage.content.slice(0, 60),
-                updatedAt: new Date(),
-                isPinned: false,
-                mode: selectedMode,
-              },
-              ...prev,
-            ]);
-            firstEvent = false;
-          } else if (payload.done) {
-            if (payload.messageId) finalId = payload.messageId;
-          } else if (payload.content) {
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === streamingId ? { ...m, content: m.content + payload.content } : m
-              )
-            );
-            if (isAtBottom) {
-              messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
-            }
-          }
-        }
+      if (!res.ok || !res.body) {
+        // Nothing was created: restore the question so it can be retried
+        const message = await getResponseError(res, "Failed to start conversation");
+        setMessages([]);
+        setInput(content);
+        setError(message);
+        return;
       }
 
-      // Settle user message id and assistant message id
+      let finalId = streamingId;
+      let finalContent: string | undefined;
+      let streamError: string | undefined;
+
+      await readChatStream(res, (payload) => {
+        if (controller.signal.aborted) return;
+
+        if (payload.conversationId && !convId) {
+          // First event — conversation metadata
+          convId = payload.conversationId;
+          setSelectedConversation(convId);
+          setConversations((prev) => [
+            {
+              id: convId,
+              title: payload.title ?? content.slice(0, 50),
+              repositoryName: selectedRepos.map((r) => r.fullName).join(", "),
+              lastMessage: content.slice(0, 100),
+              updatedAt: new Date(),
+              isPinned: false,
+              mode: selectedMode,
+            },
+            ...prev,
+          ]);
+          // Update the URL without remounting the page, so refresh and links keep this conversation
+          window.history.replaceState(null, "", `/dashboard/chat/${convId}`);
+        } else if (payload.done) {
+          if (payload.messageId) finalId = payload.messageId;
+          if (payload.finalContent) finalContent = payload.finalContent;
+          if (payload.error) streamError = payload.error;
+        } else if (payload.content) {
+          const chunk = payload.content;
+          setMessages((prev) =>
+            prev.map((m) => (m.id === streamingId ? { ...m, content: m.content + chunk } : m))
+          );
+          scrollOnChunk();
+        }
+      });
+
+      if (controller.signal.aborted) return;
+
+      // Show exactly what the server saved
       setMessages((prev) =>
-        prev.map((m) => {
-          if (m.id === streamingId) return { ...m, id: finalId };
-          if (m.id === userMessage.id) return { ...m, id: m.id };
-          return m;
-        })
+        prev.map((m) =>
+          m.id === streamingId ? { ...m, id: finalId, content: finalContent ?? m.content } : m
+        )
       );
-    } catch {
-      setMessages([]);
-      setError("Failed to start conversation");
+      if (streamError) setError(streamError);
+    } catch (err) {
+      if (isAbortError(err) || controller.signal.aborted) return;
+      if (!convId) {
+        setMessages([]);
+        setInput(content);
+        setError("Failed to start conversation");
+      } else {
+        // The conversation exists; keep what arrived and point to the saved reply
+        setMessages((prev) => prev.filter((m) => m.id !== streamingId || m.content));
+        setError("Connection lost while the reply was generating. Reopen the conversation to see the saved reply.");
+      }
     } finally {
-      setIsLoading(false);
+      endStream(controller);
     }
   }
 
   async function sendMessage() {
     if (!selectedConversation || !input.trim()) return;
 
+    const conversationId = selectedConversation;
+    const content = input.trim();
     const userMessage: Message = {
       id: `temp-${Date.now()}`,
       role: "user",
-      content: input.trim(),
+      content,
       createdAt: new Date(),
     };
     const streamingId = `streaming-${Date.now()}`;
@@ -310,71 +562,83 @@ export function ChatLayout({
     ]);
     setInput("");
     if (inputRef.current) inputRef.current.style.height = "auto";
-    setTimeout(() => inputRef.current?.focus(), 50);
+    focusAfterSendRef.current = true;
     setIsLoading(true);
     setError(null);
 
+    const controller = beginStream();
+    let accepted = false;
+
     try {
-      const res = await fetch(`/api/chat/conversations/${selectedConversation}/messages`, {
+      const res = await fetch(`/api/chat/conversations/${conversationId}/messages`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Accept": "text/event-stream",
         },
-        body: JSON.stringify({ content: userMessage.content }),
+        body: JSON.stringify({ content }),
+        signal: controller.signal,
       });
 
-      if (!res.ok || !res.body) throw new Error("Stream failed");
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let finalId = streamingId;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const payload = JSON.parse(line.slice(6));
-
-          if (payload.done) {
-            if (payload.messageId) finalId = payload.messageId;
-          } else if (payload.content) {
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === streamingId ? { ...m, content: m.content + payload.content } : m
-              )
-            );
-            // Scroll on each chunk if at bottom
-            if (isAtBottom) {
-              messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
-            }
-          }
-        }
+      if (!res.ok || !res.body) {
+        // Rejected before saving (limits, validation): roll back and restore the text
+        const message = await getResponseError(res, "Failed to send message");
+        setMessages((prev) => prev.filter((m) => m.id !== userMessage.id && m.id !== streamingId));
+        setInput(content);
+        setError(message);
+        return;
       }
 
-      // Settle final message ID
+      // From here the server has saved the question
+      accepted = true;
+      touchConversation(conversationId, content);
+
+      let finalId = streamingId;
+      let finalContent: string | undefined;
+      let streamError: string | undefined;
+
+      await readChatStream(res, (payload) => {
+        if (controller.signal.aborted) return;
+
+        if (payload.done) {
+          if (payload.messageId) finalId = payload.messageId;
+          if (payload.finalContent) finalContent = payload.finalContent;
+          if (payload.error) streamError = payload.error;
+        } else if (payload.content) {
+          const chunk = payload.content;
+          setMessages((prev) =>
+            prev.map((m) => (m.id === streamingId ? { ...m, content: m.content + chunk } : m))
+          );
+          scrollOnChunk();
+        }
+      });
+
+      if (controller.signal.aborted) return;
+
+      // Show exactly what the server saved
       setMessages((prev) =>
-        prev.map((m) => (m.id === streamingId ? { ...m, id: finalId } : m))
+        prev.map((m) =>
+          m.id === streamingId ? { ...m, id: finalId, content: finalContent ?? m.content } : m
+        )
       );
-    } catch {
-      setError("Failed to send message");
-      setMessages((prev) =>
-        prev.filter((m) => m.id !== userMessage.id && m.id !== streamingId)
-      );
+      if (streamError) setError(streamError);
+    } catch (err) {
+      if (isAbortError(err) || controller.signal.aborted) return;
+      if (!accepted) {
+        setMessages((prev) => prev.filter((m) => m.id !== userMessage.id && m.id !== streamingId));
+        setInput(content);
+        setError("Failed to send message");
+      } else {
+        setMessages((prev) => prev.filter((m) => m.id !== streamingId || m.content));
+        setError("Connection lost while the reply was generating. Reopen the conversation to see the saved reply.");
+      }
     } finally {
-      setIsLoading(false);
+      endStream(controller);
     }
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function submitCurrentInput() {
+    if (!input.trim() || isLoading) return;
     if (selectedConversation) {
       sendMessage();
     } else {
@@ -382,8 +646,18 @@ export function ChatLayout({
     }
   }
 
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    submitCurrentInput();
+  }
+
   function handleNewChat() {
+    // Stop following any in-flight reply (the server still saves it)
+    streamAbortRef.current?.abort();
+    streamAbortRef.current = null;
+    setIsLoading(false);
     setSelectedConversation(null);
+    setIsComposingNew(true);
     setMessages([]);
     setInput("");
     setError(null);
@@ -394,6 +668,16 @@ export function ChatLayout({
     if (pathname.startsWith("/dashboard/chat/")) {
       router.push("/dashboard/chat");
     }
+  }
+
+  /** Mobile back button: return to the conversation list */
+  function handleMobileBack() {
+    setIsComposingNew(false);
+    if (selectedConversation && pathname.startsWith("/dashboard/chat/")) {
+      router.push("/dashboard/chat");
+      return;
+    }
+    setSelectedConversation(null);
   }
 
   function copyMarkdown() {
@@ -441,11 +725,12 @@ export function ChatLayout({
       const data = await res.json();
       if (data.success) {
         setConversations((prev) => prev.filter((c) => c.id !== conversationToDelete));
-        if (selectedConversation === conversationToDelete) {
-          setSelectedConversation(null);
-          setMessages([]);
-        }
         closeDeleteDialog();
+        if (selectedConversation === conversationToDelete) {
+          // Leave the deleted conversation's URL, which would 404 on refresh
+          handleNewChat();
+          setIsComposingNew(false);
+        }
       } else {
         setError(data.error?.message || "Failed to delete conversation");
       }
@@ -558,75 +843,26 @@ export function ChatLayout({
   const unpinnedConvs = sortedConversations.filter(c => !c.isPinned);
   const dateGroups = ["Today", "Yesterday", "This week", "Older"] as const;
 
-  function ConvItem({ conv }: { conv: Conversation }) {
+  function renderConversation(conv: Conversation) {
     return (
-      <div
-        className={cn(
-          "group relative w-full text-left p-3 rounded-lg transition-all text-sm",
-          selectedConversation === conv.id
-            ? "bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800"
-            : "hover:bg-gray-100 dark:hover:bg-gray-800 border border-transparent"
-        )}
-      >
-        <button
-          onClick={() => loadConversation(conv.id)}
-          className="w-full text-left"
-          title={conv.title}
-        >
-          <div className="font-medium text-sm truncate flex items-center gap-2 pr-12 mb-0.5">
-            {conv.isPinned && <Pin className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />}
-            <FolderGit2 className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 shrink-0" />
-            <span className="text-gray-900 dark:text-gray-200 truncate">{conv.title}</span>
-          </div>
-          <div className="text-xs text-gray-500 dark:text-gray-500 truncate pl-5.5">
-            {conv.lastMessage || "No messages yet"}
-          </div>
-        </button>
-
-        <div className="absolute right-2 top-3" ref={showMenuId === conv.id ? menuRef : null}>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowMenuId(showMenuId === conv.id ? null : conv.id);
-            }}
-            className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-all"
-            title="More actions"
-          >
-            <MoreVertical className="w-4 h-4" />
-          </button>
-
-          {showMenuId === conv.id && (
-            <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50 py-1">
-              <button
-                onClick={(e) => { e.stopPropagation(); openRenameDialog(conv.id); }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              >
-                <Edit2 className="w-3.5 h-3.5" />
-                Rename
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); togglePin(conv.id); }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              >
-                {conv.isPinned ? (
-                  <><PinOff className="w-3.5 h-3.5" />Unpin</>
-                ) : (
-                  <><Pin className="w-3.5 h-3.5" />Pin</>
-                )}
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); openDeleteDialog(conv.id); }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                Delete
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
+      <ConversationItem
+        key={conv.id}
+        conv={conv}
+        isSelected={selectedConversation === conv.id}
+        isMenuOpen={showMenuId === conv.id}
+        menuRef={menuRef}
+        onSelect={loadConversation}
+        onToggleMenu={(id) => setShowMenuId((current) => (current === id ? null : id))}
+        onRename={openRenameDialog}
+        onTogglePin={togglePin}
+        onDelete={openDeleteDialog}
+      />
     );
   }
+
+  // Mobile shows either the list or the chat; desktop always shows both
+  const showChatOnMobile = Boolean(selectedConversation) || isComposingNew;
+  const currentConversation = conversations.find((c) => c.id === selectedConversation);
 
   return (
     <div className="flex h-[calc(100vh-4rem)] scrollbar-hide bg-gray-50 dark:bg-gray-900">
@@ -634,7 +870,7 @@ export function ChatLayout({
       <div
         className={cn(
           "border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex-col flex-shrink-0 md:w-72 md:flex",
-          selectedConversation ? "hidden" : "flex w-full"
+          showChatOnMobile ? "hidden" : "flex w-full"
         )}
       >
         {/* New Chat Button */}
@@ -663,7 +899,7 @@ export function ChatLayout({
                 <>
                   <p className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Pinned</p>
                   {pinnedConvs.map((conv) => (
-                    <ConvItem key={conv.id} conv={conv} />
+                    renderConversation(conv)
                   ))}
                 </>
               )}
@@ -674,7 +910,7 @@ export function ChatLayout({
                   <div key={label}>
                     <p className="px-2 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{label}</p>
                     {group.map((conv) => (
-                      <ConvItem key={conv.id} conv={conv} />
+                      renderConversation(conv)
                     ))}
                   </div>
                 );
@@ -688,20 +924,21 @@ export function ChatLayout({
       <div
         className={cn(
           "relative flex-1 flex-col min-w-0 bg-gray-50 dark:bg-gray-900",
-          !selectedConversation ? "hidden md:flex" : "flex"
+          showChatOnMobile ? "flex" : "hidden md:flex"
         )}
       >
         {/* Mobile Header - Active Conversation */}
-        {selectedConversation && (
+        {showChatOnMobile && (
           <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 sticky top-0 z-10">
             <button
-              onClick={() => setSelectedConversation(null)}
+              onClick={handleMobileBack}
               className="p-1 -ml-1 text-gray-600 dark:text-gray-400"
+              aria-label="Back to conversations"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div className="font-medium truncate flex-1 text-gray-900 dark:text-white">
-              {conversations.find(c => c.id === selectedConversation)?.title || "Chat"}
+              {selectedConversation ? currentConversation?.title || "Chat" : "New chat"}
             </div>
           </div>
         )}
@@ -713,6 +950,7 @@ export function ChatLayout({
             <div className="flex items-center gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
               <button
                 onClick={() => setSelectedMode("indexed")}
+                aria-pressed={selectedMode === "indexed"}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-all",
                   selectedMode === "indexed"
@@ -726,13 +964,14 @@ export function ChatLayout({
               </button>
               <button
                 onClick={() => setSelectedMode("full_repo")}
+                aria-pressed={selectedMode === "full_repo"}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-all",
                   selectedMode === "full_repo"
                     ? "bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm"
                     : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                 )}
-                title="Full Repo - Sends complete file list for broader understanding"
+                title="Full Repo - Repository structure plus relevant code for broader questions"
               >
                 <FileText className="w-3.5 h-3.5" />
                 Full
@@ -743,6 +982,8 @@ export function ChatLayout({
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setShowRepoDropdown(!showRepoDropdown)}
+                aria-haspopup="listbox"
+                aria-expanded={showRepoDropdown}
                 className={cn(
                   "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all",
                   selectedRepos.length > 0
@@ -763,7 +1004,12 @@ export function ChatLayout({
 
               {/* Dropdown */}
               {showRepoDropdown && (
-                <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50 animate-dropdown">
+                <div
+                  role="listbox"
+                  aria-multiselectable="true"
+                  aria-label="Repositories"
+                  className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50 animate-dropdown"
+                >
                   {repositories.map((repo) => {
                     const isSelected = selectedRepos.some((r) => r.id === repo.id);
                     return (
@@ -776,6 +1022,8 @@ export function ChatLayout({
                             setSelectedRepos((prev) => [...prev, repo]);
                           }
                         }}
+                        role="option"
+                        aria-selected={isSelected}
                         className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       >
                         <div
@@ -783,18 +1031,18 @@ export function ChatLayout({
                             "w-4 h-4 rounded border flex items-center justify-center transition-colors",
                             isSelected
                               ? "bg-indigo-600 border-indigo-600"
-                              : "border-gray-300"
+                              : "border-gray-300 dark:border-gray-600"
                           )}
                         >
                           {isSelected && <Check className="w-3 h-3 text-white" />}
                         </div>
-                        <FolderGit2 className="w-4 h-4 text-gray-500" />
+                        <FolderGit2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                         <div className="flex-1 min-w-0 text-left">
-                          <div className="text-sm text-gray-700 truncate">
+                          <div className="text-sm text-gray-700 dark:text-gray-200 truncate">
                             {repo.fullName.split("/")[1] || repo.fullName}
                           </div>
                           {repo.language && (
-                            <div className="text-xs text-gray-500">{repo.language}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">{repo.language}</div>
                           )}
                         </div>
                       </button>
@@ -831,7 +1079,7 @@ export function ChatLayout({
             <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-3">
               <AlertCircle className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0" />
               <span className="text-sm text-red-600 dark:text-red-400 flex-1">{error}</span>
-              <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors">
+              <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors" aria-label="Dismiss error">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -913,6 +1161,7 @@ export function ChatLayout({
             onClick={scrollToBottom}
             className="absolute bottom-44 right-8 z-40 p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-md hover:shadow-lg hover:border-indigo-400 transition-all text-gray-500 hover:text-indigo-600"
             title="Scroll to bottom"
+            aria-label="Scroll to bottom"
           >
             <ChevronsDown className="w-4 h-4" />
           </button>
@@ -998,18 +1247,15 @@ export function ChatLayout({
                       e.target.style.height = "auto";
                       e.target.style.height = Math.min(e.target.scrollHeight, 160) + "px";
                     }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        if (input.trim()) handleSubmit(e as unknown as React.FormEvent);
-                      }
-                    }}
+                    onKeyDown={(e) => handleSubmitKey(e, submitCurrentInput)}
+                    aria-label="Follow-up question"
                     placeholder="Ask a follow-up question... (Shift+Enter for new line)"
                     disabled={isLoading}
                     className="w-full px-5 py-4 pr-14 bg-transparent rounded-b-lg focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all text-base leading-relaxed text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 resize-none overflow-hidden"
                   />
                   <button
                     type="submit"
+                    aria-label="Send message"
                     disabled={isLoading || !input.trim()}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-colors"
                   >
@@ -1033,12 +1279,8 @@ export function ChatLayout({
                     e.target.style.height = "auto";
                     e.target.style.height = Math.min(e.target.scrollHeight, 160) + "px";
                   }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      if (input.trim()) handleSubmit(e as unknown as React.FormEvent);
-                    }
-                  }}
+                  onKeyDown={(e) => handleSubmitKey(e, submitCurrentInput)}
+                  aria-label="Question about the codebase"
                   placeholder={
                     selectedRepos.length > 0
                       ? "Ask about the codebase... (Shift+Enter for new line)"
@@ -1049,6 +1291,7 @@ export function ChatLayout({
                 />
                 <button
                   type="submit"
+                  aria-label="Send message"
                   disabled={isLoading || !input.trim() || (!selectedConversation && selectedRepos.length === 0)}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-colors"
                 >
@@ -1082,7 +1325,8 @@ export function ChatLayout({
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Rename Conversation</h3>
                 <button
                   onClick={closeRenameDialog}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  aria-label="Close rename dialog"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1093,7 +1337,8 @@ export function ChatLayout({
                 type="text"
                 value={renameInput}
                 onChange={(e) => setRenameInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleRename()}
+                onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && handleRename()}
+                aria-label="Conversation title"
                 placeholder="Enter new title..."
                 autoFocus
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"

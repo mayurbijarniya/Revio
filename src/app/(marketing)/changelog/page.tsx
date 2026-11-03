@@ -32,6 +32,68 @@ interface Release {
 
 const releases: Release[] = [
   {
+    version: "3.3.0",
+    date: "November 2, 2026",
+    title: "Accurate PR Analysis, One Clear Verdict & Reliable Chat",
+    description: "A rebuilt code graph that links calls across files and languages, PR-aware impact analysis, a single consistent review verdict, fixed chat history and limits, and a sturdier chat experience on desktop and mobile.",
+    type: "minor",
+    icon: Brain,
+    changes: [
+      {
+        category: "added",
+        items: [
+          "Code graph links function calls across files through resolved imports for TypeScript/JavaScript, Python, Java, Rust, C/C++, Ruby and PHP; Go, Java, Kotlin, C# and Swift also see definitions in the same package",
+          "PR-aware analysis: changed files are re-parsed at the PR head, so new, edited and removed functions get real callers and dependents",
+          "Single review verdict: risk and recommendation are decided once and used by the GitHub review, the comment text, the dashboard and the confidence score",
+          "Sequence diagrams built from real calls between the changed code and other files",
+          "Chat plan limits enforced (monthly and hourly), with clear limit messages in the chat",
+          "Full repo chat mode now includes the code relevant to each question, not just the file list",
+          "Test coverage hints for Python and Go projects",
+        ],
+      },
+      {
+        category: "improved",
+        items: [
+          "Blast radius counts only the functions a PR actually changes and rates impact by downstream callers and dependent files",
+          "Blast radius diagram shows only boxes and arrows that exist, labelled as structural impact",
+          "Entry points exclude tests, private helpers, class methods and interfaces; JSX usage and constructors count as calls",
+          "Adding new code (for example a constant) no longer marks every importing file as affected",
+          "The AI sees line-numbered diffs, so issue line numbers and inline comments are accurate",
+          "Confidence score is capped by the verdict and ignores scanner findings the AI rejected",
+          "Docstring suggestions prefer exported functions in application code",
+          "Test-gap hints skip routes, pages, scripts, config and type files",
+          "Chat: errors and limit messages shown, typed question restored, URL updates after a new chat, Escape closes menus, IME-safe Enter",
+          "Chat on mobile: New Chat opens the composer and the back button returns to the list",
+          "Chat sidebar always lists pinned and open conversations; accessibility labels and dark mode fixes",
+        ],
+      },
+      {
+        category: "fixed",
+        items: [
+          "Risk shown as Low at the top of a review but High in its diagram",
+          "Dashboard verdict could disagree with the AI recommendation",
+          "Files larger than 32 KB were silently skipped by the code parser (graph and indexing)",
+          "Callers and dependent files were always zero for most repositories",
+          "Test functions were listed as entry points",
+          "Chat history used the oldest messages instead of the most recent ones",
+          "First chat question used a stricter search than follow-ups and often found no code",
+          "A failed or interrupted chat reply left an unanswered question in the conversation",
+          "Chat was blocked while a repository was being re-indexed",
+          "One-line code blocks in chat rendered as inline code",
+          "One invalid line number no longer drops every inline review comment",
+          "Ignored paths now apply to every step of a review",
+        ],
+      },
+      {
+        category: "security",
+        items: [
+          "Next.js upgraded to 15.5.28, fixing critical image optimizer and server component advisories",
+          "Dependency audit fixes applied (20 findings reduced to 5, none critical)",
+        ],
+      },
+    ],
+  },
+  {
     version: "3.2.0",
     date: "June 21, 2026",
     title: "Repository Filtering, Dashboard Feedback & Review Polish",
