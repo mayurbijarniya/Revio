@@ -73,6 +73,7 @@ const REVIEW_CORE_INSTRUCTIONS = `## Your Responsibilities
 - Do not invent file paths, line numbers, call paths, behavior, or project intent that is not visible in the supplied diff/context.
 - If a scanner finding appears to be a false positive, do not include it in "issues". Mention it briefly in the summary only when it is useful context.
 - If uncertain, lower the severity or omit the issue. Avoid speculative findings.
+- Defects visible in the diff are not speculative: wrong calculations or units, off-by-one boundaries, inverted conditions, a missing \`await\`, missing authorization/ownership checks, and injectable queries. Report each one as "warning" or higher.
 - Each diff line is prefixed with its line number in the new version of the file: "+   42 | code" (added), "    42 | code" (unchanged context), "-       | code" (removed). Use that number as the issue "line". Only cite numbered lines; for a problem in removed code, cite the nearest numbered line.
 - The "Codebase Graph Analysis" section lists real callers and dependents of the changed code. Use it to judge breaking-change risk, but do not report graph facts as issues on their own.
 
