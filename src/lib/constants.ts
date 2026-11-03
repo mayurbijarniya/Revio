@@ -74,8 +74,16 @@ export const AI_CONFIG = {
   review: {
     model: "gemini-3.5-flash-lite",
     complexModel: "gemini-3.5-flash-lite",
-    maxOutputTokens: 4096,
-    temperature: 0.2,
+    /**
+     * Thinking effort for reviews: "minimal" | "low" | "medium" | "high".
+     * Flash-Lite defaults to "minimal" (effectively no thinking), which made reviews shallow and
+     * inconsistent between runs. Google recommends "medium" for complex code; "low" is the
+     * cheaper fallback. Thinking tokens are billed as output tokens.
+     */
+    thinkingLevel: "medium",
+    /** Room for thinking plus the JSON answer (thinking counts as output); billed only as used */
+    maxOutputTokens: 16384,
+    // No temperature: Google recommends keeping the default for Gemini 3.x models
     // Thresholds for upgrading to complex model
     complexThresholds: {
       changedFiles: 20,

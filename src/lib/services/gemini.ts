@@ -1,6 +1,7 @@
 import {
   GoogleGenerativeAI,
   type GenerateContentStreamResult,
+  type GenerationConfig,
   type UsageMetadata,
 } from "@google/generative-ai";
 import { AI_CONFIG } from "@/lib/constants";
@@ -140,18 +141,42 @@ export async function generateReviewResponse(
   const genModel = client.getGenerativeModel({
     model,
     systemInstruction: systemPrompt,
-    generationConfig: {
-      maxOutputTokens: AI_CONFIG.review.maxOutputTokens,
-      temperature: AI_CONFIG.review.temperature,
-      responseMimeType: "application/json",
-    },
+    generationConfig: buildReviewGenerationConfig(),
   });
 
   const result = await genModel.generateContent(userPrompt);
+  const usageMetadata = result.response.usageMetadata ?? null;
+  logReviewUsage(model, usageMetadata);
+
   return {
     text: result.response.text(),
-    usageMetadata: result.response.usageMetadata ?? null,
+    usageMetadata,
   };
+}
+
+/**
+ * Review generation settings. `thinkingConfig` is not in this SDK version's types, but the SDK
+ * sends generationConfig to the API unchanged, so the field reaches Gemini.
+ */
+export function buildReviewGenerationConfig(): GenerationConfig {
+  return {
+    maxOutputTokens: AI_CONFIG.review.maxOutputTokens,
+    responseMimeType: "application/json",
+    thinkingConfig: { thinkingLevel: AI_CONFIG.review.thinkingLevel },
+  } as GenerationConfig;
+}
+
+/**
+ * Log token usage per review. thoughtsTokenCount > 0 confirms thinking is active.
+ */
+function logReviewUsage(model: string, usage: UsageMetadata | null): void {
+  if (!usage) return;
+  const thoughts = (usage as UsageMetadata & { thoughtsTokenCount?: number }).thoughtsTokenCount ?? 0;
+  console.warn(
+    `[Gemini] Review usage (${model}, thinking ${AI_CONFIG.review.thinkingLevel}): ` +
+      `prompt ${usage.promptTokenCount}, output ${usage.candidatesTokenCount}, ` +
+      `thinking ${thoughts}, total ${usage.totalTokenCount}`
+  );
 }
 
 /**
