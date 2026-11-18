@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { jsonSuccess, jsonError } from "@/lib/api-utils";
+import { countMcpReviewsSince } from "@/lib/plan-limits";
 import { z } from "zod";
 
 const UpgradeSchema = z.object({
@@ -86,13 +87,15 @@ export async function GET() {
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
 
-    const [monthlyReviews, monthlyMessages] = await Promise.all([
+    const [monthlyPrReviews, monthlyMcpReviews, monthlyMessages] = await Promise.all([
       db.prReview.count({
         where: {
           repository: { userId: session.userId },
           createdAt: { gte: startOfMonth },
         },
       }),
+      // Reviews requested through MCP count toward the same monthly review limit
+      countMcpReviewsSince(session.userId, startOfMonth),
       db.message.count({
         where: {
           conversation: { userId: session.userId },
@@ -106,7 +109,7 @@ export async function GET() {
         plan: user.plan,
         usage: {
           repositories: user._count.repositories,
-          prReviews: monthlyReviews,
+          prReviews: monthlyPrReviews + monthlyMcpReviews,
           messages: monthlyMessages,
         },
         memberSince: user.createdAt,

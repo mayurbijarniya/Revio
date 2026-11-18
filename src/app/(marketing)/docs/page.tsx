@@ -25,6 +25,7 @@ import {
   Check,
   FileCode,
   BarChart3,
+  Plug,
 } from "lucide-react";
 
 type DocSection =
@@ -35,6 +36,7 @@ type DocSection =
   | "pr-reviews"
   | "security-scanner"
   | "chat"
+  | "mcp"
   | "organizations"
   | "analytics"
   | "custom-rules"
@@ -49,6 +51,7 @@ const sections: { id: DocSection; title: string; icon: React.ElementType }[] = [
   { id: "pr-reviews", title: "PR Reviews", icon: GitPullRequest },
   { id: "security-scanner", title: "Security Scanner", icon: Shield },
   { id: "chat", title: "Chat with Codebase", icon: MessageSquare },
+  { id: "mcp", title: "Claude Code (MCP)", icon: Plug },
   { id: "organizations", title: "Organizations", icon: Users },
   { id: "analytics", title: "Team Analytics", icon: BarChart3 },
   { id: "custom-rules", title: "Custom Review Rules", icon: Bot },
@@ -748,6 +751,94 @@ export default function DocsPage() {
             </div>
           )}
 
+          {/* Claude Code (MCP) */}
+          {activeSection === "mcp" && (
+            <div>
+              <DocHeading id="mcp">Claude Code (MCP)</DocHeading>
+              <DocParagraph>
+                Revio is available inside Claude Code as an MCP server. Review your changes before you
+                push, fix the issues Revio found on a pull request, and check what depends on code before
+                you change it, without leaving your editor.
+              </DocParagraph>
+
+              <DocSubHeading>Step 1: Create an API Key</DocSubHeading>
+              <DocList items={[
+                "Go to Dashboard → Settings → API & MCP",
+                "Enter a name (for example \"My laptop - Claude Code\") and click Create key",
+                "Copy the key right away: for your security it is shown only once",
+                "Revoke a key at any time; it stops working immediately",
+              ]} />
+
+              <DocSubHeading>Step 2: Add Revio to Claude Code</DocSubHeading>
+              <DocParagraph>
+                Run this once in a terminal. Revio is a hosted server, so there is nothing to install.
+                --scope user makes Revio available in all your projects.
+              </DocParagraph>
+              <CodeBlock
+                code={`claude mcp add --transport http revio https://revio.mayur.app/api/mcp \\
+  --header "Authorization: Bearer YOUR_REVIO_API_KEY" --scope user`}
+                language="bash"
+              />
+
+              <DocSubHeading>Step 3: Check the Connection</DocSubHeading>
+              <DocParagraph>
+                In Claude Code, run /mcp. Revio should show as connected with five tools.
+              </DocParagraph>
+
+              <DocSubHeading>Sharing with a Team</DocSubHeading>
+              <DocParagraph>
+                Commit a .mcp.json file to your repository. Each teammate creates their own key and sets the
+                REVIO_API_KEY environment variable, so no key is ever committed.
+              </DocParagraph>
+              <CodeBlock
+                code={`{
+  "mcpServers": {
+    "revio": {
+      "type": "http",
+      "url": "https://revio.mayur.app/api/mcp",
+      "headers": { "Authorization": "Bearer \${REVIO_API_KEY}" }
+    }
+  }
+}`}
+                language="json"
+              />
+
+              <DocSubHeading>Available Tools</DocSubHeading>
+              <DocList items={[
+                "review_changes - Reviews a diff from your machine (for example git diff main...HEAD) with the same analysis as a PR review: issues with file and line, risk, verdict, structural impact and test gaps. Nothing is posted to GitHub",
+                "get_pr_review - Fetches Revio's review of a pull request so Claude can fix the reported issues",
+                "get_impact - Callers, dependent files and entry points affected by changing files or functions",
+                "search_codebase - Semantic code search across your indexed repositories",
+                "list_repositories - Your connected repositories and their index status",
+              ]} />
+
+              <DocSubHeading>Example Requests</DocSubHeading>
+              <CodeBlock
+                code={`"Review my changes with Revio before I push"
+"Fix the issues Revio found on PR #12 in acme/shop"
+"What breaks if I change calculateDiscount in src/services/pricing.ts?"
+"Search acme/shop for where refunds are calculated"`}
+                language="text"
+              />
+              <DocParagraph>
+                Claude Code also offers a ready-made prompt for reviews: type /mcp__revio__review-my-changes.
+              </DocParagraph>
+
+              <DocSubHeading>Limits and Security</DocSubHeading>
+              <DocList items={[
+                "Each review_changes call counts toward your plan's monthly review limit, and the hourly review limit applies",
+                "A key only sees your own connected repositories",
+                "Revio stores only a hash of each key, never the key itself",
+                "You can have up to 10 active keys",
+              ]} />
+
+              <DocNote type="info">
+                Impact analysis uses the last indexed version of your repository. Re-index after large
+                changes on your main branch for the most accurate callers and dependents.
+              </DocNote>
+            </div>
+          )}
+
           {/* Organizations */}
           {activeSection === "organizations" && (
             <div>
@@ -997,6 +1088,14 @@ export default function DocsPage() {
                 "Re-index the repository so its code graph is rebuilt with the latest analysis",
                 "Callers are linked through imports; calls made through dynamic lookups may not be visible",
                 "A change that only adds new code does not affect existing callers, so a small impact is expected",
+              ]} />
+
+              <DocSubHeading>Claude Code Cannot Connect to Revio</DocSubHeading>
+              <DocList items={[
+                "Run /mcp in Claude Code to see the connection status",
+                "\"Missing or invalid Revio API key\": the key was mistyped or revoked; create a new one in Settings → API & MCP",
+                "Check the header is exactly Authorization: Bearer <key> (no quotes around the key)",
+                "\"Monthly review limit reached\": upgrade your plan in Billing or wait for next month",
               ]} />
 
               <DocSubHeading>Webhook Errors</DocSubHeading>

@@ -21,9 +21,11 @@ import {
   GitPullRequest,
   Bot,
   ExternalLink,
+  Plug,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PLAN_LIMITS } from "@/lib/constants";
+import { ApiKeysPanel } from "./api-keys-panel";
 
 interface UserData {
   id: string;
@@ -52,7 +54,7 @@ interface SettingsPageProps {
 export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [activeTab, setActiveTab] = useState<"account" | "usage" | "plan">("account");
+  const [activeTab, setActiveTab] = useState<"account" | "usage" | "plan" | "api">("account");
 
   const planLimits = PLAN_LIMITS[user.plan as keyof typeof PLAN_LIMITS] || PLAN_LIMITS.free;
 
@@ -75,6 +77,7 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
     { id: "account", label: "Account", icon: User },
     { id: "usage", label: "Usage", icon: BarChart3 },
     { id: "plan", label: "Plan", icon: CreditCard },
+    { id: "api", label: "API & MCP", icon: Plug },
   ];
 
   return (
@@ -440,6 +443,9 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
           )}
         </div>
       )}
+
+      {/* API & MCP Tab */}
+      {activeTab === "api" && <ApiKeysPanel />}
     </div>
   );
 }

@@ -15,6 +15,7 @@ import {
   Database,
   Brain,
   ChevronDown,
+  Plug,
 } from "lucide-react";
 
 interface Release {
@@ -31,6 +32,42 @@ interface Release {
 }
 
 const releases: Release[] = [
+  {
+    version: "3.4.0",
+    date: "November 18, 2026",
+    title: "Revio for Claude Code (MCP)",
+    description: "Use Revio inside Claude Code: review your changes before you push, fix the issues Revio found on a pull request, check the impact of a change, and search your codebase, through a hosted MCP server with personal API keys.",
+    type: "minor",
+    icon: Plug,
+    changes: [
+      {
+        category: "added",
+        items: [
+          "Hosted MCP server at /api/mcp: connect Claude Code with one command, nothing to install",
+          "review_changes tool: reviews a local diff with the same analysis as a PR review (issues, risk, verdict, impact, test gaps) without posting to GitHub",
+          "get_pr_review tool: fetches Revio's review of a pull request so Claude Code can fix the issues",
+          "get_impact tool: callers, dependent files and entry points for files or functions",
+          "search_codebase and list_repositories tools",
+          "Review-my-changes prompt for Claude Code",
+          "Personal API keys in Settings → API & MCP: create, copy once, revoke; only a hash of each key is stored",
+          "Copy-ready setup for Claude Code and a shared .mcp.json for teams",
+        ],
+      },
+      {
+        category: "improved",
+        items: [
+          "Reviews requested through MCP count toward the monthly review limit and show in Settings and Billing usage",
+          "Docs: new Claude Code (MCP) guide and troubleshooting entry",
+        ],
+      },
+      {
+        category: "security",
+        items: [
+          "API keys are 256-bit random values stored only as SHA-256 hashes, scoped to the owner's repositories and revocable instantly",
+        ],
+      },
+    ],
+  },
   {
     version: "3.3.0",
     date: "November 2, 2026",

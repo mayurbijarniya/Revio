@@ -2,7 +2,33 @@
  * Plan limit checking utilities
  */
 import { db } from "@/lib/db";
-import { PLAN_LIMITS, RATE_LIMITS } from "@/lib/constants";
+import { MCP_CONFIG, PLAN_LIMITS, RATE_LIMITS } from "@/lib/constants";
+
+/**
+ * Reviews requested through the MCP server (review_changes) since a date.
+ * They are not PR reviews, but they count toward the same review limits.
+ */
+export async function countMcpReviewsSince(userId: string, since: Date): Promise<number> {
+  return db.usage.count({
+    where: { userId, actionType: MCP_CONFIG.reviewUsageAction, createdAt: { gte: since } },
+  });
+}
+
+/**
+ * Hourly review rate limit (RATE_LIMITS.prReviewsPerHour), applied to MCP reviews
+ */
+export async function checkMcpReviewRateLimit(userId: string): Promise<LimitStatus> {
+  const plan = await getUserPlan(userId);
+  const limit = RATE_LIMITS[plan].prReviewsPerHour;
+  const current = await countMcpReviewsSince(userId, new Date(Date.now() - 60 * 60 * 1000));
+
+  return {
+    exceeded: limit !== -1 && current >= limit,
+    current,
+    limit: limit === -1 ? Infinity : limit,
+    plan,
+  };
+}
 
 export type Plan = keyof typeof PLAN_LIMITS;
 
@@ -49,13 +75,17 @@ export async function getUserUsage(userId: string): Promise<UsageStats> {
     where: { userId },
   });
 
-  // Count PR reviews this month through repositories
-  const prReviewsCount = await db.prReview.count({
-    where: {
-      repository: { userId },
-      createdAt: { gte: startOfMonth },
-    },
-  });
+  // Count PR reviews this month through repositories, plus reviews requested through MCP
+  const [prReviewsOnly, mcpReviews] = await Promise.all([
+    db.prReview.count({
+      where: {
+        repository: { userId },
+        createdAt: { gte: startOfMonth },
+      },
+    }),
+    countMcpReviewsSince(userId, startOfMonth),
+  ]);
+  const prReviewsCount = prReviewsOnly + mcpReviews;
 
   // Count messages this month through conversations
   const messagesCount = await db.message.count({
