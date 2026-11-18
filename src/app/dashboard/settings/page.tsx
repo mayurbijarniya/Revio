@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
+import { countMcpReviewsSince } from "@/lib/plan-limits";
 import { SettingsPage } from "./settings-page";
 
 export default async function Settings() {
@@ -52,12 +53,17 @@ export default async function Settings() {
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
 
-  const monthlyReviews = await db.prReview.count({
-    where: {
-      repository: { userId: session.userId },
-      createdAt: { gte: startOfMonth },
-    },
-  });
+  const [monthlyPrReviews, monthlyMcpReviews] = await Promise.all([
+    db.prReview.count({
+      where: {
+        repository: { userId: session.userId },
+        createdAt: { gte: startOfMonth },
+      },
+    }),
+    // Reviews requested through MCP count toward the same monthly review limit
+    countMcpReviewsSince(session.userId, startOfMonth),
+  ]);
+  const monthlyReviews = monthlyPrReviews + monthlyMcpReviews;
 
   const monthlyMessages = await db.message.count({
     where: {

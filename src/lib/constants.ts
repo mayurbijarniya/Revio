@@ -137,6 +137,26 @@ export const REVIEW_CONFIG = {
 } as const;
 
 /**
+ * MCP server (Claude Code, Codex, ...) and personal API keys
+ */
+export const MCP_CONFIG = {
+  serverName: "revio",
+  serverVersion: "1.0.0",
+  /** Every key starts with this, so leaked keys are easy to recognise and scan for */
+  keyPrefix: "revio_sk_",
+  maxKeysPerUser: 10,
+  /** lastUsedAt is written at most this often per key, to avoid a database write per request */
+  lastUsedUpdateIntervalMs: 5 * 60 * 1000,
+  /** review_changes: optional full file contents sent by the client for the PR-aware graph */
+  maxReviewFiles: 40,
+  maxReviewFileChars: 300_000,
+  maxSearchResults: 15,
+  maxImpactFiles: 50,
+  /** Usage.actionType for reviews requested through MCP (they count toward review limits) */
+  reviewUsageAction: "mcp_review",
+} as const;
+
+/**
  * Webhook configuration
  */
 export const WEBHOOK_CONFIG = {

@@ -2,7 +2,6 @@ import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { GitHubService } from "./github";
 import { createBotGitHubService } from "./github-app";
-import { retrieveMultiContext, formatContextForPrompt } from "./retriever";
 import {
   formatReviewForGitHub,
   createInlineComments,
@@ -11,16 +10,13 @@ import {
 } from "@/lib/prompts/review";
 import type { BlastRadiusData } from "@/types/blast-radius";
 import type { TestCoverageData } from "@/types/test-coverage";
-import { REVIEW_CONFIG } from "@/lib/constants";
 import { parseReviewSettings } from "@/types/review";
 import { logActivity } from "./activity";
-import { StandardsDetector } from "./standards-detector";
-import { getCodeGraph } from "./code-graph";
 import { generateDocstringSuggestions } from "./docstrings";
-import { getEffectiveLearningContext, updateAdoptionRatesFromRuns } from "./learning";
+import { updateAdoptionRatesFromRuns } from "./learning";
 import { parseUnifiedDiff } from "./diff-parser";
-import { baseGraphScope, buildPrGraphScope } from "./pr-graph";
 import { runReviewCore } from "./review-core";
+import { createReviewProviders } from "./review-providers";
 
 /**
  * PR data for review
@@ -98,45 +94,14 @@ export async function reviewPullRequest(
       ignoredPaths: repository.ignoredPaths || [],
       settings: reviewSettings,
     },
-    {
-      loadLearning: () => getEffectiveLearningContext(repositoryId),
-      loadSemanticContext: async (files) => {
-        if (repository.indexStatus !== "indexed") return null;
-        const contextQueries = files.slice(0, 10).map((file) => {
-          return `File changes in ${file.path}: ${file.additions.slice(0, 500)}`;
-        });
-        console.warn(`[Reviewer] Retrieving semantic context for ${contextQueries.length} queries`);
-        const context = await retrieveMultiContext(repositoryId, contextQueries, {
-          maxChunksPerQuery: 3,
-          maxTotalChunks: REVIEW_CONFIG.maxContextChunks,
-          maxTokens: REVIEW_CONFIG.maxContextTokens,
-        });
-        console.warn(`[Reviewer] Retrieved ${context.chunks.length} context chunks`);
-        return formatContextForPrompt(context.chunks);
-      },
-      loadStandardsContext: async () =>
-        StandardsDetector.formatStandardsForPrompt(
-          await StandardsDetector.getRepositoryStandards(repositoryId)
-        ),
-      // Indexed base-branch graph with the changed files re-parsed at the PR head
-      loadGraphScope: async (files) => {
-        const baseGraph = await getCodeGraph(repositoryId);
-        if (!baseGraph) return null;
-        const scope = headSha
-          ? await buildPrGraphScope({
-              baseGraph,
-              files,
-              loadHeadFile: (path) =>
-                github.getFileContent(owner, repo, path, headSha).catch(() => null),
-            })
-          : baseGraphScope(baseGraph, files);
-        console.warn(
-          `[Reviewer] Graph scope ready: ${scope.headParsedFiles}/${files.length} changed files parsed at PR head, ` +
-            `${scope.extraChangedNodeIds.length} removed definitions`
-        );
-        return scope;
-      },
-    },
+    // Changed files are re-parsed at the PR head for the PR-aware graph
+    createReviewProviders({
+      repositoryId,
+      indexStatus: repository.indexStatus,
+      loadHeadFile: headSha
+        ? (path) => github.getFileContent(owner, repo, path, headSha).catch(() => null)
+        : null,
+    }),
     { repositoryId, organizationId: repository.organizationId }
   );
 
