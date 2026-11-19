@@ -1,4 +1,3 @@
-import { TEXT_INDICATORS } from "@/lib/constants";
 import {
   type ReviewSettings,
   type ReviewRule,
@@ -74,6 +73,11 @@ const REVIEW_CORE_INSTRUCTIONS = `## Your Responsibilities
 - If a scanner finding appears to be a false positive, do not include it in "issues". Mention it briefly in the summary only when it is useful context.
 - If uncertain, lower the severity or omit the issue. Avoid speculative findings.
 - Defects visible in the diff are not speculative: wrong calculations or units, off-by-one boundaries, inverted conditions, a missing \`await\`, missing authorization/ownership checks, and injectable queries. Report each one as "warning" or higher.
+- Before answering, check every added line against these questions:
+  1. Trust: does a value from the client (request body, query string, params, headers) decide a price, discount, quantity, role, owner or permission without a server-side check or allow-list? That is a "critical" security issue.
+  2. Access: does each new or changed route/handler check that the caller owns or may access the record it reads or changes?
+  3. Repeats: can a state-changing action (cancel, refund, restock, pay, send, delete) run twice or out of order and apply its effect twice? Look for a missing status check.
+  4. Input: are numbers checked for NaN, negatives and range, and are strings validated before use?
 - Each diff line is prefixed with its line number in the new version of the file: "+   42 | code" (added), "    42 | code" (unchanged context), "-       | code" (removed). Use that number as the issue "line". Only cite numbered lines; for a problem in removed code, cite the nearest numbered line.
 - The "Codebase Graph Analysis" section lists real callers and dependents of the changed code. Use it to judge breaking-change risk, but do not report graph facts as issues on their own.
 
@@ -694,38 +698,96 @@ export interface DocstringSuggestion {
   signatureLine: string;
 }
 
+const SEVERITY_ORDER: Record<ReviewIssue["severity"], number> = {
+  critical: 0,
+  warning: 1,
+  suggestion: 2,
+  info: 3,
+};
+
+const SEVERITY_LABEL: Record<ReviewIssue["severity"], string> = {
+  critical: "Critical",
+  warning: "Warning",
+  suggestion: "Suggestion",
+  info: "Info",
+};
+
+/** Blocking-level findings get inline comments; suggestions and info stay in the summary */
+function isMajorIssue(issue: ReviewIssue): boolean {
+  return issue.severity === "critical" || issue.severity === "warning";
+}
+
+function sortBySeverity(issues: ReviewIssue[]): ReviewIssue[] {
+  return [...issues].sort(
+    (a, b) => (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9)
+  );
+}
+
+/** Text safe inside a markdown table cell */
+function tableCell(text: string): string {
+  return text.replace(/\r?\n/g, " ").replace(/\|/g, "\\|").trim();
+}
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function pluralize(count: number, word: string): string {
+  return `${count} ${word}${count === 1 ? "" : "s"}`;
+}
+
 function getMissingTestCount(testCoverage?: TestCoverageData | null): number {
   return Array.isArray(testCoverage?.missingTests) ? testCoverage.missingTests.length : 0;
 }
 
 /**
- * Recommendation text derived only from the final recommendation (see review-verdict.ts),
+ * Verdict headline derived only from the final recommendation (see review-verdict.ts),
  * so it always matches the GitHub review event.
  */
-function formatRecommendation(review: ReviewResult, options: {
-  testCoverage?: TestCoverageData | null;
-}): string {
-  const hasWarnings = review.issues.some((issue) => issue.severity === "warning");
-  const missingTestCount = getMissingTestCount(options.testCoverage);
+function formatVerdict(review: ReviewResult): string {
+  if (review.recommendation === "request_changes") return "Changes requested";
+  if (review.recommendation === "approve") return "Ready to merge";
+  return review.issues.some((issue) => issue.severity === "warning")
+    ? "Worth fixing before merge"
+    : "Non-blocking comments";
+}
 
-  let text: string;
-  if (review.recommendation === "request_changes") {
-    text = "This PR requires changes before merging.";
-  } else if (review.recommendation === "approve") {
-    text = "This PR looks good and is ready to merge.";
-  } else if (hasWarnings) {
-    text = "This PR has issues worth fixing before merging, but none are blocking.";
-  } else {
-    text = "This PR has some non-blocking items to address but may be mergeable.";
-  }
+/** "2 critical, 1 warning, 3 minor" */
+function formatFindingCounts(issues: ReviewIssue[]): string {
+  if (issues.length === 0) return "No issues found";
+  const critical = issues.filter((i) => i.severity === "critical").length;
+  const warning = issues.filter((i) => i.severity === "warning").length;
+  const minor = issues.length - critical - warning;
+  return [
+    critical ? `${critical} critical` : "",
+    warning ? pluralize(warning, "warning") : "",
+    minor ? `${minor} minor` : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
 
-  if (missingTestCount > 0 && review.recommendation !== "request_changes") {
-    text += " Consider adding tests for the files listed under Test Coverage.";
-  }
-
+/** Full write-up of one issue, for findings that cannot be shown as inline comments */
+function formatIssueDetail(issue: ReviewIssue): string {
+  let text = `**${SEVERITY_LABEL[issue.severity] ?? "Info"}: ${issue.title}**  \n`;
+  text += `\`${issue.file}:${issue.line}\` · ${issue.category}\n\n`;
+  if (issue.description) text += `${issue.description}\n\n`;
+  if (issue.suggestion) text += `**Suggested fix:** ${issue.suggestion}\n\n`;
   return text;
 }
 
+function details(summary: string, body: string): string {
+  return `<details>\n<summary>${summary}</summary>\n\n${body.trim()}\n\n</details>\n\n`;
+}
+
+/**
+ * Main GitHub review body. Modeled on the short format of current AI reviewers: verdict and
+ * confidence first, one findings table (details live in the inline comments), and everything
+ * secondary (minor suggestions, impact, diagrams, test gaps) collapsed.
+ *
+ * commentableLines: lines GitHub can anchor inline comments to. Major findings outside them are
+ * written out in full here, because they get no inline comment.
+ */
 export function formatReviewForGitHub(
   review: ReviewResult,
   options: {
@@ -734,146 +796,122 @@ export function formatReviewForGitHub(
     docstringSuggestions?: DocstringSuggestion[] | null;
     blastRadius?: BlastRadiusData | null;
     testCoverage?: TestCoverageData | null;
+    commentableLines?: Map<string, Set<number>>;
   } = {}
 ): string {
-  const { severity, risk } = TEXT_INDICATORS;
+  const { confidenceScore, sequenceDiagram, docstringSuggestions, blastRadius, testCoverage, commentableLines } =
+    options;
 
-  const riskBadge = risk[review.riskLevel as keyof typeof risk] || risk.low;
-  const { confidenceScore, sequenceDiagram, docstringSuggestions, blastRadius, testCoverage } = options;
+  const issues = sortBySeverity(review.issues);
+  const major = issues.filter(isMajorIssue);
+  const minor = issues.filter((issue) => !isMajorIssue(issue));
+  const isInline = (issue: ReviewIssue) =>
+    !commentableLines || Boolean(commentableLines.get(issue.file)?.has(issue.line));
+  const outsideDiff = major.filter((issue) => !isInline(issue));
 
-  let comment = `## Revio AI Code Review\n\n`;
-  comment += `${riskBadge} **Risk Level:** ${review.riskLevel.toUpperCase()}\n`;
+  // Headline: verdict, risk and confidence on one line
+  const headline = [
+    `**${formatVerdict(review)}**`,
+    `Risk: **${capitalize(review.riskLevel)}**`,
+    typeof confidenceScore === "number" ? `Confidence: **${confidenceScore}/5**` : "",
+    formatFindingCounts(issues),
+  ].filter(Boolean);
 
-  // Add confidence score if available
-  if (typeof confidenceScore === "number") {
-    const stars = "★".repeat(confidenceScore) + "☆".repeat(5 - confidenceScore);
-    comment += `**Confidence Score:** ${stars} (${confidenceScore}/5)\n`;
+  let comment = `## Revio Review\n\n`;
+  comment += `${headline.join(" · ")}\n\n`;
+  comment += `${review.summary.trim()}\n\n`;
+
+  if (major.length > 0) {
+    comment += `### Findings\n\n`;
+    comment += `| Severity | Issue | Location |\n|---|---|---|\n`;
+    for (const issue of major) {
+      const marker = isInline(issue) ? "" : " (outside diff)";
+      comment += `| ${SEVERITY_LABEL[issue.severity]} | ${tableCell(issue.title)} | \`${tableCell(`${issue.file}:${issue.line}`)}\`${marker} |\n`;
+    }
+    comment += `\n`;
+    if (outsideDiff.length < major.length) {
+      comment += `Details and fixes are in the inline comments on the changed lines.\n\n`;
+    }
   }
 
-  comment += `\n### Summary\n${review.summary}\n\n`;
+  if (outsideDiff.length > 0) {
+    comment += details(
+      `Findings outside the diff (${outsideDiff.length})`,
+      outsideDiff.map(formatIssueDetail).join("---\n\n")
+    );
+  }
 
-  if (shouldShowSequenceDiagram(sequenceDiagram ?? null)) {
-    comment += `### Sequence Diagram\n`;
-    comment += `<details>\n<summary>View Mermaid sequence diagram</summary>\n\n`;
-    comment += "```mermaid\n";
-    comment += `${sequenceDiagram}\n`;
-    comment += "```\n\n";
-    comment += `</details>\n\n`;
+  if (minor.length > 0) {
+    comment += details(`Minor suggestions (${minor.length})`, minor.map(formatIssueDetail).join("---\n\n"));
   }
 
   if (blastRadius?.mermaid) {
-    comment += `### Blast Radius\n`;
-    comment += `<details>\n<summary>View impact diagram (structural impact: ${blastRadius.riskLevel.toUpperCase()}, ${blastRadius.totalImpactRadius} downstream)</summary>\n\n`;
-    comment += "```mermaid\n";
-    comment += `${blastRadius.mermaid}\n`;
-    comment += "```\n\n";
-    comment += `</details>\n\n`;
+    comment += details(
+      `Impact: ${capitalize(blastRadius.riskLevel)} (${pluralize(blastRadius.totalImpactRadius, "downstream function")})`,
+      "```mermaid\n" + blastRadius.mermaid + "\n```"
+    );
   }
 
-  if (testCoverage) {
-    const missingCount = Array.isArray(testCoverage.missingTests)
-      ? testCoverage.missingTests.length
-      : 0;
-    const testChangedCount = Array.isArray(testCoverage.testFilesChanged)
-      ? testCoverage.testFilesChanged.length
-      : 0;
-    const nonTestChangedCount = Array.isArray(testCoverage.nonTestFilesChanged)
-      ? testCoverage.nonTestFilesChanged.length
-      : 0;
-
-    if (nonTestChangedCount > 0) {
-      const summary =
-        missingCount === 0
-          ? `No obvious missing tests detected`
-          : `${missingCount} change${missingCount === 1 ? "" : "s"} may need tests`;
-
-      comment += `### Test Coverage\n`;
-      comment += `<details>\n<summary>${summary} (confidence: ${testCoverage.coverageConfidence})</summary>\n\n`;
-      comment += `- Non-test files changed: ${nonTestChangedCount}\n`;
-      comment += `- Test files changed: ${testChangedCount}\n`;
-
-      if (missingCount > 0) {
-        comment += `\n**Potential gaps:**\n`;
-        for (const item of testCoverage.missingTests.slice(0, 10)) {
-          const suggestion = item.suggestedTestFiles?.[0] ? ` → \`${item.suggestedTestFiles[0]}\`` : "";
-          comment += `- \`${item.file}\`${suggestion}\n`;
-        }
-      }
-
-      comment += `\n</details>\n\n`;
-    }
+  if (shouldShowSequenceDiagram(sequenceDiagram ?? null)) {
+    comment += details("Sequence diagram", "```mermaid\n" + sequenceDiagram + "\n```");
   }
 
-  if (review.issues.length > 0) {
-    comment += `### Issues Found (${review.issues.length})\n\n`;
-
-    for (const issue of review.issues) {
-      const severityBadge = severity[issue.severity as keyof typeof severity] || severity.info;
-      comment += `#### ${severityBadge} ${issue.title}\n`;
-      comment += `**File:** \`${issue.file}:${issue.line}\`\n`;
-      comment += `**Category:** ${issue.category}\n\n`;
-      comment += `${issue.description}\n\n`;
-
-      if (issue.suggestion) {
-        comment += `**Suggestion:**\n${issue.suggestion}\n\n`;
-      }
-
-      comment += `---\n\n`;
-    }
+  const missingTestCount = getMissingTestCount(testCoverage);
+  if (missingTestCount > 0 && testCoverage) {
+    const lines = testCoverage.missingTests.slice(0, 10).map((item) => {
+      const suggestion = item.suggestedTestFiles?.[0] ? ` → \`${item.suggestedTestFiles[0]}\`` : "";
+      return `- \`${item.file}\`${suggestion}`;
+    });
+    comment += details(
+      `Test gaps: ${pluralize(missingTestCount, "changed file")} without tests (confidence: ${testCoverage.coverageConfidence})`,
+      lines.join("\n")
+    );
   }
 
   if (review.positives.length > 0) {
-    comment += `### Review Highlights\n`;
-    for (const positive of review.positives) {
-      comment += `- ${positive}\n`;
-    }
-    comment += `\n`;
+    comment += details(
+      `Highlights (${review.positives.length})`,
+      review.positives.map((positive) => `- ${positive}`).join("\n")
+    );
   }
 
   if (docstringSuggestions && docstringSuggestions.length > 0) {
-    comment += `### Docstring Suggestions (${docstringSuggestions.length})\n`;
-    comment += `<details>\n<summary>View suggested docstrings (apply via inline suggestions when available)</summary>\n\n`;
-    for (const s of docstringSuggestions.slice(0, 10)) {
-      comment += `- \`${s.path}:${s.line}\`\n`;
-    }
-    comment += `\n</details>\n\n`;
+    comment += details(
+      `Docstring suggestions (${docstringSuggestions.length})`,
+      docstringSuggestions
+        .slice(0, 10)
+        .map((s) => `- \`${s.path}:${s.line}\``)
+        .join("\n") + "\n\nApply them from the inline suggestions where available."
+    );
   }
 
-  comment += `### Recommendation\n`;
-  comment += formatRecommendation(review, { testCoverage });
-
-  comment += `\n\n---\n*Powered by [Revio](https://revio.mayur.app) AI Code Review*`;
+  comment += `---\n<sub>Reviewed by [Revio](https://revio.mayur.app). Reply with \`@revio-bot\` to ask about a finding.</sub>`;
 
   return comment;
 }
 
 /**
- * Create inline comments for GitHub PR review.
- * When commentableLines is given, issues on lines GitHub cannot anchor to are skipped
- * (they still appear in the main review body), so one bad line never drops every comment.
+ * Inline comments for critical and warning findings (minor ones stay in the review body, so
+ * the diff is not flooded with nitpicks). When commentableLines is given, issues on lines GitHub
+ * cannot anchor to are skipped; they are written out in the review body instead, so one bad line
+ * never drops every comment.
  */
 export function createInlineComments(
   review: ReviewResult,
   commentableLines?: Map<string, Set<number>>
 ): Array<{ path: string; line: number; body: string }> {
-  const { severity } = TEXT_INDICATORS;
-
-  return review.issues
+  return sortBySeverity(review.issues)
+    .filter(isMajorIssue)
     .filter((issue) => !commentableLines || commentableLines.get(issue.file)?.has(issue.line))
     .map((issue) => {
-      const badge = severity[issue.severity as keyof typeof severity] || severity.info;
-
-      let body = `${badge} **${issue.title}**\n\n`;
-      body += `${issue.description}\n\n`;
-
-      if (issue.suggestion) {
-        body += `**Suggestion:** ${issue.suggestion}`;
-      }
+      let body = `**${SEVERITY_LABEL[issue.severity]}: ${issue.title}** · ${issue.category}\n\n`;
+      if (issue.description) body += `${issue.description}\n\n`;
+      if (issue.suggestion) body += `**Suggested fix:** ${issue.suggestion}\n`;
 
       return {
         path: issue.file,
         line: issue.line,
-        body,
+        body: body.trim(),
       };
     });
 }

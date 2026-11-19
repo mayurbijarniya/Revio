@@ -606,6 +606,23 @@ export default function DocsPage() {
                 It is shown next to the verdict as a note, not as a second risk rating.
               </DocNote>
 
+              <DocSubHeading>How the Review Looks on GitHub</DocSubHeading>
+              <DocList items={[
+                "One headline: verdict, risk, confidence and the number of findings",
+                "A short summary and one findings table, most severe first",
+                "Critical and warning findings are inline comments on the changed lines, each with a suggested fix",
+                "Findings GitHub cannot attach to the diff are written out in full in the review",
+                "Minor suggestions, impact, sequence diagram, test gaps and highlights are collapsed",
+              ]} />
+
+              <DocSubHeading>Review Model</DocSubHeading>
+              <DocParagraph>
+                In Settings → Account, choose the AI model for your reviews: Google Gemini (default, fast) or
+                DeepSeek (reasons longer, takes 1–3 minutes). The choice applies to automatic and manual reviews on your
+                repositories and to reviews from Claude Code. If DeepSeek is slow or unavailable, the review is written
+                with Gemini instead, so a review never fails because of the model.
+              </DocParagraph>
+
               <DocSubHeading>Manual Reviews</DocSubHeading>
               <DocParagraph>
                 You can also trigger reviews manually:

@@ -89,8 +89,27 @@ export const AI_CONFIG = {
       changedFiles: 20,
       diffLength: 50000,
     },
+    /**
+     * DeepSeek through Subconscious (OpenAI-compatible API), chosen per user in Settings.
+     * Reasoning tokens count toward max_tokens. On timeout, error or an unreadable answer the
+     * review falls back to Gemini, so the timeout leaves room for that second call within the
+     * serverless time limit.
+     */
+    deepseek: {
+      baseURL: "https://api.subconscious.dev/v1",
+      model: "subconscious/deepseek-v4.1-flash-marathon",
+      maxOutputTokens: 24576,
+      timeoutMs: 150_000,
+    },
   },
 } as const;
+
+/**
+ * AI providers a user can choose for PR reviews (stored in users.review_provider)
+ */
+export const REVIEW_PROVIDERS = ["google", "deepseek"] as const;
+export type ReviewProvider = (typeof REVIEW_PROVIDERS)[number];
+export const DEFAULT_REVIEW_PROVIDER: ReviewProvider = "google";
 
 /**
  * Indexing configuration

@@ -23,6 +23,8 @@ const RuntimeEnvSchema = z.object({
   // AI
   OPENAI_API_KEY: z.string().min(1).optional(),
   GOOGLE_AI_API_KEY: z.string().min(1).optional(),
+  /** Optional: enables DeepSeek reviews through Subconscious. Without it reviews use Gemini. */
+  SUBCONSCIOUS_API_KEY: z.string().min(1).optional(),
 
   // Qdrant
   QDRANT_URL: z.string().min(1).optional(),

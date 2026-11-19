@@ -17,6 +17,7 @@ import { updateAdoptionRatesFromRuns } from "./learning";
 import { parseUnifiedDiff } from "./diff-parser";
 import { runReviewCore } from "./review-core";
 import { createReviewProviders } from "./review-providers";
+import { resolveReviewGenerator } from "./review-model";
 
 /**
  * PR data for review
@@ -102,7 +103,12 @@ export async function reviewPullRequest(
         ? (path) => github.getFileContent(owner, repo, path, headSha).catch(() => null)
         : null,
     }),
-    { repositoryId, organizationId: repository.organizationId }
+    {
+      repositoryId,
+      organizationId: repository.organizationId,
+      // The repository owner's chosen AI provider (Settings → Account)
+      generate: await resolveReviewGenerator(repository.userId),
+    }
   );
 
   if (!core) {
@@ -296,16 +302,6 @@ export async function postReviewToGitHub(
     select: { confidenceScore: true, sequenceDiagram: true, docstringSuggestions: true, blastRadius: true, testCoverage: true },
   });
 
-  // Format the main comment with confidence score
-  const commentBody = formatReviewForGitHub(review, {
-    confidenceScore: prReview?.confidenceScore ?? undefined,
-    sequenceDiagram: prReview?.sequenceDiagram ?? null,
-    docstringSuggestions:
-      (prReview?.docstringSuggestions as unknown as DocstringSuggestion[]) ?? null,
-    blastRadius: (prReview?.blastRadius as unknown as BlastRadiusData) ?? null,
-    testCoverage: (prReview?.testCoverage as unknown as TestCoverageData) ?? null,
-  });
-
   // Lines GitHub can anchor review comments to (added + context lines of the PR diff)
   let commentableLines: Map<string, Set<number>> | undefined;
   try {
@@ -314,6 +310,17 @@ export async function postReviewToGitHub(
   } catch (diffError) {
     console.warn("[Reviewer] Could not fetch diff to validate inline comment lines:", diffError);
   }
+
+  // Main review body; findings without an inline comment are written out in full here
+  const commentBody = formatReviewForGitHub(review, {
+    confidenceScore: prReview?.confidenceScore ?? undefined,
+    sequenceDiagram: prReview?.sequenceDiagram ?? null,
+    docstringSuggestions:
+      (prReview?.docstringSuggestions as unknown as DocstringSuggestion[]) ?? null,
+    blastRadius: (prReview?.blastRadius as unknown as BlastRadiusData) ?? null,
+    testCoverage: (prReview?.testCoverage as unknown as TestCoverageData) ?? null,
+    commentableLines,
+  });
 
   // Create inline comments (review issues + docstring suggestions)
   const baseInlineComments = createInlineComments(review, commentableLines);
@@ -325,7 +332,7 @@ export async function postReviewToGitHub(
     .map((s) => {
     const replacement = `${s.docstring}\n${s.signatureLine}`;
     const body =
-      `📝 **Docstring suggestion**\n\n` +
+      `**Docstring suggestion**\n\n` +
       "```suggestion\n" +
       replacement +
       "\n```";
@@ -377,7 +384,7 @@ export async function postReviewToGitHub(
 
         // Post inline comments as a separate comment if there are any
         if (inlineComments.length > 0) {
-          let inlineBody = "### Additional Code-Level Feedback\n\n";
+          let inlineBody = "### Revio inline findings\n\nThese could not be attached to the diff, so they are listed here.\n\n";
           for (const comment of inlineComments) {
             inlineBody += `**\`${comment.path}:${comment.line}\`**\n${comment.body}\n\n---\n\n`;
           }
@@ -433,7 +440,7 @@ export async function postReviewToGitHub(
 
         // Post inline comments as a separate comment if there are any
         if (inlineComments.length > 0) {
-          let inlineBody = "### Additional Code-Level Feedback\n\n";
+          let inlineBody = "### Revio inline findings\n\nThese could not be attached to the diff, so they are listed here.\n\n";
           for (const comment of inlineComments) {
             inlineBody += `**\`${comment.path}:${comment.line}\`**\n${comment.body}\n\n---\n\n`;
           }

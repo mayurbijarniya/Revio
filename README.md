@@ -27,6 +27,7 @@ Manual code review is slow, inconsistent, and easy to miss at scale. Revio is bu
 - Interactive review assistant (`@revio-bot`)
 - Chat with your codebase (Smart and Full modes)
 - **Revio in Claude Code** through a hosted MCP server: review changes before you push
+- A choice of review model per user (Settings → Account), with automatic fallback so reviews never fail
 - Team analytics and historical trend views
 
 ## Product Surfaces
@@ -112,7 +113,7 @@ For each PR, Revio performs:
 4. Security scan on added lines
 5. AI review generation (with reasoning enabled) on a line-numbered diff
 6. One final verdict: risk is never lower than the issues imply, Revio never approves a PR with warnings, and confidence is capped by the verdict
-7. GitHub review posting, with inline comments on the changed lines
+7. GitHub review posting: a short review led by the verdict, one findings table, and inline comments for critical and warning findings
 8. Dashboard persistence for tracking and analytics
 
 ## Use Revio in Claude Code (MCP)
@@ -213,7 +214,7 @@ Important groups:
 - App/Auth: `NEXT_PUBLIC_APP_URL`, `SESSION_SECRET`, `ENCRYPTION_KEY`
 - DB: `DATABASE_URL` (and `DIRECT_URL` if needed)
 - GitHub: `GITHUB_APP_ID`, `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_WEBHOOK_SECRET`
-- AI: `GOOGLE_AI_API_KEY`, `OPENAI_API_KEY`
+- AI: `GOOGLE_AI_API_KEY`, `OPENAI_API_KEY`, optional `SUBCONSCIOUS_API_KEY` (enables the second review model)
 - Infra: `QDRANT_URL`, `QDRANT_API_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`
 - Ops: `CRON_SECRET`, `BACKGROUND_MODE`
 

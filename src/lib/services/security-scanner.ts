@@ -147,10 +147,14 @@ const SQL_INJECTION_PATTERNS: SecurityPattern[] = [
   {
     id: "sql-template-literal",
     name: "SQL Template Literal",
-    pattern: /(?:query|execute|raw)\s*\(\s*`[^`]*\$\{[^}]*(?:req|request|params|query|body)[^}]*\}[^`]*`/gi,
+    // A query call (optionally generic, e.g. query<Row>(...)) whose template literal interpolates a
+    // value into SQL text, or interpolates request data. Tagged templates such as
+    // prisma.$queryRaw`...` are parameterized and do not match (no parenthesis).
+    pattern:
+      /\b(?:query|execute|raw|queryRawUnsafe|executeRawUnsafe)\s*(?:<[^<>()]*>)?\s*\(\s*`(?=[^`]*\b(?:SELECT|INSERT|UPDATE|DELETE)\b|[^`]*\$\{[^}]*\b(?:req|request|params|body)\b)[^`]*\$\{[^}]+\}[^`]*`/gi,
     severity: "critical",
     category: "injection",
-    description: "SQL query with template literal injection",
+    description: "SQL query built by interpolating values into a template literal",
     cwe: "CWE-89",
     owasp: "A1:2017",
     suggestion: "Use parameterized queries",
