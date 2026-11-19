@@ -2,6 +2,8 @@ import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { jsonSuccess, jsonError } from "@/lib/api-utils";
 import { getConfidenceLevel } from "@/lib/services/confidence-scorer";
+import { keepKnownRuleIds } from "@/lib/review-rule-ids";
+import { parseReviewSettings } from "@/types/review";
 import type { BlastRadiusData } from "@/types/blast-radius";
 import type { TestCoverageData } from "@/types/test-coverage";
 
@@ -36,7 +38,14 @@ export async function GET(_request: Request, { params }: RouteParams) {
             id: true,
             name: true,
             fullName: true,
+            reviewRules: true,
           },
+        },
+        // Latest run: when the PR was last reviewed (the review row is reused for re-reviews)
+        runs: {
+          orderBy: { runNumber: "desc" },
+          take: 1,
+          select: { createdAt: true },
         },
         requestedBy: {
           select: {
@@ -59,8 +68,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
       return jsonError("REVIEW_001", "Review not found", 404);
     }
 
-    // Parse JSON fields
-    const issues = review.issues as Array<{
+    // Parse JSON fields; reviews saved before invented rule labels were dropped are cleaned here too
+    const storedIssues = review.issues as Array<{
       file?: string;
       filePath?: string;
       line?: number;
@@ -71,6 +80,9 @@ export async function GET(_request: Request, { params }: RouteParams) {
       suggestion?: string;
       ruleId?: string;
     }> | null;
+    const issues = Array.isArray(storedIssues)
+      ? keepKnownRuleIds(storedIssues, parseReviewSettings(review.repository.reviewRules))
+      : null;
 
     // Handle backward compatibility for suggestions (may be strings or objects)
     const rawSuggestions = review.suggestions as Array<string | { title?: string; description?: string; priority?: string }> | null;
@@ -219,7 +231,12 @@ export async function GET(_request: Request, { params }: RouteParams) {
       tokensUsed: review.tokensUsed,
       githubCommentId: review.githubCommentId ? String(review.githubCommentId) : null,
       createdAt: review.createdAt,
-      repository: review.repository,
+      lastReviewedAt: review.runs[0]?.createdAt ?? review.createdAt,
+      repository: {
+        id: review.repository.id,
+        name: review.repository.name,
+        fullName: review.repository.fullName,
+      },
       requestedBy: review.requestedBy ? {
         id: review.requestedBy.id,
         githubUsername: review.requestedBy.githubUsername,

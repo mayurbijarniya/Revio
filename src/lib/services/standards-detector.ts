@@ -1,9 +1,10 @@
 import { GitHubService } from "./github";
 import { db } from "../db";
 import { logger } from "../logger";
+import { CODING_STANDARD_RULE_ID } from "../review-rule-ids";
 
 /** ruleId the model sets on issues that violate a detected coding standard */
-export const CODING_STANDARD_RULE_ID = "coding-standard";
+export { CODING_STANDARD_RULE_ID };
 
 export interface ParsedRule {
   category: string;
