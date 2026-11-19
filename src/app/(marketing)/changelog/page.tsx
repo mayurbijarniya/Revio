@@ -60,6 +60,13 @@ const releases: Release[] = [
         ],
       },
       {
+        category: "fixed",
+        items: [
+          "Issues no longer show rule labels the AI made up; only your custom rules and coding standards are shown as rules",
+          "Review page shows when the PR was last reviewed, not when it was first reviewed",
+        ],
+      },
+      {
         category: "security",
         items: [
           "SQL injection scan now catches interpolated SQL in typed query calls such as query<Row>(`... ${value}`)",

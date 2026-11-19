@@ -23,7 +23,7 @@ export function buildReviewSystemPrompt(
     customRulesSection = `
 
 ## Custom Rules to Enforce
-The following custom rules MUST be checked and reported:
+The following custom rules MUST be checked and reported. For an issue that violates one of them, set "ruleId" to that rule's ruleId exactly:
 ${enabledRules.map((rule) => formatRuleForPrompt(rule)).join("\n")}`;
   }
 
@@ -48,7 +48,7 @@ ${REVIEW_CORE_INSTRUCTIONS}`;
  * Format a custom rule for the prompt
  */
 function formatRuleForPrompt(rule: ReviewRule): string {
-  let ruleText = `- **${rule.name}** (${rule.severity}/${rule.category}): ${rule.description}`;
+  let ruleText = `- **${rule.name}** [ruleId: ${rule.id}] (${rule.severity}/${rule.category}): ${rule.description}`;
   if (rule.pattern) {
     ruleText += ` [Pattern: \`${rule.pattern}\`]`;
   }
@@ -95,7 +95,7 @@ You MUST respond with valid JSON in the following format:
       "title": "Brief issue title",
       "description": "Detailed explanation of the issue",
       "suggestion": "How to fix or improve (with code example if applicable)",
-      "ruleId": "optional-custom-rule-id-if-matched"
+      "ruleId": "only the ruleId of a listed custom rule or coding standard; omit otherwise"
     }
   ],
   "positives": ["List of good practices or improvements noticed in the PR"],

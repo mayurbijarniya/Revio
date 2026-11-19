@@ -18,7 +18,7 @@ import type { ReviewSettings } from "@/types/review";
 import { AI_CONFIG, REVIEW_CONFIG } from "@/lib/constants";
 import { calculateSecurityScore, getSeverityCounts, scanCode, type SecurityIssue } from "./security-scanner";
 import { getLanguageFromPath } from "./chunker";
-import { CODING_STANDARD_RULE_ID } from "./standards-detector";
+import { CODING_STANDARD_RULE_ID, keepKnownRuleIds } from "@/lib/review-rule-ids";
 import { calculateConfidenceScore, type ConfidenceResult } from "./confidence-scorer";
 import { formatGraphContextForPrompt } from "./code-graph";
 import { generateSequenceDiagram } from "./sequence-diagram";
@@ -188,8 +188,9 @@ export async function runReviewCore(
       return null;
     }
 
-    review = parsed;
-    modelReview = parsed;
+    // Rule labels the model invented are dropped; only configured rules keep a ruleId
+    review = { ...parsed, issues: keepKnownRuleIds(parsed.issues, input.settings) };
+    modelReview = review;
     tokensUsed =
       generationResult.usageMetadata?.totalTokenCount ??
       estimateTokenCount(`${systemPrompt}\n\n${reviewPrompt}\n\n${generationResult.text}`);

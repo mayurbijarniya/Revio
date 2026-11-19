@@ -107,6 +107,8 @@ interface ReviewData {
   tokensUsed: number | null;
   githubCommentId: string | null;
   createdAt: string;
+  /** When the PR was last reviewed (latest run); re-reviews keep the first review's createdAt */
+  lastReviewedAt?: string | null;
   repository: {
     id: string;
     name: string;
@@ -325,9 +327,12 @@ export default function ReviewDetail({ reviewId }: ReviewDetailProps) {
                   {review.prAuthor}
                 </span>
               )}
-              <span className="flex items-center gap-1 flex-shrink-0">
+              <span
+                className="flex items-center gap-1 flex-shrink-0"
+                title={`First reviewed ${new Date(review.createdAt).toLocaleString()}`}
+              >
                 <Calendar className="h-4 w-4" />
-                {new Date(review.createdAt).toLocaleDateString()}
+                Last reviewed {new Date(review.lastReviewedAt ?? review.createdAt).toLocaleDateString()}
               </span>
             </div>
           </div>
