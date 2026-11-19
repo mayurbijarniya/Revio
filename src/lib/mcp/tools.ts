@@ -10,6 +10,7 @@ import { checkMcpReviewRateLimit, checkPrReviewLimit } from "@/lib/plan-limits";
 import { parseUnifiedDiff } from "@/lib/services/diff-parser";
 import { runReviewCore, type ReviewCoreResult } from "@/lib/services/review-core";
 import { createReviewProviders } from "@/lib/services/review-providers";
+import { resolveReviewGenerator } from "@/lib/services/review-model";
 import { analyzeChangeImpact, getCodeGraph, type CodeGraphData } from "@/lib/services/code-graph";
 import { retrieveContext, retrieveMultiRepoContext } from "@/lib/services/retriever";
 import { isRepositoryChatReady } from "@/lib/services/chat-service";
@@ -385,7 +386,12 @@ export async function reviewChangesTool(
       indexStatus: repository.indexStatus,
       loadHeadFile: headFiles.size > 0 ? async (path) => headFiles.get(path) ?? null : null,
     }),
-    { repositoryId: repository.id, organizationId: repository.organizationId }
+    {
+      repositoryId: repository.id,
+      organizationId: repository.organizationId,
+      // The key owner's chosen AI provider (Settings → Account)
+      generate: await resolveReviewGenerator(ctx.userId),
+    }
   );
 
   if (!core) {

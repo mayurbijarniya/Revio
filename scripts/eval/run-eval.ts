@@ -11,8 +11,9 @@
  * Usage:
  *   GOOGLE_AI_API_KEY=... GITHUB_TOKEN=... npx tsx scripts/eval/run-eval.ts \
  *     [--datasets bugsinpy,bugsjs,defects4j] [--per-dataset 20] [--modes diff,full] \
- *     [--semantic] [--tolerance 3] [--manifest eval-results/<run>/bugs.json]
+ *     [--semantic] [--tolerance 3] [--manifest eval-results/<run>/bugs.json] [--provider google|deepseek]
  *
+ * --provider deepseek needs SUBCONSCIOUS_API_KEY instead of GOOGLE_AI_API_KEY (no Gemini fallback).
  * GITHUB_TOKEN can be any read-only token (unauthenticated GitHub allows 60 requests/hour).
  * --semantic also needs OPENAI_API_KEY. Results go to eval-results/<timestamp>/.
  * Repository snapshots are downloaded to .eval-work/ and deleted after each bug.
@@ -24,7 +25,8 @@ import { buildCodeGraph, type CodeGraphData } from "@/lib/services/code-graph";
 import { buildPrGraphScope } from "@/lib/services/pr-graph";
 import { getLanguageFromPath, shouldSkipFile } from "@/lib/services/chunker";
 import { DEFAULT_REVIEW_SETTINGS } from "@/types/review";
-import { AI_CONFIG } from "@/lib/constants";
+import { AI_CONFIG, type ReviewProvider } from "@/lib/constants";
+import { generateReviewWithDeepSeek, isReviewProvider } from "@/lib/services/review-model";
 import {
   buildAnswerKey,
   formatSummaryMarkdown,
@@ -59,6 +61,8 @@ interface Options {
   manifest?: string;
   /** Select bugs and check snapshots/graphs without calling the model */
   dryRun: boolean;
+  /** Review model provider; DeepSeek runs without the Gemini fallback so results measure DeepSeek */
+  provider: ReviewProvider;
 }
 
 interface SelectedBug extends BenchmarkBug {
@@ -88,6 +92,8 @@ function parseArgs(argv: string[]): Options {
   for (const m of modes) {
     if (!["diff", "full"].includes(m)) throw new Error(`Unknown mode: ${m}`);
   }
+  const provider = get("provider") ?? "google";
+  if (!isReviewProvider(provider)) throw new Error(`Unknown provider: ${provider} (use google or deepseek)`);
   return {
     datasets,
     modes,
@@ -96,6 +102,7 @@ function parseArgs(argv: string[]): Options {
     tolerance: Number(get("tolerance") ?? 3),
     manifest: get("manifest"),
     dryRun: argv.includes("--dry-run"),
+    provider,
   };
 }
 
@@ -191,7 +198,10 @@ async function reviewBug(bug: SelectedBug, mode: Mode, options: Options, base: A
             ? (files) => buildLocalSemanticContext({ files, graph: base.graph, repoContent: base.content })
             : undefined,
         },
-    { securityScan: mode === "full" }
+    {
+      securityScan: mode === "full",
+      generate: options.provider === "deepseek" ? generateReviewWithDeepSeek : undefined,
+    }
   );
   if (!core) throw new Error("model response could not be parsed");
   return core;
@@ -200,7 +210,12 @@ async function reviewBug(bug: SelectedBug, mode: Mode, options: Options, base: A
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
 
-  if (!options.dryRun && !process.env.GOOGLE_AI_API_KEY) throw new Error("GOOGLE_AI_API_KEY is required");
+  if (!options.dryRun && options.provider === "google" && !process.env.GOOGLE_AI_API_KEY) {
+    throw new Error("GOOGLE_AI_API_KEY is required");
+  }
+  if (!options.dryRun && options.provider === "deepseek" && !process.env.SUBCONSCIOUS_API_KEY) {
+    throw new Error("--provider deepseek needs SUBCONSCIOUS_API_KEY");
+  }
   if (!options.dryRun && options.semantic && !process.env.OPENAI_API_KEY) {
     throw new Error("--semantic needs OPENAI_API_KEY");
   }
@@ -289,7 +304,9 @@ async function main(): Promise<void> {
     const markdown = [
       `# Revio evaluation (${new Date().toISOString().slice(0, 10)})`,
       "",
-      `- Model: \`${AI_CONFIG.review.model}\` (complex: \`${AI_CONFIG.review.complexModel}\`)`,
+      options.provider === "deepseek"
+        ? `- Model: \`${AI_CONFIG.review.deepseek.model}\` (no fallback)`
+        : `- Model: \`${AI_CONFIG.review.model}\` (complex: \`${AI_CONFIG.review.complexModel}\`)`,
       `- Datasets: ${options.datasets.join(", ")}; up to ${options.perDataset} bugs each (single-bug PRs: <= ${MAX_PR_FILES} files, <= ${MAX_PR_CHANGED_LINES} changed lines)`,
       `- Method: fix commit reversed into a bug-introducing PR, test files removed; caught = an issue within ${options.tolerance} lines of the fixed lines`,
       `- Modes: diff = diff only; full = + PR-aware code graph + security scan${options.semantic ? " + semantic context (changed files and graph neighbours)" : ""}`,

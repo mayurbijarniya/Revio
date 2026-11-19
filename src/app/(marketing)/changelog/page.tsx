@@ -33,6 +33,41 @@ interface Release {
 
 const releases: Release[] = [
   {
+    version: "3.5.0",
+    date: "November 19, 2026",
+    title: "Choose Your Review Model & Shorter GitHub Reviews",
+    description: "Pick Google Gemini or DeepSeek for your PR reviews, get a shorter review on GitHub with the verdict first, and catch more pricing, access and injection bugs.",
+    type: "minor",
+    icon: Brain,
+    changes: [
+      {
+        category: "added",
+        items: [
+          "Review Model setting (Settings → Account): Google Gemini or DeepSeek for GitHub, manual and Claude Code reviews",
+          "If DeepSeek is slow or unavailable, the review is written with Gemini instead, so reviews never fail",
+          "Offline evaluation can compare models with --provider google|deepseek",
+        ],
+      },
+      {
+        category: "improved",
+        items: [
+          "GitHub review leads with one line: verdict, risk, confidence and finding counts",
+          "One findings table, most severe first; details and fixes live in the inline comments",
+          "Minor suggestions, impact, diagrams, test gaps and highlights are collapsed",
+          "Inline comments only for critical and warning findings, so the diff is not flooded with nitpicks",
+          "Findings GitHub cannot attach to the diff are written out in full in the review",
+          "Reviews check every change for client-controlled prices or discounts, missing ownership checks, actions that can run twice, and unvalidated numbers",
+        ],
+      },
+      {
+        category: "security",
+        items: [
+          "SQL injection scan now catches interpolated SQL in typed query calls such as query<Row>(`... ${value}`)",
+        ],
+      },
+    ],
+  },
+  {
     version: "3.4.0",
     date: "November 18, 2026",
     title: "Revio for Claude Code (MCP)",

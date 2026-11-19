@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { countMcpReviewsSince } from "@/lib/plan-limits";
+import { DEFAULT_REVIEW_PROVIDER } from "@/lib/constants";
+import { isDeepSeekAvailable, isReviewProvider } from "@/lib/services/review-model";
 import { SettingsPage } from "./settings-page";
 
 export default async function Settings() {
@@ -20,6 +22,7 @@ export default async function Settings() {
       email: true,
       avatarUrl: true,
       plan: true,
+      reviewProvider: true,
       createdAt: true,
     },
   });
@@ -81,8 +84,10 @@ export default async function Settings() {
         email: user.email,
         avatarUrl: user.avatarUrl,
         plan: user.plan,
+        reviewProvider: isReviewProvider(user.reviewProvider) ? user.reviewProvider : DEFAULT_REVIEW_PROVIDER,
         createdAt: user.createdAt,
       }}
+      deepSeekAvailable={isDeepSeekAvailable()}
       stats={{
         repositories: repoCount,
         conversations: conversationCount,

@@ -19,6 +19,8 @@ model User {
   refreshToken    String?   @map("refresh_token") @db.Text
   tokenExpiresAt  DateTime? @map("token_expires_at")
   plan            String    @default("free") @db.VarChar(50)
+  /// AI provider for PR reviews: "google" (Gemini) or "deepseek" (via Subconscious)
+  reviewProvider  String    @default("google") @map("review_provider") @db.VarChar(20)
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 

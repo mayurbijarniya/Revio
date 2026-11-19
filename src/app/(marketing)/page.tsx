@@ -24,7 +24,7 @@ export default function Home() {
       <Link href="/changelog" className="block border-b border-[var(--code-border)] py-2 px-4 sm:px-6 bg-[var(--code-bg)] hover:bg-[var(--code-bg)]/80 transition-colors">
         <p className="font-mono text-[10px] sm:text-xs font-medium text-[var(--foreground)]/60 uppercase tracking-wide flex items-center gap-2">
           <span className="w-2 h-2 bg-[var(--primary)] inline-block flex-shrink-0"></span>
-          <span className="truncate">[ ANNOUNCEMENT ] : V3.4.0 REVIO FOR CLAUDE CODE (MCP) + REVIEW BEFORE YOU PUSH</span>
+          <span className="truncate">[ ANNOUNCEMENT ] : V3.5.0 CHOOSE YOUR REVIEW MODEL + SHORTER GITHUB REVIEWS</span>
         </p>
       </Link>
 

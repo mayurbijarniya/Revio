@@ -24,8 +24,9 @@ import {
   Plug,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PLAN_LIMITS } from "@/lib/constants";
+import { PLAN_LIMITS, type ReviewProvider } from "@/lib/constants";
 import { ApiKeysPanel } from "./api-keys-panel";
+import { ReviewModelCard } from "./review-model-card";
 
 interface UserData {
   id: string;
@@ -34,6 +35,7 @@ interface UserData {
   email: string | null;
   avatarUrl: string | null;
   plan: string;
+  reviewProvider: ReviewProvider;
   createdAt: Date;
 }
 
@@ -49,9 +51,10 @@ interface SettingsPageProps {
     reviews: number;
     messages: number;
   };
+  deepSeekAvailable: boolean;
 }
 
-export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
+export function SettingsPage({ user, stats, monthlyUsage, deepSeekAvailable }: SettingsPageProps) {
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [activeTab, setActiveTab] = useState<"account" | "usage" | "plan" | "api">("account");
@@ -221,6 +224,9 @@ export function SettingsPage({ user, stats, monthlyUsage }: SettingsPageProps) {
               </p>
             </div>
           </div>
+
+          {/* Review Model */}
+          <ReviewModelCard initialProvider={user.reviewProvider} deepSeekAvailable={deepSeekAvailable} />
 
           {/* Security */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
